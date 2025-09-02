@@ -36,6 +36,9 @@ def handle_query(query):
         search_from = params.pop('from', '')
         response_size = params.pop('size', 'large')
 
+        # # VNDB Sever is mataining
+        # search_from = 'local'
+
         if search_from == 'local':
             return execute_task(get_resources_task, 
                 True, type, params, response_size, page, limit, sort, reverse, count)

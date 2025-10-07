@@ -32,9 +32,9 @@ def random_fetch_schedule():
                 print(f"Error fetching {type} {id}: {e}")
     
     for type, fetch_count in [
-        ('vn', 10), 
-        ('release', 10), 
-        ('character', 10), 
+        ('vn', 30),
+        # ('release', 30),
+        ('character', 30),
         # ('producer', 5), 
         # ('staff', 5), 
         # ('tag', 5), 
@@ -70,12 +70,12 @@ def random_update_schedule():
                 print(f"Error updating {type} {id}: {e}")
 
     for type, update_count in [
-        ('vn', 10), 
-        ('release', 10), 
-        ('character', 10), 
+        # ('vn', 3),
+        # ('release', 3),
+        # ('character', 3),
         # ('producer', 5), 
         # ('staff', 5), 
-        # ('tag', 5), 
+        # ('tag', 5),
         # ('trait', 5)
     ]:
         try:

@@ -217,7 +217,12 @@ function BaseCardsGrid({ items, cardType = "text", layout = "grid", sexualLevel 
       transition={{ duration: 0.5, ease: "easeInOut" }}
       className={gridClassName(layout, cardType)}
     >
-      {items.map((item, index) => (
+      {items.filter((item) => {
+        // const sexualSave = item.image?.sexual ? item.image.sexual < 0.5 : true;
+        // const violenceSave = item.image?.violence ? item.image.violence < 0.5 : true;
+        // return sexualSave && violenceSave;
+        return true;
+      }).map((item, index) => (
         <motion.div
           key={`card-${index}`}
           initial={{ opacity: 0, y: 20, scale: 0.98 }}

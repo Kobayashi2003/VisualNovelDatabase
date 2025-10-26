@@ -38,6 +38,7 @@ def handle_query(query):
 
         # # VNDB Sever is mataining
         # search_from = 'local'
+        search_from = 'remote'
 
         if search_from == 'local':
             return execute_task(get_resources_task, 

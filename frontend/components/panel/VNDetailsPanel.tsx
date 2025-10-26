@@ -43,7 +43,15 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
   const lengthMinutes = vn.length_minutes && vn.length_minutes % 60
   const lengthVotes = vn.length_votes
   const relations = vn.relations
-  const extlinks = vn.extlinks
+  const extlinks = [...vn.extlinks,
+    {
+      url: `https://vndb.org/${vn.id}`,
+      label: 'VNDB',
+      name: 'VNDB',
+      id: `https://vndb.org/${vn.id}`
+    }
+  ];
+
   const description = vn.description
 
   return (

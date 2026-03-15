@@ -5,7 +5,7 @@ from vndb.tasks.resources import (
 from .common import execute_task
 
 RESOURCE_TYPE_MAP = {
-    'v': 'vn', 
+    'v': 'vn',
     'r': 'release',
     'p': 'producer',
     'c': 'character',
@@ -36,12 +36,8 @@ def handle_query(query):
         search_from = params.pop('from', '')
         response_size = params.pop('size', 'large')
 
-        # # VNDB Sever is mataining
-        # search_from = 'local'
-        search_from = 'remote'
-
         if search_from == 'local':
-            return execute_task(get_resources_task, 
+            return execute_task(get_resources_task,
                 True, type, params, response_size, page, limit, sort, reverse, count)
         elif search_from == 'remote':
             return execute_task(search_resources_task,
@@ -54,7 +50,7 @@ def handle_query(query):
             return jsonify(func_return)
         except Exception as exc:
             print(f"Error in search_and_synchronize_remote_task: {exc}")
-            return execute_task(get_resources_task, 
+            return execute_task(get_resources_task,
                 True, type, params, response_size, page, limit, sort, reverse, count)
 
     elif len(query) > 1:

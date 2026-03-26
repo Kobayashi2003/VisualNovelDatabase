@@ -3,12 +3,13 @@
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useParams } from "next/navigation"
 import { useUrlParams } from "@/hooks/useUrlParams"
+import { useSearchContext } from "@/context/SearchContext"
 import { motion, AnimatePresence } from "motion/react"
 
 import { cn } from "@/lib/utils"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { CardTypeSwitch } from "@/components/selector/CardTypeSwtich"
+import { CardTypeSwitch } from "@/components/selector/CardTypeSwitch"
 import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 
@@ -32,6 +33,7 @@ function SearchResultsContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const { updateKey } = useUrlParams()
+  const { sortBy } = useSearchContext()
 
   const type = params.type as "c" | "v" | "p" | "s" | "g" | "i" | "r"
 
@@ -104,7 +106,7 @@ function SearchResultsContent() {
         message: null
       })
 
-      const params: VNDBQueryParams = { page: currentPage, limit: itemsPerPage }
+      const params: VNDBQueryParams = { page: currentPage, limit: itemsPerPage, sort: sortBy }
       for (const [key, value] of searchParams.entries()) {
         params[key as keyof VNDBQueryParams] = value as string
       }
@@ -141,7 +143,7 @@ function SearchResultsContent() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
     fetchItems()
-  }, [currentPage, searchParams, type])
+  }, [currentPage, searchParams, type, sortBy])
 
   useEffect(() => {
     return () => {
@@ -212,7 +214,7 @@ function SearchResultsContent() {
           {resourceState.state === "error" && <Error message={`${resourceState.message || "Unknown error"}`} />}
           {resourceState.state === "notFound" && <NotFound message="No items found" />}
         </motion.div>
-        
+
         {/* Cards */}
         <motion.div
           key="content"

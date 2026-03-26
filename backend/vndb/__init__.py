@@ -27,7 +27,7 @@ def create_app(config_class=Config, enable_scheduler=True):
     # This section sets up the CORS (Cross-Origin Resource Sharing) mechanism for cross-domain communication
     # ----------------------------------------
     CORS(app, resources={r"/*": {
-        "origins": "*",
+        "origins": app.config.get('CORS_ORIGINS', '*'),
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Content-Type", "X-CSRFToken"],
@@ -57,7 +57,7 @@ def create_app(config_class=Config, enable_scheduler=True):
     # This section sets up Celery for asynchronous task processing
     # ----------------------------------------
     celery = ExtCelery(app)
-    
+
     # ----------------------------------------
     # Scheduler Initialization
     # This section sets up the APScheduler for running scheduled tasks
@@ -77,7 +77,8 @@ def create_app(config_class=Config, enable_scheduler=True):
 
     @app.errorhandler(Exception)
     def handle_exception(e):
-        return jsonify(error=str(e)), 500
+        app.logger.error(f"Unhandled exception: {e}", exc_info=True)
+        return jsonify(error="Internal server error"), 500
 
     from .routes import api_bp
     app.register_blueprint(api_bp)

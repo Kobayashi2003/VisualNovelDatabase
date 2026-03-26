@@ -60,20 +60,20 @@ def search_resources_task(resource_type: str, params: dict[str, Any], response_s
     results = format_results(results)
     results['source'] = 'remote'
     return results
-   
+
 @task_with_cache_clear
 def update_resource_task(resource_type: str, resource_id: str) -> dict[str, Any]:
     remote_result = search_remote(resource_type, {'id':resource_id}, 'large')
     if not remote_result or not remote_result.get('results'):
         return NOT_FOUND
-    
+
     update_data = convert_remote_to_local(resource_type, remote_result['results'][0])
 
     if exists(resource_type, resource_id):
         data = update(resource_type, resource_id, update_data)
     else:
         data = create(resource_type, resource_id, update_data)
-    
+
     return format_results(data)
 
 @task_with_cache_clear
@@ -103,12 +103,14 @@ def edit_resource_task(resource_type: str, resource_id: str, update_data: dict[s
     return format_results(result)
 
 @task_with_cache_clear
-def edit_resources_task(resouce_type: str, update_datas: list[dict[str, Any]]) -> dict[str, Any]:
+def edit_resources_task(resource_type: str, update_datas: list[dict[str, Any]]) -> dict[str, Any]:
     update_results = {}
 
     for update_data in update_datas:
-        resource_id = update_datas.pop('id')
-        result = edit_resource_task(resouce_type, resource_id, update_data)
+        resource_id = update_data.pop('id', None)
+        if not resource_id:
+            continue
+        result = edit_resource_task(resource_type, resource_id, update_data)
         update_results[resource_id] = True if result['status'] == 'SUCCESS' else False
 
     return format_results(update_results)

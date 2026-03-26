@@ -6,8 +6,8 @@ load_dotenv()
 class Config:
 
     # Flask configurations
-    DEBUG = os.environ['DEBUG']
-    USE_RELOADER = os.environ['USE_RELOADER']
+    DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+    USE_RELOADER = os.environ.get('USE_RELOADER', 'False').lower() in ('true', '1', 'yes')
     SECRET_KEY = os.environ['SECRET_KEY']
     APP_HOST = os.environ['VNDB_HOST']
     APP_PORT = int(os.environ['VNDB_PORT'])

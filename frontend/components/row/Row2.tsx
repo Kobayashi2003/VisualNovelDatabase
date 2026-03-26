@@ -1,5 +1,3 @@
-import { Jim_Nightshade } from "next/font/google"
-
 interface Row2Props {
   label: string
   value: React.ReactNode

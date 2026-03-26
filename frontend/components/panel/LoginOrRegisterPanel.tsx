@@ -49,7 +49,7 @@ function LoginPanel({ isLoading, handleLogin }: LoginPanelProps) {
             placeholder="Enter your username"
           />
         </div>
-        
+
         <div className="space-y-2">
           <Label className="text-white/80 font-medium">Password</Label>
           <Input
@@ -64,8 +64,8 @@ function LoginPanel({ isLoading, handleLogin }: LoginPanelProps) {
         </div>
       </div>
 
-      <Button 
-        type="submit" 
+      <Button
+        type="submit"
         disabled={isLoading}
         className="w-full bg-white text-blue-900 hover:bg-white/90 hover:text-blue-800
                  font-semibold h-11 transition-transform active:scale-95"
@@ -85,6 +85,10 @@ function RegisterPanel({ isLoading, handleRegister }: RegisterPanelProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (password !== confirmPassword) {
+      alert("Passwords do not match")
+      return
+    }
     await handleRegister(username, password)
   }
 
@@ -102,7 +106,7 @@ function RegisterPanel({ isLoading, handleRegister }: RegisterPanelProps) {
             placeholder="Create a username"
           />
         </div>
-        
+
         <div className="space-y-2">
           <Label className="text-white/80 font-medium">Password</Label>
           <Input
@@ -130,8 +134,8 @@ function RegisterPanel({ isLoading, handleRegister }: RegisterPanelProps) {
         </div>
       </div>
 
-      <Button 
-        type="submit" 
+      <Button
+        type="submit"
         disabled={isLoading}
         className="w-full bg-white text-blue-900 hover:bg-white/90 hover:text-blue-800
                  font-semibold h-11 transition-transform active:scale-95"
@@ -178,8 +182,8 @@ export function LoginOrRegisterPanel({ defaultTab = "login", className }: LoginO
     )}>
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 bg-transparent h-12 p-1">
-          <TabsTrigger 
-            value="login" 
+          <TabsTrigger
+            value="login"
             className={cn(
               "relative z-10 rounded-xl font-semibold",
               "data-[state=active]:text-blue-900 data-[state=active]:bg-white",
@@ -188,8 +192,8 @@ export function LoginOrRegisterPanel({ defaultTab = "login", className }: LoginO
           >
             Login
           </TabsTrigger>
-          <TabsTrigger 
-            value="register" 
+          <TabsTrigger
+            value="register"
             className={cn(
               "relative z-10 rounded-xl font-semibold",
               "data-[state=active]:text-blue-900 data-[state=active]:bg-white",

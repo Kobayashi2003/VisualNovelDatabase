@@ -7,10 +7,10 @@ from vndb.search import (
     search_vns_by_resource_id_local,
     search_characters_by_resource_id_local,
     search_releases_by_resource_id_local,
-    search_resources_by_vnid_remote, 
+    search_resources_by_vnid_remote,
     search_resources_by_charid_remote,
     search_resources_by_release_id_remote,
-    search_vns_by_resource_id_remote, 
+    search_vns_by_resource_id_remote,
     search_characters_by_resource_id_remote,
     search_releases_by_resource_id_remote,
     convert_remote_to_local
@@ -20,7 +20,7 @@ from vndb.database import (
 )
 from .common import (
     task_with_memoize, task_with_cache_clear, format_results
-) 
+)
 
 def unpaginated_search(search_function: Callable, **kwargs) -> dict[str, Any]:
     results = []
@@ -34,7 +34,7 @@ def unpaginated_search(search_function: Callable, **kwargs) -> dict[str, Any]:
         else:
             more = False
         page += 1
-    
+
     return results
 
 @task_with_memoize(timeout=600)
@@ -48,12 +48,12 @@ def get_related_resources_task(resource_type: str, resource_id: str, related_res
         )
     elif resource_type in ['vn', 'trait'] and related_resource_type == 'character':
         results = search_characters_by_resource_id_local(
-            resource_type=resource_type, resource_id=resource_id, response_size=response_size, 
+            resource_type=resource_type, resource_id=resource_id, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
     elif resource_type in ['vn', 'producer'] and related_resource_type =='release':
         results = search_releases_by_resource_id_local(
-            resource_type=resource_type, resource_id=resource_id, response_size=response_size, 
+            resource_type=resource_type, resource_id=resource_id, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
     elif resource_type == 'vn' and related_resource_type in ['vn', 'tag', 'producer', 'staff', 'character', 'release']:
@@ -68,12 +68,12 @@ def get_related_resources_task(resource_type: str, resource_id: str, related_res
         )
     elif resource_type == 'release' and related_resource_type in ['vn', 'producer']:
         results = search_resources_by_release_id_local(
-            charid=resource_id, related_resource_type=related_resource_type, response_size=response_size,
+            release_id=resource_id, related_resource_type=related_resource_type, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
     else:
         raise ValueError(f"Invalid combination of resource_type and related_resource_type: {resource_type} and {related_resource_type}")
-   
+
     if not results or not isinstance(results, dict) or not results.get('results'):
         return {'status': 'NOT_FOUND', 'results': None}
 
@@ -94,12 +94,12 @@ def search_related_resources_task(resource_type: str, resource_id: str, related_
         )
     elif resource_type in ['vn', 'trait', 'dtrait'] and related_resource_type == 'character':
         results = search_characters_by_resource_id_remote(
-            resource_type=resource_type, resource_id=resource_id, response_size=response_size, 
+            resource_type=resource_type, resource_id=resource_id, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
     elif resource_type in ['vn', 'producer'] and related_resource_type == 'release':
         results = search_releases_by_resource_id_remote(
-            resource_type=resource_type, resource_id=resource_id, response_size=response_size, 
+            resource_type=resource_type, resource_id=resource_id, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
     elif resource_type == 'vn' and related_resource_type in ['vn', 'tag', 'producer', 'staff']:
@@ -112,14 +112,14 @@ def search_related_resources_task(resource_type: str, resource_id: str, related_
             charid=resource_id, related_resource_type=related_resource_type, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
-    elif resource_type == 'release' and get_related_resources_task in ['vn', 'producer']:
+    elif resource_type == 'release' and related_resource_type in ['vn', 'producer']:
         results = search_resources_by_release_id_remote(
             release_id=resource_id, related_resource_type=related_resource_type, response_size=response_size,
             page=page, limit=limit, sort=sort, reverse=reverse, count=count
         )
     else:
         raise ValueError(f"Invalid combination of resource_type and related_resource_type: {resource_type} and {related_resource_type}")
-    
+
     if not results or not isinstance(results, dict) or not results.get('results'):
         return {'status': 'NOT_FOUND', 'results': None}
 
@@ -133,8 +133,8 @@ def search_related_resources_task(resource_type: str, resource_id: str, related_
 def update_related_resources_task(resource_type: str, resource_id: str, related_resource_type: str) -> dict[str, Any]:
 
     related_data = unpaginated_search(
-        search_related_resources_task, 
-        resource_type=resource_type, resource_id=resource_id, 
+        search_related_resources_task,
+        resource_type=resource_type, resource_id=resource_id,
         related_resource_type=related_resource_type, response_size='large'
     )
 
@@ -143,7 +143,7 @@ def update_related_resources_task(resource_type: str, resource_id: str, related_
     for item in related_data:
         id = item['id']
         try:
-            update_data = convert_remote_to_local(related_resource_type, item) 
+            update_data = convert_remote_to_local(related_resource_type, item)
             if exists(related_resource_type, id):
                 data = update(related_resource_type, id, update_data)
             else:
@@ -152,7 +152,7 @@ def update_related_resources_task(resource_type: str, resource_id: str, related_
                 update_results[id] = False
             else:
                 update_results[id] = True
-            
+
         except Exception as exc:
             update_results[id] = False
 
@@ -164,7 +164,7 @@ def delete_related_resources_task(resource_type: str, resource_id: str, related_
     related_data = unpaginated_search(
         get_related_resources_task,
         resource_type=resource_type, resource_id=resource_id,
-        related_resource_type=related_resource_type, response_size='large'    
+        related_resource_type=related_resource_type, response_size='large'
     )
 
     delete_results = {}
@@ -179,6 +179,6 @@ def delete_related_resources_task(resource_type: str, resource_id: str, related_
                 delete_results[id] = True
 
         except Exception as exc:
-            delete_results = False
+            delete_results[id] = False
 
     return format_results(delete_results)

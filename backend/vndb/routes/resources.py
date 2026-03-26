@@ -2,10 +2,10 @@ import re
 from abc import ABC, ABCMeta, abstractmethod
 from flask import Blueprint, jsonify, abort, request
 from vndb.tasks.resources import (
-    get_resource_task, get_resources_task, 
+    get_resource_task, get_resources_task,
     search_resource_task, search_resources_task,
-    update_resource_task, update_resources_task, 
-    delete_resource_task, delete_resources_task, 
+    update_resource_task, update_resources_task,
+    delete_resource_task, delete_resources_task,
     edit_resource_task, edit_resources_task,
 )
 from vndb.tasks.related_resources import (
@@ -60,17 +60,17 @@ class BaseResourceBlueprint(ABC, metaclass=SingletonABCMeta):
         self.trash_bp.add_url_rule('/<string:id>', 'recover_resource', self.recover_resource, methods=['POST'])
 
         for endpoint, related_resource_type in self.related_resources.items():
-            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'get_related_{endpoint}', 
-                                 lambda id, rt=related_resource_type: self.get_related_resources(id, rt), 
+            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'get_related_{endpoint}',
+                                 lambda id, rt=related_resource_type: self.get_related_resources(id, rt),
                                  methods=['GET'])
-            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'search_related_{endpoint}', 
-                                 lambda id, rt=related_resource_type: self.search_related_resources(id, rt), 
+            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'search_related_{endpoint}',
+                                 lambda id, rt=related_resource_type: self.search_related_resources(id, rt),
                                  methods=['POST'])
-            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'update_related_{endpoint}', 
-                                 lambda id, rt=related_resource_type: self.update_related_resources(id, rt), 
+            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'update_related_{endpoint}',
+                                 lambda id, rt=related_resource_type: self.update_related_resources(id, rt),
                                  methods=['PUT'])
-            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'delete_related_{endpoint}', 
-                                 lambda id, rt=related_resource_type: self.delete_related_resources(id, rt), 
+            self.resource_bp.add_url_rule(f'/<string:id>/{endpoint}', f'delete_related_{endpoint}',
+                                 lambda id, rt=related_resource_type: self.delete_related_resources(id, rt),
                                  methods=['DELETE'])
 
     def register_id_preprocessor(self):
@@ -81,13 +81,13 @@ class BaseResourceBlueprint(ABC, metaclass=SingletonABCMeta):
                 id_value = values['id']
                 id_prefixes = {
                     'vn': 'v', 'character': 'c', 'staff': 's',
-                    'tag': 't', 'producer': 'p', 'release': 'r', 'trait': 'i'
+                    'tag': 'g', 'producer': 'p', 'release': 'r', 'trait': 'i'
                 }
-                
+
                 prefix = id_prefixes.get(self.resource_type)
                 if prefix is None:
                     raise ValueError(f"Unknown resource type: {self.resource_type}")
-                
+
                 if not re.match(f'^{prefix}\d+$', id_value):
                     abort(400, description=f"Invalid id format for {self.resource_type}: {id_value}")
 
@@ -97,11 +97,11 @@ class BaseResourceBlueprint(ABC, metaclass=SingletonABCMeta):
     def get_resources(self):
         args = request.args.to_dict()
         response_size = args.pop('response_size', 'small')
-        page = args.pop('page', 1)
-        limit = args.pop('limit', 20)
+        page = int(args.pop('page', 1))
+        limit = int(args.pop('limit', 20))
         sort = args.pop('sort', 'id')
-        reverse = args.pop('reverse', False)
-        count = args.pop('count', True)
+        reverse = str(args.pop('reverse', False)).lower() in ('true', '1', 'yes')
+        count = str(args.pop('count', True)).lower() not in ('false', '0', 'no')
         sync = self.get_sync_param()
         args.pop('sync', None)
 
@@ -144,7 +144,7 @@ class BaseResourceBlueprint(ABC, metaclass=SingletonABCMeta):
         update_datas = request.json
         if not update_datas:
             return jsonify({"error": "No update data provided"}), 400
-        
+
         if not isinstance(update_datas, list):
             return jsonify({"error": "Invalid format. Expected a list of updates"}), 400
 
@@ -155,7 +155,7 @@ class BaseResourceBlueprint(ABC, metaclass=SingletonABCMeta):
         update_data = request.json
         if not update_data:
             return jsonify({"error": "No update data provided"}), 400
-        
+
         sync = self.get_sync_param()
         return execute_task(edit_resource_task, sync, self.resource_type, id, update_data)
 

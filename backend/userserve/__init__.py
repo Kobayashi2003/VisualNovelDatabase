@@ -6,6 +6,7 @@ from .extensions import (
     ExtSQLAchemy, ExtJWT, ExtAPScheduler
 )
 
+import os
 import secrets
 import string
 
@@ -29,7 +30,7 @@ def create_app(config_class=Config, enable_scheduler=True):
     # This section sets up the CORS (Cross-Origin Resource Sharing) mechanism for cross-domain communication
     # ----------------------------------------
     CORS(app, resources={r"/*": {
-        "origins": "*",
+        "origins": app.config.get('CORS_ORIGINS', '*'),
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Content-Type", "X-CSRFToken"],
@@ -45,17 +46,20 @@ def create_app(config_class=Config, enable_scheduler=True):
         scheduler = None
 
     # ---------------------------
-    # Generate random admin password
-    alphabet = string.ascii_letters + string.digits
-    admin_password = ''.join(secrets.choice(alphabet) for i in range(16))
+    # Admin password from env or auto-generated
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+    if not admin_password:
+        alphabet = string.ascii_letters + string.digits
+        admin_password = ''.join(secrets.choice(alphabet) for i in range(16))
     app.config['ADMIN_PASSWORD'] = admin_password
-    print(f"Generated admin password: {admin_password}")
+    app.logger.info(f"Admin password configured (auto-generated: {os.environ.get('ADMIN_PASSWORD') is None})")
 
     # ---------------------------
     # Register routes
     @app.errorhandler(Exception)
     def handle_exception(e):
-        return jsonify(error=str(e)), 500
+        app.logger.error(f"Unhandled exception: {e}", exc_info=True)
+        return jsonify(error="Internal server error"), 500
 
     app.add_url_rule('/test', 'test', lambda: render_template('test.html'), methods=['GET'])
 

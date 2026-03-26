@@ -98,7 +98,7 @@ export default function ItemPage() {
         message: null
       })
 
-      const data = await requestFunction[type as keyof typeof requestFunction](id, newController.signal)
+      const data = await requestFunction[type as keyof typeof requestFunction](id, {}, newController.signal)
       if (!data) {
         setResourceState({
           state: "notFound",
@@ -222,7 +222,7 @@ export default function ItemPage() {
     return () => {
       resourceAbortController?.abort()
     }
-  }, [])
+  }, [type, id])
 
   useEffect(() => {
     if (!user) return
@@ -274,7 +274,7 @@ export default function ItemPage() {
           {type === "i" && resourceData.trait && <TraitPage trait={resourceData.trait} />}
         </motion.div>
       </AnimatePresence>
-      <MarkButton 
+      <MarkButton
         isMarked={toggledCategoryIds.length > 0}
         onClick={() => setOpenMarkDialog(true)}
         disabled={false}

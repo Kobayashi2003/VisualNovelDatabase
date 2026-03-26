@@ -1,6 +1,6 @@
 import re
 import httpx
-from typing import Any 
+from typing import Any
 from enum import Enum, auto
 from ..parse import validate_logical_expression
 
@@ -129,7 +129,7 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
         raise ValueError(f"Invalid key: {key}")
 
     filter_def = filter_set[key]
-    
+
     operator, filter_value = '=', value
 
     if 'o' in filter_def.flags:
@@ -137,7 +137,7 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
         match = re.match(pattern, value.strip())
         if match:
             operator, filter_value = match.groups()
-   
+
     if not filter_value:
         raise ValueError(f"Invalid value: {value}")
 
@@ -153,7 +153,7 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
         else:
             nested_filters = build_filters(filter_set, filter_value)
         return [key, "=", nested_filters]
-    
+
     if filter_def.filter_type == FilterType.ARRAY:
         if key == 'tag' or key == 'dtag':
             ...
@@ -253,7 +253,7 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
             op = ops.pop()
             right = vals.pop()
             left = vals.pop()
-            
+
             if op == "or":
                 vals.append(or_operation(left, right))
             elif op == "and":
@@ -262,7 +262,7 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
     ops = []
     vals = []
     current = ""
-    
+
     for char in expression:
         if char == '(':
             ops.append(char)
@@ -283,23 +283,26 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
             ops.append('and' if char == '+' else 'or')
         else:
             current += char
-    
+
     if current:
         vals.append({field: current.strip()})
-    
+
     while ops:
         evaluate(ops, vals)
-    
+
     return vals[0] if vals else {}
 
 def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, Any]:
     url = "https://api.vndb.org/kana/tag"
     client = httpx.Client()
 
+    def _cleanup():
+        client.close()
+
     def get_tag_ids(tag: str) -> list[str]:
         """Get tag IDs from tag name using unpaginated search"""
         results = []
-        page =1 
+        page =1
         more = True
         while more:
             payload = {
@@ -327,7 +330,7 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
         # Split by operators and process each tag
         tags = re.split(r'[+,()]', expr)
         tags = [tag.strip() for tag in tags if tag.strip()]
-        
+
         # Create mapping of original tags to their IDs
         tag_map = {}
         for tag in tags:
@@ -347,6 +350,7 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
         return new_expr
 
     new_expression = process_tags(expression.strip())
+    _cleanup()
 
     field = 'dtag' if directly else 'tag'
     return parse_logical_expression(new_expression, field)
@@ -354,6 +358,9 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
 def parse_trait_expression(expression: str, directly: bool = False) -> dict[str, Any]:
     url = "https://api.vndb.org/kana/trait"
     client = httpx.Client()
+
+    def _cleanup():
+        client.close()
 
     # def get_trait_ids(trait: str) -> List[str]:
     #     """Get trait IDs from trait name using unpaginated search"""
@@ -382,7 +389,7 @@ def parse_trait_expression(expression: str, directly: bool = False) -> dict[str,
         # Split by operators and process each trait
         traits = re.split(r'[+,()]', expr)
         traits = [trait.strip() for trait in traits if trait.strip()]
-        
+
         # Create mapping of original traits to their IDs
         trait_map = {}
         for trait in traits:
@@ -398,6 +405,7 @@ def parse_trait_expression(expression: str, directly: bool = False) -> dict[str,
         return new_expr
 
     new_expression = process_traits(expression.strip())
+    _cleanup()
 
     field = 'dtrait' if directly else 'trait'
     return parse_logical_expression(new_expression, field)
@@ -408,7 +416,7 @@ def parse_int(value: str | None, comparable: bool = False) -> str | None:
     match = re.match(pattern, value)
     if match:
         return value
-    return None 
+    return None
 
 def parse_birthday(value: str) -> list[int] | None:
     value = value.replace(" ", "")
@@ -481,10 +489,10 @@ def get_trait_additional_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for visual novel searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for visual novel searches.
     """
@@ -501,21 +509,21 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if dtag := params.get('dtag'):
         filters.append(parse_tag_expression(dtag, directly=True))
-    
+
     # Handle fields that may contain multiple values
     multi_value_fields = ['lang', 'platform', 'released', 'olang']
     for field in multi_value_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, field):
                 filters.append(parsed)
-    
+
     # Handle nested fields
     nested_fields = ['character', 'staff', 'developer', 'release']
     for field in nested_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, 'search'):
                 filters.append({field: parsed})
-    
+
     # Handle uncomparable numeric fields
     uncomparable_numeric_fields = ['devstatus']
     for field in uncomparable_numeric_fields:
@@ -529,13 +537,13 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
         if value := params.get(field):
             if parsed := parse_int(value, True):
                 filters.append({field: parsed})
-    
+
     # Handle boolean fields
     boolean_fields = ['has_description', 'has_anime', 'has_screenshot', 'has_review']
     for field in boolean_fields:
         if value := params.get(field):
             filters.append({field: str(value).lower() == 'true' or str(value) == '1'})
-    
+
     filters.extend(get_vn_additional_filters(params))
 
     # Wrap in 'and' if there are multiple filters
@@ -544,10 +552,10 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_release_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for release searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for release searches.
     """
@@ -555,9 +563,6 @@ def get_release_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
-
-    if search := params.get('search'):
-        filters.append({"search": search})
 
     if search := params.get('search'):
         filters.append({"search": search})
@@ -613,7 +618,7 @@ def get_release_filters(params: dict[str, Any]) -> dict[str, Any]:
     for field in nested_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, 'search'):
-                filters.append({field: parsed}) 
+                filters.append({field: parsed})
 
     # Handle extlink field
     if extlink := params.get('extlink'):
@@ -626,10 +631,10 @@ def get_release_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for character searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for character searches.
     """
@@ -637,14 +642,14 @@ def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
-    
+
     if search := params.get('search'):
         filters.append({"search": search})
 
     if birthday := params.get('birthday'):
         if parsed := parse_birthday(birthday):
             filters.append({"birthday": parsed})
-    
+
     if trait := params.get('trait'):
         filters.append(parse_trait_expression(trait))
 
@@ -656,25 +661,25 @@ def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, field):
                 filters.append(parsed)
-    
+
     # Handle nested fields
     nested_fields = ['seiyuu', 'vn']
     for field in nested_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, 'search'):
                 filters.append({field: parsed})
-    
+
     single_value_fields = ['blood_type', 'sex', 'sex_spoil', 'gender', 'gender_spoil', 'cup']
     for field in single_value_fields:
         if value := params.get(field):
             filters.append({field: value})
-    
+
     comparable_numeric_fields = ['height', 'weight', 'bust', 'waist', 'hips', 'age']
     for field in comparable_numeric_fields:
         if value := params.get(field):
             if parsed := parse_int(value, True):
                 filters.append({field: parsed})
-    
+
     filters.extend(get_character_additional_filters(params))
 
     return {"and": filters} if len(filters) > 1 else filters[0] if filters else {}
@@ -682,10 +687,10 @@ def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_producer_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for producer searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for producer searches.
     """
@@ -693,16 +698,16 @@ def get_producer_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
-    
+
     if search := params.get('search'):
         filters.append({"search": search})
-    
+
     multi_value_fields = ['lang', 'type']
     for field in multi_value_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, field):
                 filters.append(parsed)
-    
+
     filters.extend(get_producer_additional_filters(params))
 
     return {"and": filters} if len(filters) > 1 else filters[0] if filters else {}
@@ -710,10 +715,10 @@ def get_producer_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_staff_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for staff searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for staff searches.
     """
@@ -721,19 +726,19 @@ def get_staff_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
-    
+
     if search := params.get('search'):
         filters.append({"search": search})
-    
+
     multi_value_fields = ['lang', 'role']
     for field in multi_value_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, field):
                 filters.append(parsed)
-    
+
     if gender := params.get('gender'):
         filters.append({"gender": gender})
-    
+
     if ismain := params.get('ismain'):
         filters.append({"ismain": str(ismain).lower() == 'true' or str(ismain) == '1'})
 
@@ -747,10 +752,10 @@ def get_staff_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_tag_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for tag searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for tag searches.
     """
@@ -758,14 +763,14 @@ def get_tag_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
-    
+
     if search := params.get('search'):
         filters.append({"search": search})
-    
+
     if category := params.get('category'):
         if parsed := parse_logical_expression(category, 'category'):
             filters.append(parsed)
-    
+
     filters.extend(get_tag_additional_filters(params))
 
     return {"and": filters} if len(filters) > 1 else filters[0] if filters else {}
@@ -773,10 +778,10 @@ def get_tag_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_trait_filters(params: dict[str, Any]) -> dict[str, Any]:
     """
     Generate filters for trait searches based on the provided parameters.
-    
+
     Args:
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for trait searches.
     """
@@ -784,10 +789,10 @@ def get_trait_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
-    
+
     if search := params.get('search'):
         filters.append({"search": search})
-    
+
     filters.extend(get_trait_additional_filters(params))
 
     return {"and": filters} if len(filters) > 1 else filters[0] if filters else {}
@@ -796,14 +801,14 @@ def get_trait_filters(params: dict[str, Any]) -> dict[str, Any]:
 def get_remote_filters(search_type: str, params: dict[str, Any]) -> list:
     """
     Generate filters for remote searches based on the search type and provided parameters.
-    
+
     Args:
         search_type (str): The type of search (e.g., 'vn', 'character', 'producer', etc.).
         params (dict[str, Any]): The search parameters.
-    
+
     Returns:
         dict[str, Any]: A dictionary of filters for the specified search type.
-    
+
     Raises:
         ValueError: If an invalid search_type is provided.
     """

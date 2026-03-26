@@ -18,7 +18,7 @@ import { DeleteModeButton } from "@/components/button/DeleteModeButton"
 import { ReloadButton } from "@/components/button/ReloadButton"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { Settings2Button } from "@/components/button/Settings2Button"
-import { CardTypeSwitch } from "@/components/selector/CardTypeSwtich"
+import { CardTypeSwitch } from "@/components/selector/CardTypeSwitch"
 import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { OrderSwitch } from "@/components/selector/OrderSwitch"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -372,7 +372,7 @@ function CategoryPageContent() {
       setItemBarVisible(false);
       return;
     }
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
@@ -380,14 +380,14 @@ function CategoryPageContent() {
       },
       { threshold: 0.1 }
     );
-    
+
     const timer = setTimeout(() => {
       const itemBar = document.getElementById('item-bar');
       if (itemBar) {
         observer.observe(itemBar);
       }
     }, 100);
-    
+
     return () => {
       clearTimeout(timer);
       observer.disconnect();

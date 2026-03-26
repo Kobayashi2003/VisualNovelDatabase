@@ -24,10 +24,10 @@ class VNDBAPIWrapper:
         if api_token:
             self.client.headers.update({"Authorization": f"Token {api_token}"})
 
-    def query(self, endpoint: VNDBEndpoint, filters: list, fields: list[str], 
+    def query(self, endpoint: VNDBEndpoint, filters: list, fields: list[str],
               sort: str = "id", reverse: bool = False, results: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
         url = f"{VNDB_API_URL}/{endpoint.value}"
-        
+
         payload = {
             "filters": filters,
             "fields": ",".join(fields),
@@ -37,7 +37,7 @@ class VNDBAPIWrapper:
             "page": page,
             "count": count
         }
-        
+
         response = self.client.post(url, json=payload)
 
         # TODO:DEBUG
@@ -131,26 +131,26 @@ def unpaginated_search(search_function: Callable, **kwargs) -> dict[str, Any]:
         results.extend(response.get('results', []))
         more = response.get('more', False)
         page += 1
-    
+
     return {'results': results, 'total': len(results), 'count': len(results)}
 
-def paginated_results(results: dict[str, Any], sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
+def paginated_results(results: dict[str, Any], sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, include_count: bool = True) -> dict[str, Any]:
     if not results or 'results' not in results:
-        return {'results': [], 'count': 0} if count else {'results': []}
-    
-    results = results['results']
-    count = len(results)
+        return {'results': [], 'count': 0} if include_count else {'results': []}
+
+    items = results['results']
+    total = len(items)
     start_index = (page - 1) * limit
     end_index = start_index + limit
 
-    results.sort(key=lambda x: x.get(sort, 0), reverse=reverse)
-    results = results[start_index:end_index]
+    items.sort(key=lambda x: x.get(sort, 0), reverse=reverse)
+    items = items[start_index:end_index]
 
-    results = {'results': results, 'more': end_index < count}
-    if count:
-        results['count'] = count
-    
-    return results
+    result = {'results': items, 'more': end_index < total}
+    if include_count:
+        result['count'] = total
+
+    return result
 
 
 def search_vn(filters: dict[str, Any], fields: list[str], page: int = 1, **kwargs) -> dict[str, Any]:
@@ -231,7 +231,7 @@ def character_additional_field_seiyuu(character: dict[str, Any]):
     )['results']
 
     seiyuu = list({
-        (d['id'], d['name'], d['original'], d['note']): d 
+        (d['id'], d['name'], d['original'], d['note']): d
         for d in [
             {
                 'id': va['staff']['id'],
@@ -247,7 +247,7 @@ def character_additional_field_seiyuu(character: dict[str, Any]):
     return seiyuu
 
 def search(resource_type: str, params: dict[str, Any], response_size: str = 'small',
-           page: int = 1, limit: int = 100, 
+           page: int = 1, limit: int = 100,
            sort: str = 'id', reverse: bool = False, count: bool = True) -> dict[str, Any]:
 
     search_functions = {
@@ -272,14 +272,14 @@ def search(resource_type: str, params: dict[str, Any], response_size: str = 'sma
     if not fields:
         fields = "id"
 
-    if page and limit: 
+    if page and limit:
         results = search_functions[resource_type](filters, fields, page=page, results=limit, sort=sort, reverse=reverse, count=count)
     else:
         results = unpaginated_search(
-            search_function=search_functions[resource_type], 
+            search_function=search_functions[resource_type],
             filters=filters, fields=fields, sort=sort, reverse=reverse, count=count
         )
-    
+
     if (resource_type == 'vn' and response_size == 'large'):
         for vn in results['results']:
             vnid = vn['id']
@@ -327,23 +327,24 @@ def search_resources_by_charid(charid: str, related_resource_type: str, response
 
     related_resource_fields = get_remote_fields(related_resource_type, response_size)
     fields = {
-        'trait': [f'traits.{field}' for field in related_resource_fields].extend['traits.spoiler', 'traits.lie'],
-        'vns': [f'vns.{field}' for field in related_resource_fields].extend['vns.spoiler', 'vns.role', 'vns.release.id']
+        'trait': [f'traits.{field}' for field in related_resource_fields] + ['traits.spoiler', 'traits.lie'],
+        'vn': [f'vns.{field}' for field in related_resource_fields] + ['vns.spoiler', 'vns.role', 'vns.release.id']
     }
 
     payload = {
         "filters": ["id", "=", charid],
-        "fields": ",".join(fields),
+        "fields": ",".join(fields.get(related_resource_type, [])),
         "results": 100
     }
 
-    with httpx.Client() as client: 
+    with httpx.Client() as client:
         response = client.post(url, json=payload)
         response.raise_for_status()
         results = response.json()['results'][0]
         results = results.get(
             {
                 'trait': 'traits',
+                'vn': 'vns'
             }.get(related_resource_type)
         )
 
@@ -391,7 +392,7 @@ def search_releases_by_resource_id(resource_type: str, resource_id: str, respons
     }.get(resource_type)
 
     release_fields = get_remote_fields("release", response_size)
-    sort = validate_sort(resource_type, sort)
+    sort = validate_sort("release", sort)
     payload = {
         "filters": filters,
         "fields": ",".join(release_fields),
@@ -399,7 +400,7 @@ def search_releases_by_resource_id(resource_type: str, resource_id: str, respons
         "reverse": reverse,
         "results": limit,
         "page": page,
-        "count": count 
+        "count": count
     }
 
     with httpx.Client() as client:
@@ -409,18 +410,18 @@ def search_releases_by_resource_id(resource_type: str, resource_id: str, respons
 
     return results
 
-def search_characters_by_resource_id(resource_type: str, resource_id: str, response_size: str = 'small', 
+def search_characters_by_resource_id(resource_type: str, resource_id: str, response_size: str = 'small',
                                       sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
     url = "https://api.vndb.org/kana/character"
 
     filters = {
-        'trait': ['trait', '=', [resource_id, 0, 0]], 
+        'trait': ['trait', '=', [resource_id, 0, 0]],
         'dtrait': ['dtrait', '=', [resource_id, 0, 0]],
         'vn': ['vn', '=', ['id', '=', resource_id]]
     }.get(resource_type)
 
     character_fields = get_remote_fields("character", response_size)
-    sort = validate_sort(resource_type, sort)
+    sort = validate_sort("character", sort)
     payload = {
         "filters": filters,
         "fields": ",".join(character_fields),
@@ -428,7 +429,7 @@ def search_characters_by_resource_id(resource_type: str, resource_id: str, respo
         "reverse": reverse,
         "results": limit,
         "page": page,
-        "count": count 
+        "count": count
     }
 
     with httpx.Client() as client:
@@ -452,7 +453,7 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
     }.get(resource_type)
 
     vn_fields = get_remote_fields("vn", response_size)
-    sort = validate_sort(resource_type, sort)
+    sort = validate_sort("vn", sort)
 
     payload = {
         "filters": filters,
@@ -461,7 +462,7 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
         "reverse": reverse,
         "results": limit,
         "page": page,
-        "count": count 
+        "count": count
     }
 
     with httpx.Client() as client:
@@ -478,7 +479,7 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
             search_function=search_characters_by_resource_id,
             resource_type='vn', resource_id=vnid, response_size='small'
         )
-        vn['characters'] = characters['results'] 
+        vn['characters'] = characters['results']
     return results
 
 
@@ -515,14 +516,14 @@ def search_resources_by_charid_cache(*args, **kwargs): return search_resources_b
 @memoize(timeout=3600)
 def search_resources_by_release_id_cache(*args, **kwargs): return search_resources_by_release_id(*args, **kwargs)
 
-def search_resources_by_vnid_paginated(vnid: str, related_resource_type: str, response_size: str = "small", 
+def search_resources_by_vnid_paginated(vnid: str, related_resource_type: str, response_size: str = "small",
                                        sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
     return paginated_results(search_resources_by_vnid_cache(vnid, related_resource_type, response_size),
                              sort, reverse, limit, page, count)
 
-def search_resources_by_charid_paginated(charid: str, related_resource_type: str, response_size: str = "small", 
+def search_resources_by_charid_paginated(charid: str, related_resource_type: str, response_size: str = "small",
                                          sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
-    return paginated_results(search_resources_by_charid_cache(charid, related_resource_type, response_size), 
+    return paginated_results(search_resources_by_charid_cache(charid, related_resource_type, response_size),
                              sort, reverse, limit, page, count)
 
 def search_resources_by_release_id_paginated(release_id: str, related_resource_type: str, response_size: str = "small",

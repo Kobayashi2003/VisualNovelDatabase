@@ -10,7 +10,7 @@ import { YearSelector } from "@/components/selector/YearSelector"
 import { MonthSelector } from "@/components/selector/MonthSelector"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { CardTypeSwitch } from "@/components/selector/CardTypeSwtich"
+import { CardTypeSwitch } from "@/components/selector/CardTypeSwitch"
 import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { IconButton } from "@/components/button/IconButton"
@@ -258,7 +258,7 @@ function HomeContent() {
           {vnsState.state === "error" && <Error message={`${vnsState.message || "Unknown error"}`} />}
           {vnsState.state === "notFound" && <NotFound message="No VNs found" />}
         </motion.div>
-        
+
         <motion.div
           key="vns-grid-container"
           initial={{ filter: "blur(20px)", opacity: 0 }}

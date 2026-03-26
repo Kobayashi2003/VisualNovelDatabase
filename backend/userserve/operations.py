@@ -317,29 +317,29 @@ def move_marks_to_category(user_id: int, category_id_from: int, category_id_to: 
 
 @save_db_operation
 def get_marks_from_category(user_id: int, category_id: int, category_type: str,
-                            page: int = 1, limit: int = 100, sort: str = 'id', 
+                            page: int = 1, limit: int = 100, sort: str = 'id',
                             reverse: bool = False, count: bool = True) -> List[Dict] | None:
     category = get_category(user_id, category_id, category_type)
     if not category:
         raise CategoryNotFoundError
-    
+
     # Sort marks by the specified field
     sorted_marks = sorted(category.marks, key=itemgetter(sort), reverse=reverse)
-    
+
     # Calculate pagination
     total = len(sorted_marks)
     start = (page - 1) * limit
     end = start + limit
-    
+
     # Paginate the marks
     paginated_marks = sorted_marks[start:end]
-    
+
     # Extract required fields
     results = [{"id": str(mark['id']), "marked_at": mark['marked_at']} for mark in paginated_marks]
-    
+
     # Check if there are more results
     more = end < total
-    
+
     return {'results': results, 'more': more, 'count': total} if count else {'results': results, 'more': more}
 
 @save_db_operation
@@ -382,7 +382,7 @@ def is_marked(user_id: int, category_type: str, mark_id: int) -> bool:
 @save_db_operation
 def are_marked(user_id: int, category_type: str, mark_ids: list[int]) -> dict[int, bool]:
     records = {
-        mark_id: is_marked(user_id, category_type, mark_id)
+        mark_id: is_marked(user_id, category_type, mark_id) or False
         for mark_id in mark_ids
     }
     return records
@@ -392,7 +392,7 @@ def get_categories_by_mark(user_id: int, category_type: str, mark_id: int) -> Li
     category_class = CATEGORY_MODEL.get(category_type)
     if not category_class:
         raise InvalidCategoryTypeError
-    
+
     categories = category_class.query.filter_by(user_id=user_id).all()
 
     marked_categories = []

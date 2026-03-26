@@ -21,7 +21,7 @@ export interface VNDBQueryParams extends PaginationParams {
 }
 
 export interface MarksQueryParams extends PaginationParams {
-  type: 'vn' | 'character' | 'producer' | 'staff'
+  type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
   category_id: number
 }
 
@@ -346,7 +346,7 @@ export interface Category {
   user_id: number
   category_name: string
   marks: Mark[]
-  type: 'vn' | 'character' | 'producer' | 'staff'
+  type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
   created_at: string // ISO 8601 date string
   updated_at: string // ISO 8601 date string
 }
@@ -364,7 +364,7 @@ export interface VN_Small {
     title: string
     latin?: string
     official: boolean
-    main: boolean 
+    main: boolean
   }>
   released: string
   developers: Array<{
@@ -408,7 +408,7 @@ export interface Release_Small {
 
 export interface Character_Small {
   id: string
-  name: string 
+  name: string
   original?: string
   sex?: [string, string]
   vns: Array<{
@@ -426,7 +426,7 @@ export interface Character_Small {
 
 export interface Producer_Small {
   id: string
-  name: string 
+  name: string
   original?: string
 }
 
@@ -437,13 +437,13 @@ export interface Staff_Small {
 }
 
 export interface Tag_Small {
-  id: string 
+  id: string
   name: string
   category: string
 }
 
 export interface Trait_Small {
-  id: string  
+  id: string
   name: string
   group_id?: string
   group_name?: string

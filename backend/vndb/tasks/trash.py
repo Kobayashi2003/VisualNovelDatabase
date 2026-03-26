@@ -1,13 +1,13 @@
-from typing import Any 
+from typing import Any
 
 from vndb.database import (
     get_inactive, get_inactive_all,
     cleanup, cleanup_all,
     recover, recover_all,
-    count_all 
+    count_inactive_all
 )
 from .common import (
-    task_with_memoize, task_with_cache_clear, 
+    task_with_memoize, task_with_cache_clear,
     format_results, NOT_FOUND
 )
 
@@ -21,7 +21,7 @@ def get_inactive_resources_task(item_type: str, page: int = None, limit: int = N
     results = get_inactive_all(item_type, page, limit, sort, reverse)
     if not results:
         return NOT_FOUND
-    total = count_all(item_type)
+    total = count_inactive_all(item_type)
     more = (page * limit) < total if page and limit else False
 
     results = format_results(results)

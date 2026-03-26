@@ -14,6 +14,8 @@ def get_bg():
     BG_FOLDER = current_app.config['DATA_FOLDER'] + '/additional/bg'
     os.makedirs(BG_FOLDER, exist_ok=True)
     bg_files = os.listdir(BG_FOLDER)
+    if not bg_files:
+        abort(404)
     random_bg = random.choice(bg_files)
     return send_file(os.path.abspath(os.path.join(BG_FOLDER, random_bg)), mimetype='image/png')
 
@@ -22,6 +24,8 @@ def get_random():
     IMG_FOLDER = current_app.config['DATA_FOLDER'] + '/additional/random'
     os.makedirs(IMG_FOLDER, exist_ok=True)
     img_files = os.listdir(IMG_FOLDER)
+    if not img_files:
+        abort(404)
     random_img = random.choice(img_files)
     return send_file(os.path.abspath(os.path.join(IMG_FOLDER, random_img)), mimetype='image/png')
 

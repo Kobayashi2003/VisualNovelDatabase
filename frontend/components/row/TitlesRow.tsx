@@ -31,7 +31,7 @@ export function TitlesRow({ titles }: TitlesRowProps) {
       <div className="flex flex-col gap-1">
         {sortedTitles.map((title, index) => (
           <div key={index} className="flex gap-1 items-center">
-            <Tooltip key={title.lang}>
+            <Tooltip>
               <TooltipTrigger asChild>
                 <span className={cn(
                   ICON.LANGUAGE[title.lang as keyof typeof ICON.LANGUAGE]
@@ -41,7 +41,7 @@ export function TitlesRow({ titles }: TitlesRowProps) {
                 {ENUMS.LANGUAGE[title.lang as keyof typeof ENUMS.LANGUAGE]}
               </TooltipContent>
             </Tooltip>
-            <Tooltip key={title.title}>
+            <Tooltip>
               <TooltipTrigger disabled={!title.latin} asChild>
                 <p className={cn(
                   "text-white/90",

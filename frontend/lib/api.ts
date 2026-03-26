@@ -84,9 +84,11 @@ const fetchUserserve = async<T>(
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
   }
 
   const response = await fetch(`${getBaseUrl("userserve")}/${endpoint}`, { method, headers, body: JSON.stringify(body), signal: abortSignal })

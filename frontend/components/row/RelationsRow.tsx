@@ -16,9 +16,9 @@ interface RelationsRowProps {
 }
 
 export function RelationsRow({ relations }: RelationsRowProps) {
-  if (!relations?.length) return null
-
   const [showUnofficial, setShowUnofficial] = useState(false)
+
+  if (!relations?.length) return null
 
   const groupedRelations = relations.reduce(
     (groups, relation) => {
@@ -37,7 +37,7 @@ export function RelationsRow({ relations }: RelationsRowProps) {
     <div className="grid md:grid-cols-[120px_1fr] gap-1">
       <div className="flex md:flex-col gap-1">
         <h3 className="font-bold text-left md:text-center text-white/60">Relations</h3>
-        <button 
+        <button
           onClick={() => setShowUnofficial(!showUnofficial)}
           className="text-left md:text-center text-white/60 text-xs cursor-pointer"
         >
@@ -49,12 +49,12 @@ export function RelationsRow({ relations }: RelationsRowProps) {
           {Object.entries(groupedRelations).map(([group, items]) => (
             <div key={group} className="flex flex-col gap-1">
               <h4 className="text-white">
-                {ENUMS.RELATION[group as keyof typeof ENUMS.RELATION]}
+                {ENUMS.RELATION[group as keyof typeof ENUMS.RELATION] || group}
               </h4>
               <div className="flex flex-col gap-1">
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-1 items-center">
-                    <Link href={`/${item.id}`} className="text-blue-400 hover:text-blue-500 transition-colors">
+                    <Link href={`/${item.id[0]}/${item.id.slice(1)}`} className="text-blue-400 hover:text-blue-500 transition-colors">
                       {item.title}
                     </Link>
                     {!item.relation_official && (

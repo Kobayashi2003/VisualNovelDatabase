@@ -39,7 +39,7 @@ interface SelectField extends BaseField {
 }
 
 interface DateField extends BaseField {
-  avaliableFormats: string[]
+  availableFormats: string[]
   comparable?: boolean
   placeholder?: string
   formatter?: (value: string) => any
@@ -206,7 +206,7 @@ function TextFilter({ filter, value, onChange }: {
         value={value}
         onChange={(e) => onChange(filter.value, e.target.value)}
         placeholder={filter.placeholder}
-        className="bg-[#0A1929] border-white/10 hover:border-white/20 text-white placeholder:text-white/50 selection:bg-blue-500 selection:text-white selection:bg-blue-500 selection:text-white"
+        className="bg-[#0A1929] border-white/10 hover:border-white/20 text-white placeholder:text-white/50 selection:bg-blue-500 selection:text-white"
       />
     </div>
   )
@@ -395,7 +395,7 @@ function DateFilter({ filter, value, onChange }: {
   onChange: (field: string, value: string) => void
 }) {
 
-  const isCurrentInputValid = value === "" || filter.avaliableFormats.some(format =>
+  const isCurrentInputValid = value === "" || filter.availableFormats.some(format =>
     isValidDate(value, format, false)
   )
 
@@ -435,7 +435,7 @@ function DateFilterComparable({ filter, value, onChange }: {
   onChange: (field: string, value: { operator: string, date: string }) => void
 }) {
 
-  const isCurrentInputValid = value.date === "" || filter.avaliableFormats.some(format =>
+  const isCurrentInputValid = value.date === "" || filter.availableFormats.some(format =>
     isValidDate(value.date, format, true)
   )
 
@@ -597,7 +597,7 @@ const searchFilters: Record<string, {
     ],
     date: [
       {
-        value: "released", label: "Release Date", avaliableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"],
+        value: "released", label: "Release Date", availableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"],
         comparable: true, placeholder: "Date, format: YYYY-MM-DD, YYYY-MM, YYYY."
       },
     ]
@@ -701,7 +701,7 @@ const searchFilters: Record<string, {
     ],
     date: [
       {
-        value: "released", label: "Release Date", avaliableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"],
+        value: "released", label: "Release Date", availableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"],
         comparable: true, placeholder: "Date, format: YYYY-MM-DD, YYYY-MM, YYYY."
       },
     ]
@@ -750,7 +750,7 @@ const searchFilters: Record<string, {
         ]
       },
       {
-        value: "bloodtype", label: "Blood Type", default: "any",
+        value: "blood_type", label: "Blood Type", default: "any",
         options: [
           { value: "any", label: "Any" },
           { value: "a", label: "A" },
@@ -794,7 +794,7 @@ const searchFilters: Record<string, {
     ],
     date: [
       {
-        value: "birthday", label: "Birthday", avaliableFormats: ["MM-DD", "MM"],
+        value: "birthday", label: "Birthday", availableFormats: ["MM-DD", "MM"],
         placeholder: "Date, format: MM-DD, MM.",
       },
     ]
@@ -1023,7 +1023,7 @@ export function FiltersDialog({ open, setOpen, type, setFilters, className }: Fi
     const validDateFilters = Object.entries(trimmedFilters.date)
       .filter(([key, value]) => {
         const field = searchFilters[type]?.date?.find(f => f.value === key)
-        const availableFormats = field?.avaliableFormats
+        const availableFormats = field?.availableFormats
         if (!availableFormats) return false
         return availableFormats.some(format =>
           isValidDate(value, format)
@@ -1038,7 +1038,7 @@ export function FiltersDialog({ open, setOpen, type, setFilters, className }: Fi
     const validDateFiltersComparable = Object.entries(trimmedFilters.dateComparable)
       .filter(([key, value]) => {
         const field = searchFilters[type]?.date?.find(f => f.value === key)
-        const availableFormats = field?.avaliableFormats
+        const availableFormats = field?.availableFormats
         if (!availableFormats) return false
         return availableFormats.some(format =>
           isValidDate(value, format, true)

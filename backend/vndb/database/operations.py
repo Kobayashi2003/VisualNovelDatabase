@@ -1,12 +1,12 @@
 import re
-from typing import Any 
+from typing import Any
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 
 from sqlalchemy import asc, desc
 
 from vndb import db
-from .models import MODEL_MAP, ModelType 
+from .models import MODEL_MAP, ModelType
 
 
 def db_transaction(func):
@@ -55,6 +55,10 @@ def count_all(type: str) -> int:
     model = MODEL_MAP[type]
     return db.session.query(model).filter(model.deleted_at == None).count()
 
+def count_inactive_all(type: str) -> int:
+    model = MODEL_MAP[type]
+    return db.session.query(model).filter(model.deleted_at != None).count()
+
 def updatable(type: str, id: str, update_interval: timedelta = timedelta(minutes=10)) -> bool:
     id = formatId(type, id)
     item = get(type, id)
@@ -84,7 +88,7 @@ def get_all(type: str, page: int | None = None, limit: int | None = None, sort: 
     order_func = desc if reverse else asc
     query = query.order_by(order_func(getattr(model, sort)))
     if page and limit:
-        page = max(1, page) 
+        page = max(1, page)
         limit = min(max(1, limit), 100)
         query = query.offset((page - 1) * limit).limit(limit)
     return query.all()
@@ -117,7 +121,7 @@ def delete(type: str, id: str) -> ModelType | None:
     id = formatId(type, id)
     item = get(type, id)
     if not item:
-        return None 
+        return None
     item.deleted_at = datetime.now(timezone.utc)
     db.session.flush()
     return item

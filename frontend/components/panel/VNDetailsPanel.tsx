@@ -91,9 +91,9 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
           <TitlesRow titles={titles} />
           <Row label="Aliases" value={aliases.join(", ")} />
           <Row label="Play Time" value={ENUMS.LENGTH[length as keyof typeof ENUMS.LENGTH]
-            + ((lengthHours || lengthMinutes) && (
-              ` (${lengthHours ? `${lengthHours}h` : ``}${lengthMinutes ? `${lengthMinutes}m` : ``} from ${lengthVotes} votes)`
-            ))
+            + ((lengthHours || lengthMinutes)
+              ? ` (${lengthHours ? `${lengthHours}h` : ``}${lengthMinutes ? `${lengthMinutes}m` : ``} from ${lengthVotes} votes)`
+              : ``)
           } />
           <Row label="Release Date" value={released} />
           <PlatformsRow platforms={platforms} />

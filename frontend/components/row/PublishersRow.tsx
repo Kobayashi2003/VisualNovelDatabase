@@ -52,7 +52,7 @@ export function PublishersRow({ publishers }: PublishersRowProps) {
             <div className="flex flex-wrap gap-1 items-center">
               {items.map((item, index) => (
                 <div key={item.id}>
-                  <Link href={`/${item.id}`} className="text-blue-400 hover:text-blue-500 transition-colors">
+                  <Link href={`/${item.id[0]}/${item.id.slice(1)}`} className="text-blue-400 hover:text-blue-500 transition-colors">
                     {item.name}
                   </Link>
                   {index < items.length - 1 && <span className="px-1">&</span>}

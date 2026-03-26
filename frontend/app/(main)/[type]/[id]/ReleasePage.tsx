@@ -8,8 +8,8 @@ interface ReleasePageProps {
 
 export default function ReleasePage({ release }: ReleasePageProps) {
   return (
-    <div>
-      <h1>ReleasePage</h1>
+    <div className="flex flex-col gap-4">
+      <ReleaseDetailsPanel release={release} />
     </div>
   )
 }

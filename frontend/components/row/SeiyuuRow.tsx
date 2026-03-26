@@ -21,7 +21,7 @@ export function SeiyuuRow({ seiyuu }: SeiyuuRowProps) {
           <div key={seiyuu.id} className="flex gap-1 items-center">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href={`/${seiyuu.id}`} className="text-blue-400 hover:text-blue-500 transition-colors">
+                <Link href={`/${seiyuu.id[0]}/${seiyuu.id.slice(1)}`} className="text-blue-400 hover:text-blue-500 transition-colors">
                   {seiyuu.name}
                 </Link>
               </TooltipTrigger>

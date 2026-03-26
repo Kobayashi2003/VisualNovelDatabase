@@ -13,6 +13,8 @@ import { VNTagsPanel } from "@/components/panel/VNTagsPanel"
 import { VNReleasesPanel } from "@/components/panel/VNReleasesPanel"
 import { VNCharactersPanel } from "@/components/panel/VNCharactersPanel"
 import { VNScreenshotsPanel } from "@/components/panel/VNScreenshotsPanel"
+import { VNStaffPanel } from "@/components/panel/VNStaffPanel"
+import { VNVoiceActorsPanel } from "@/components/panel/VNVoiceActorsPanel"
 
 interface VNPageProps {
   vn: VN
@@ -45,6 +47,8 @@ export default function VNPage({ vn }: VNPageProps) {
       </div>
       <VNDetailsPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
       <VNTagsPanel vn={vn} spoilerLevel={spoilerLevel} />
+      <VNStaffPanel vn={vn} />
+      <VNVoiceActorsPanel vn={vn} />
       <VNReleasesPanel vn={vn} />
       <VNCharactersPanel vn={vn} spoilerLevel={spoilerLevel} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
       <VNScreenshotsPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />

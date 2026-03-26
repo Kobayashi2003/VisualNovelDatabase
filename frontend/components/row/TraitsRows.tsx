@@ -41,7 +41,7 @@ export function TraitsRow({ traits, showSexual, spoilerLevel }: TraitsRowProps) 
           <div className="flex flex-wrap gap-1 items-center">
             {traits.map((trait, index) => (
               <div key={trait.id}>
-                <Link href={`/${trait.id}`} className="text-blue-400 hover:text-blue-500 transition-colors">
+                <Link href={`/${trait.id[0]}/${trait.id.slice(1)}`} className="text-blue-400 hover:text-blue-500 transition-colors">
                   {trait.name}
                 </Link>
                 {index < traits.length - 1 && <span className="text-white/20 mx-1">•</span>}

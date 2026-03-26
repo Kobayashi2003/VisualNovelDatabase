@@ -8,8 +8,8 @@ interface StaffPageProps {
 
 export default function StaffPage({ staff }: StaffPageProps) {
   return (
-    <div>
-      <h1>StaffPage</h1>
+    <div className="flex flex-col gap-4">
+      <StaffDetailsPanel staff={staff} />
     </div>
   )
 }

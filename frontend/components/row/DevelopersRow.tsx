@@ -20,7 +20,7 @@ export function DevelopersRow({ developers }: DevelopersRowProps) {
       <div className="flex flex-wrap gap-1 items-center">
         {developers.map((dev, index) => (
           <div key={dev.id}>
-            <Link href={`/${dev.id}`} className="text-blue-400 hover:text-blue-500 transition-colors">
+            <Link href={`/${dev.id[0]}/${dev.id.slice(1)}`} className="text-blue-400 hover:text-blue-500 transition-colors">
               {dev.name}
             </Link>
             {index < developers.length - 1 && <span className="px-1">&</span>}

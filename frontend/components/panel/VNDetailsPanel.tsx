@@ -10,6 +10,8 @@ import { ExtlinksRow } from "@/components/row/ExtlinksRow"
 import { DescriptionRow } from "@/components/row/DescriptionRow"
 import { VN } from "@/lib/types"
 import { ENUMS } from "@/lib/enums"
+import { ICON } from "@/lib/icons"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { AlertTriangle, ImageOff } from "lucide-react"
 
@@ -43,6 +45,11 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
   const lengthMinutes = vn.length_minutes && vn.length_minutes % 60
   const lengthVotes = vn.length_votes
   const relations = vn.relations
+  const olang = vn.olang
+  const devstatus = vn.devstatus
+  const languages = vn.languages
+  const rating = vn.rating
+  const votecount = vn.votecount
   const extlinks = [...vn.extlinks,
     {
       url: `https://vndb.org/${vn.id}`,
@@ -58,7 +65,18 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
     <div className="flex flex-col gap-4 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-8">
       <div>
         {/* TITLE */}
-        <h1 className="text-2xl font-bold">{mainTitle}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold">{mainTitle}</h1>
+          {devstatus !== undefined && devstatus !== 0 && (
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded font-medium",
+              devstatus === 1 && "bg-blue-500/20 text-blue-400",
+              devstatus === 2 && "bg-red-500/20 text-red-400"
+            )}>
+              {ENUMS.DEVSTATUS[devstatus as keyof typeof ENUMS.DEVSTATUS]}
+            </span>
+          )}
+        </div>
         <h2 className="text-sm text-gray-500">{subTitle}</h2>
       </div>
       <div className={cn(
@@ -88,8 +106,56 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
         )}
         {/* Details */}
         <div className="flex flex-col gap-2">
+          {rating !== undefined && rating !== null && (
+            <Row label="Rating" value={
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "font-bold text-lg",
+                  rating >= 80 ? "text-green-400" :
+                  rating >= 60 ? "text-yellow-400" :
+                  rating >= 40 ? "text-orange-400" : "text-red-400"
+                )}>
+                  {(rating / 10).toFixed(2)}
+                </span>
+                <span className="text-white/40 text-xs">
+                  ({votecount} votes)
+                </span>
+              </div>
+            } />
+          )}
           <TitlesRow titles={titles} />
           <Row label="Aliases" value={aliases.join(", ")} />
+          {olang && (
+            <Row label="Original Language" value={
+              <div className="flex items-center gap-1.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(ICON.LANGUAGE[olang as keyof typeof ICON.LANGUAGE])} />
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-black/50 text-white text-xs">
+                    {ENUMS.LANGUAGE[olang as keyof typeof ENUMS.LANGUAGE]}
+                  </TooltipContent>
+                </Tooltip>
+                <span>{ENUMS.LANGUAGE[olang as keyof typeof ENUMS.LANGUAGE] || olang}</span>
+              </div>
+            } />
+          )}
+          {languages && languages.length > 0 && (
+            <Row label="Languages" value={
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {languages.map(lang => (
+                  <Tooltip key={lang}>
+                    <TooltipTrigger asChild>
+                      <span className={cn(ICON.LANGUAGE[lang as keyof typeof ICON.LANGUAGE])} />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-black/50 text-white text-xs">
+                      {ENUMS.LANGUAGE[lang as keyof typeof ENUMS.LANGUAGE] || lang}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            } />
+          )}
           <Row label="Play Time" value={ENUMS.LENGTH[length as keyof typeof ENUMS.LENGTH]
             + ((lengthHours || lengthMinutes)
               ? ` (${lengthHours ? `${lengthHours}h` : ``}${lengthMinutes ? `${lengthMinutes}m` : ``} from ${lengthVotes} votes)`

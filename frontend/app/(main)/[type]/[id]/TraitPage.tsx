@@ -8,8 +8,8 @@ interface TraitPageProps {
 
 export default function TraitPage({ trait }: TraitPageProps) {
   return (
-    <div>
-      <h1>TraitPage</h1>
+    <div className="flex flex-col gap-4">
+      <TraitDetailsPanel trait={trait} />
     </div>
   )
 }

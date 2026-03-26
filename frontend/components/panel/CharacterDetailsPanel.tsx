@@ -1,7 +1,9 @@
 import { cn } from "@/lib/utils"
 import { Image } from "@/components/image/Image"
 import { Row } from "@/components/row/Row"
+import { SexRow } from "@/components/row/SexRow"
 import { SeiyuuRow } from "@/components/row/SeiyuuRow"
+import { VNsRow } from "@/components/row/VNsRow"
 import { TraitsRow } from "@/components/row/TraitsRows"
 import { DescriptionRow } from "@/components/row/DescriptionRow"
 import { Character } from "@/lib/types"
@@ -27,6 +29,8 @@ export function CharacterDetailsPanel({ character, spoilerLevel, sexualLevel, vi
   const yellow_alert = (sexualLevel === "safe" && image_sexual > 0.5) || (violenceLevel === "tame" && image_violence > 0.5)
 
   const sex = character.sex
+  const age = character.age
+  const aliases = character.aliases
   const measurements = [
     character.height && `Height: ${character.height}cm`,
     character.weight && `Weight: ${character.weight}kg`,
@@ -80,9 +84,13 @@ export function CharacterDetailsPanel({ character, spoilerLevel, sexualLevel, vi
         )}
         {/* Details */}
         <div className="flex flex-col gap-2">
+          <SexRow sex={sex} spoilerLevel={parseInt(spoilerLevel)} />
+          <Row label="Age" value={age !== undefined && age !== null ? `${age}` : undefined} />
+          <Row label="Aliases" value={aliases && aliases.length > 0 ? aliases.join(", ") : undefined} />
           <Row label="Measurements" value={measurements} />
           <Row label="Birthday" value={birthday} />
           <SeiyuuRow seiyuu={seiyuu} />
+          <VNsRow vns={vns} />
           <TraitsRow traits={traits} showSexual={sexualLevel === "explicit"} spoilerLevel={parseInt(spoilerLevel)} />
           <DescriptionRow description={description} />
         </div>

@@ -315,7 +315,7 @@ export function TagsCardsGrid({ tags, ...props }: TagCardsGridProps) {
     id: tag.id,
     title: tag.name,
     msgs: [ENUMS.CATEGORY[tag.category as keyof typeof ENUMS.CATEGORY]],
-    link: `/t/${tag.id.slice(1)}`
+    link: `/g/${tag.id.slice(1)}`
   }))
   return <BaseCardsGrid items={items} {...props} />
 }
@@ -325,7 +325,7 @@ export function TraitsCardsGrid({ traits, ...props }: TraitCardsGridProps) {
     id: trait.id,
     title: trait.name,
     msgs: [trait.group_name ?? ""],
-    link: `/t/${trait.id.slice(1)}`
+    link: `/i/${trait.id.slice(1)}`
   }))
   return <BaseCardsGrid items={items} {...props} />
 }

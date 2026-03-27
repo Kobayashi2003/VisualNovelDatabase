@@ -51,15 +51,15 @@ export function CharacterDetailsPanel({ character, spoilerLevel, sexualLevel, vi
   const description = character.description
 
   return (
-    <div className="flex flex-col gap-4 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-8">
+    <div className="flex flex-col gap-3 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-6">
       <div>
         {/* TITLE */}
         <h1 className="text-2xl font-bold">{mainTitle}</h1>
         <h2 className="text-sm text-gray-500">{subTitle}</h2>
       </div>
       <div className={cn(
-        "grid",
-        image_url && "md:grid-cols-[250px_1fr]"
+        "grid gap-4",
+        image_url && "md:grid-cols-[220px_1fr]"
       )}>
         {/* IMAGE */}
         {red_alert ? (

@@ -148,6 +148,15 @@ export interface VN {
   releases?: Array<{
     id: string
     title: string
+    released?: string
+    languages?: Array<{
+      lang: string
+      title?: string
+      latin?: string
+      mtl: boolean
+      main: boolean
+    }>
+    platforms?: string[]
     vns: Array<{
       id: string
       rtype: string
@@ -244,7 +253,7 @@ export interface Character {
   hips?: number
   cup?: string
   age?: number
-  birthday?: string
+  birthday?: [number, number]
   sex?: [string, string]
   vns: Array<{
     id: string

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -9,13 +9,12 @@ import { ImageOff, RotateCw, RefreshCw } from "lucide-react"
 interface ImageCardProps {
   title: string
   url: string
-  dims?: [number, number]
   msgs?: string[]
   link?: string
   className?: string
 }
 
-export function ImageCard({ title, url, dims, msgs, link, className }: ImageCardProps) {
+export function ImageCard({ title, url, msgs, link, className }: ImageCardProps) {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -26,6 +25,13 @@ export function ImageCard({ title, url, dims, msgs, link, className }: ImageCard
     setError(false)
     setImgUrl(url)
   }, [url])
+
+  const imgRef = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) {
+      setLoading(false)
+      setError(false)
+    }
+  }, [imgUrl])
 
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -65,8 +71,9 @@ export function ImageCard({ title, url, dims, msgs, link, className }: ImageCard
         {imgUrl ? (<>
           <Link href={link || ""}>
             <Image
+              ref={imgRef}
               src={imgUrl}
-              alt={imgUrl}
+              alt={title}
               fill
               loading="lazy"
               onLoad={() => { setLoading(false); setError(false) }}

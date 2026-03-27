@@ -37,7 +37,7 @@ def unpaginated_search(search_function: Callable, **kwargs) -> dict[str, Any]:
 
     return results
 
-@task_with_memoize(timeout=600)
+@task_with_memoize(timeout=3600)
 def get_related_resources_task(resource_type: str, resource_id: str, related_resource_type: str, response_size: str = 'small',
                                 page: int = 1, limit: int = 100, sort: str = 'id', reverse: bool = False, count: bool = True) -> dict[str, Any]:
 
@@ -83,7 +83,7 @@ def get_related_resources_task(resource_type: str, resource_id: str, related_res
 
     return results
 
-@task_with_memoize(timeout=600)
+@task_with_memoize(timeout=3600)
 def search_related_resources_task(resource_type: str, resource_id: str, related_resource_type: str, response_size: str = 'small',
                                    page: int = 1, limit: int = 100, sort: str = 'id', reverse: bool = False, count: bool = True) -> dict[str, Any]:
 

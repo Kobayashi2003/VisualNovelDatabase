@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { motion, AnimatePresence } from "motion/react"
@@ -17,7 +17,7 @@ import { IconButton } from "@/components/button/IconButton"
 import { ArrowBigLeftIcon, ArrowBigRightIcon } from "lucide-react"
 
 import { Loading } from "@/components/status/Loading"
-import { Error } from "@/components/status/Error"
+import { Error as ErrorStatus } from "@/components/status/Error"
 import { NotFound } from "@/components/status/NotFound"
 
 import { VNsCardsGrid } from "@/components/card/CardsGrid"
@@ -48,13 +48,13 @@ function HomeContent() {
   const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
   const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
 
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchVNs = async () => {
     try {
-      abortController?.abort()
+      abortControllerRef.current?.abort()
       const newController = new AbortController()
-      setAbortController(newController)
+      abortControllerRef.current = newController
 
       setVNs([])
       setTotalPages(0)
@@ -103,6 +103,7 @@ function HomeContent() {
         })
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setVnsState({
         state: "error",
         message: "Failed to fetch VNs. Please try again."
@@ -164,13 +165,10 @@ function HomeContent() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
     fetchVNs()
-  }, [currentPage, selectedYear, selectedMonth])
-
-  useEffect(() => {
     return () => {
-      abortController?.abort()
+      abortControllerRef.current?.abort()
     }
-  }, [abortController])
+  }, [currentPage, selectedYear, selectedMonth])
 
   return (
     <main className="container mx-auto min-h-screen flex flex-col p-4 pb-8">
@@ -255,7 +253,7 @@ function HomeContent() {
           )}
         >
           {vnsState.state === "loading" && <Loading message="Loading..." />}
-          {vnsState.state === "error" && <Error message={`${vnsState.message || "Unknown error"}`} />}
+          {vnsState.state === "error" && <ErrorStatus message={`${vnsState.message || "Unknown error"}`} />}
           {vnsState.state === "notFound" && <NotFound message="No VNs found" />}
         </motion.div>
 

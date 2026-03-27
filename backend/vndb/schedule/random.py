@@ -2,7 +2,7 @@ import time
 import random
 from .common import hourly_task
 from vndb.search import search_remote
-from vndb.database import MODEL_MAP, formatId, exists, create, update, updatable 
+from vndb.database import MODEL_MAP, formatId, exists, create, update, updatable
 
 @hourly_task()
 def random_fetch_schedule():
@@ -30,14 +30,14 @@ def random_fetch_schedule():
                 time.sleep(10)
             except Exception as e:
                 print(f"Error fetching {type} {id}: {e}")
-    
+
     for type, fetch_count in [
         ('vn', 30),
         # ('release', 30),
         ('character', 30),
-        # ('producer', 5), 
-        # ('staff', 5), 
-        # ('tag', 5), 
+        ('producer', 5),
+        ('staff', 5),
+        # ('tag', 5),
         # ('trait', 5)
     ]:
         try:
@@ -45,7 +45,7 @@ def random_fetch_schedule():
             time.sleep(60)
         except Exception as e:
             print(f"Error fetching {type}: {e}")
-    
+
     print({'created': created, 'updated': updated})
 
 @hourly_task()
@@ -55,7 +55,7 @@ def random_update_schedule():
 
     def random_update(type: str, update_count: int = 5):
         model = MODEL_MAP[type]
-        ids = [vn.id for vn in model.query.filter(model.deleted_at == None).order_by(model.id).limit(update_count).all()]
+        ids = [vn.id for vn in model.query.filter(model.deleted_at == None).order_by(model.updated_at.asc().nullsfirst()).limit(update_count).all()]
         for id in ids:
             try:
                 if updatable(type, id):
@@ -70,11 +70,11 @@ def random_update_schedule():
                 print(f"Error updating {type} {id}: {e}")
 
     for type, update_count in [
-        # ('vn', 3),
+        ('vn', 3),
         # ('release', 3),
-        # ('character', 3),
-        # ('producer', 5), 
-        # ('staff', 5), 
+        ('character', 3),
+        ('producer', 3),
+        ('staff', 3),
         # ('tag', 5),
         # ('trait', 5)
     ]:

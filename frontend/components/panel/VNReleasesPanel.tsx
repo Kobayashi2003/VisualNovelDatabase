@@ -32,12 +32,12 @@ export function VNReleasesPanel({ vn }: { vn: VN }) {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/50">
-                {(release as any).released && (
-                  <span>{(release as any).released}</span>
+                {release.released && (
+                  <span>{release.released}</span>
                 )}
-                {(release as any).languages && (release as any).languages.length > 0 && (
+                {release.languages && release.languages.length > 0 && (
                   <div className="flex flex-wrap gap-1 items-center">
-                    {(release as any).languages.map((lang: any) => {
+                    {release.languages.map((lang) => {
                       const langCode = typeof lang === "string" ? lang : lang.lang
                       return (
                         <Tooltip key={langCode}>
@@ -52,9 +52,9 @@ export function VNReleasesPanel({ vn }: { vn: VN }) {
                     })}
                   </div>
                 )}
-                {(release as any).platforms && (release as any).platforms.length > 0 && (
+                {release.platforms && release.platforms.length > 0 && (
                   <div className="flex flex-wrap gap-1 items-center">
-                    {(release as any).platforms.map((platform: string) => (
+                    {release.platforms.map((platform: string) => (
                       <Tooltip key={platform}>
                         <TooltipTrigger asChild>
                           <span className={cn(ICON.PLATFORM[platform as keyof typeof ICON.PLATFORM])} />

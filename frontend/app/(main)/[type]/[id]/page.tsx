@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import { useUserContext } from "@/context/UserContext"
 
 import { cn } from "@/lib/utils"
 import { Loading } from "@/components/status/Loading"
-import { Error } from "@/components/status/Error"
+import { Error as ErrorStatus } from "@/components/status/Error"
 import { NotFound } from "@/components/status/NotFound"
 import { MarkButton } from "@/components/button/MarkButton"
 import { MarkDialog } from "@/components/dialog/MarkDialog"
@@ -55,14 +55,14 @@ export default function ItemPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [toggledCategoryIds, setToggledCategoryIds] = useState<number[]>([])
 
-  const [resourceAbortController, setResourceAbortController] = useState<AbortController | null>(null)
-  const [categoryAbortController, setCategoryAbortController] = useState<AbortController | null>(null)
+  const resourceAbortControllerRef = useRef<AbortController | null>(null)
+  const categoryAbortControllerRef = useRef<AbortController | null>(null)
 
   const fetchItem = async () => {
     try {
-      resourceAbortController?.abort()
+      resourceAbortControllerRef.current?.abort()
       const newController = new AbortController()
-      setResourceAbortController(newController)
+      resourceAbortControllerRef.current = newController
 
       const requestFunction = {
         v: api.by_id.vn,
@@ -106,18 +106,19 @@ export default function ItemPage() {
         })
         return
       }
-      setResourceData({
-        ...resourceData,
+      setResourceData(prev => ({
+        ...prev,
         [requestResource[type as keyof typeof requestResource]]: data
-      })
+      }))
       setResourceState({
         state: null,
         message: null
       })
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setResourceState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -125,9 +126,9 @@ export default function ItemPage() {
   const fetchCategories = async () => {
     if (!user) return
     try {
-      categoryAbortController?.abort()
+      categoryAbortControllerRef.current?.abort()
       const newController = new AbortController()
-      setCategoryAbortController(newController)
+      categoryAbortControllerRef.current = newController
       setCategoryState({
         state: "loading",
         message: null
@@ -153,7 +154,7 @@ export default function ItemPage() {
     } catch (error) {
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -178,7 +179,7 @@ export default function ItemPage() {
     } catch (error) {
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -195,7 +196,7 @@ export default function ItemPage() {
     } catch (error) {
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -212,7 +213,7 @@ export default function ItemPage() {
     } catch (error) {
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -220,7 +221,7 @@ export default function ItemPage() {
   useEffect(() => {
     fetchItem()
     return () => {
-      resourceAbortController?.abort()
+      resourceAbortControllerRef.current?.abort()
     }
   }, [type, id])
 
@@ -228,7 +229,7 @@ export default function ItemPage() {
     if (!user) return
     fetchCategories()
     return () => {
-      categoryAbortController?.abort()
+      categoryAbortControllerRef.current?.abort()
     }
   }, [user])
 
@@ -250,7 +251,7 @@ export default function ItemPage() {
           {/* Loading */}
           {resourceState.state === "loading" && <Loading message="Loading..." />}
           {/* Error */}
-          {resourceState.state === "error" && <Error message={`Error: ${resourceState.message}`} />}
+          {resourceState.state === "error" && <ErrorStatus message={`Error: ${resourceState.message}`} />}
           {/* Not Found */}
           {resourceState.state === "notFound" && <NotFound message="No items found" />}
         </motion.div>

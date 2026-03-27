@@ -120,7 +120,7 @@ export function GenImageCard({ image, title, msgs, link, sexualLevel = "safe", v
 
   const clickable = alwaysAllowClick ? "cursor-pointer" : "cursor-not-allowed pointer-events-none"
 
-  if (sexualLevel === "safe" && sexual > 0.5 || violenceLevel === "tame" && violence > 0.5) {
+  if ((sexualLevel === "safe" && sexual > 0.5) || (violenceLevel === "tame" && violence > 0.5)) {
     if (sexual <= 1 && violence <= 1) {
       const warningFilter = sexual > 1 && violence > 1 ? mildYellowFilter : moderateYellowFilter
       return layout === "grid" ? (
@@ -156,7 +156,7 @@ export function GenImageCard({ image, title, msgs, link, sexualLevel = "safe", v
       />
     )
   }
-  if (sexualLevel === "suggestive" && sexual > 1 || violenceLevel === "violent" && violence > 1) {
+  if ((sexualLevel === "suggestive" && sexual > 1) || (violenceLevel === "violent" && violence > 1)) {
     const cautionFilter = sexual > 1 && violence > 1 ? moderateRedFilter : severeRedFilter
     return layout === "grid" ? (
       <ImageCard

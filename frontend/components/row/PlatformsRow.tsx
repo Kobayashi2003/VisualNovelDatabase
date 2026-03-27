@@ -19,7 +19,7 @@ export function PlatformsRow({ platforms }: PlatformsRowProps) {
         {platforms.map((platform) => (
           <Tooltip key={platform}>
             <TooltipTrigger asChild>
-              <span key={platform} className={cn(
+              <span className={cn(
               ICON.PLATFORM[platform as keyof typeof ICON.PLATFORM]
             )} />
             </TooltipTrigger>

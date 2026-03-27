@@ -27,7 +27,7 @@ interface SelectorPanelProps {
   setOpen: (open: boolean) => void
   setSortBy: (sortBy: string) => void
   setSortOrder: (sortOrder: string) => void
-} 
+}
 
 const sortByOptions: Record<string, {value: string, label: string, sortable?: boolean}[]> = {
   v: [
@@ -74,7 +74,7 @@ function SortSelectorButton({ setOpen } : SelectorButtonProps) {
       variant="outline"
       size="icon"
       onClick={() => setOpen(true)}
-      className="bg-[#0F2942]/80 hover:bg-[#0F2942] border-white/10 hover:border-white/20 
+      className="bg-[#0F2942]/80 hover:bg-[#0F2942] border-white/10 hover:border-white/20
       text-white hover:text-white/80 text-base md:text-lg font-bold font-serif italic transition-all duration-300"
     >
       <SlidersHorizontal className="h-4 w-4" />
@@ -94,12 +94,12 @@ function SortSelectorPanel({ type, open, sortBy, sortOrder, setOpen, setSortBy, 
           onValueChange={(value) => setSortBy(value)}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-            {sortByOptions[type].map((option) => (
+            {(sortByOptions[type] ?? []).map((option) => (
               <div key={`sortBy-option-${option.value}`} className={`flex flex-row items-center justify-between border-b sm:border-r border-white/10 ${option.sortable === false ? "pointer-events-none" : ""}`}>
                 <div className="h-full flex-grow min-w-0 flex flex-row items-center group truncate">
-                  <RadioGroupItem 
-                    id={`sortBy-option-${option.value}`} 
-                    value={option.value} 
+                  <RadioGroupItem
+                    id={`sortBy-option-${option.value}`}
+                    value={option.value}
                     className={`flex-shrink-0 border-white/60 group-hover:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#0F2942] ${option.sortable === false ? "text-white/30" : ""}`}
                   />
                   <Label htmlFor={`sortBy-option-${option.value}`} className={`w-full h-full text-white text-base sm:text-lg group-hover:font-bold cursor-pointer ml-1 ${option.sortable === false ? "text-white/30" : ""}`}>
@@ -121,9 +121,9 @@ function SortSelectorPanel({ type, open, sortBy, sortOrder, setOpen, setSortBy, 
             {sortOrderOptions.map((option) => (
               <div key={`sortOrder-option-${option.value}`} className="flex flex-row items-center justify-between border-b sm:border-r border-white/10">
                 <div className="h-full flex-grow min-w-0 flex flex-row items-center group truncate">
-                  <RadioGroupItem 
-                    id={`sortOrder-option-${option.value}`} 
-                    value={option.value} 
+                  <RadioGroupItem
+                    id={`sortOrder-option-${option.value}`}
+                    value={option.value}
                     className="flex-shrink-0 border-white/60 group-hover:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#0F2942]"
                   />
                   <Label htmlFor={`sortOrder-option-${option.value}`} className="w-full h-full text-white text-base sm:text-lg group-hover:font-bold cursor-pointer ml-1">
@@ -145,10 +145,10 @@ export function SortSelector({ type, sortBy, sortOrder, setSortBy, setSortOrder 
 
   return (
     <>
-      <SortSelectorButton 
+      <SortSelectorButton
         setOpen={setOpen}
       />
-      <SortSelectorPanel 
+      <SortSelectorPanel
         type={type}
         open={open}
         sortBy={sortBy}

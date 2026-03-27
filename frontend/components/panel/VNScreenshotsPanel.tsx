@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Image } from "@/components/image/Image"
 import { VN } from "@/lib/types"

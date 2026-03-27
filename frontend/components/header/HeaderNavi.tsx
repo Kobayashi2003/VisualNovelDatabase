@@ -18,10 +18,9 @@ export function HeaderNavi({ className }: HeaderNaviProps) {
       {!isHomePage && (
         <BackButton handleBack={() => router.back()} />
       )}
-      <Link 
-        href="/" 
+      <Link
+        href="/"
         className="hover:opacity-80 transition-opacity"
-        onClick={() => isHomePage ? router.replace("/") : router.push("/")}
       >
         <h1 className="font-serif font-black italic text-xl text-white">VNDB</h1>
       </Link>

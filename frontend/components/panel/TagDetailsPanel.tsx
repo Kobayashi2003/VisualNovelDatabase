@@ -7,7 +7,7 @@ export function TagDetailsPanel({ tag }: { tag: Tag }) {
   const category = ENUMS.CATEGORY[tag.category as keyof typeof ENUMS.CATEGORY] || tag.category
 
   return (
-    <div className="flex flex-col gap-4 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-8">
+    <div className="flex flex-col gap-3 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold">{tag.name}</h1>
       </div>

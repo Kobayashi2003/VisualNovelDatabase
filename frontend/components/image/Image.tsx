@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import NextImage from "next/image"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
@@ -21,7 +21,7 @@ export function Image({ url, thumbnail, image_dims, thumbnail_dims }: ImageProps
   const [thumbnailUrl, setThumbnailUrl] = useState(thumbnail || url)
   const [fullImageUrl, setFullImageUrl] = useState(url)
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState(
-    thumbnail_dims ? thumbnail_dims[0] / thumbnail_dims[1] : 
+    thumbnail_dims ? thumbnail_dims[0] / thumbnail_dims[1] :
     image_dims ? image_dims[0] / image_dims[1] : 3 / 4
   )
   const [fullImageAspectRatio, setFullImageAspectRatio] = useState(
@@ -49,7 +49,7 @@ export function Image({ url, thumbnail, image_dims, thumbnail_dims }: ImageProps
   const handleDownload = () => {
     const a = document.createElement("a")
     a.href = fullImageUrl
-    a.download = fullImageUrl.split("/").pop() || "image.png"
+    a.download = fullImageUrl.split("/").pop()?.split("?")[0] || "image.png"
     a.click()
   }
 
@@ -61,13 +61,25 @@ export function Image({ url, thumbnail, image_dims, thumbnail_dims }: ImageProps
     setThumbnailUrl(`${thumbnail || url}?${Date.now()}`)
     setFullImageUrl(`${url}?${Date.now()}`)
     setThumbnailAspectRatio(
-      thumbnail_dims ? thumbnail_dims[0] / thumbnail_dims[1] : 
+      thumbnail_dims ? thumbnail_dims[0] / thumbnail_dims[1] :
       image_dims ? image_dims[0] / image_dims[1] : 1
     )
     setFullImageAspectRatio(
       image_dims ? image_dims[0] / image_dims[1] : 1
     )
   }, [url, thumbnail, image_dims, thumbnail_dims])
+
+  const thumbnailRef = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) {
+      setIsThumbnailLoaded(true)
+    }
+  }, [thumbnailUrl])
+
+  const fullImageRef = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) {
+      setIsFullImageLoaded(true)
+    }
+  }, [fullImageUrl])
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -77,23 +89,24 @@ export function Image({ url, thumbnail, image_dims, thumbnail_dims }: ImageProps
         }}>
           {thumbnail ? (<>
             <NextImage
+              ref={thumbnailRef}
               src={thumbnailUrl}
-              alt={thumbnailUrl}
+              alt="Thumbnail image"
               fill
               loading="lazy"
               onLoad={() => setIsThumbnailLoaded(true)}
-              onError={() => setIsThumbnailError(null)}
+              onError={() => setIsThumbnailError("Failed to load image")}
               className={cn(
                 "object-contain transition-opacity duration-300",
                 !isThumbnailLoaded || isThumbnailError ? "opacity-0" : "opacity-100"
               )}
             />
             {isThumbnailError && (
-              <div 
+              <div
                 onClick={(e) => {
                   e.stopPropagation();
                   handleThumbnailRetry();
-                }} 
+                }}
                 className={cn(
                   "absolute inset-0 flex flex-col items-center justify-center gap-4",
                 )}
@@ -136,12 +149,13 @@ export function Image({ url, thumbnail, image_dims, thumbnail_dims }: ImageProps
           aspectRatio: fullImageAspectRatio
         }}>
           <NextImage
+            ref={fullImageRef}
             src={fullImageUrl}
-            alt={fullImageUrl}
+            alt="Full-size image"
             fill
             loading="lazy"
             onLoad={() => setIsFullImageLoaded(true)}
-            onError={() => setIsFullImageError(null)}
+            onError={() => setIsFullImageError("Failed to load image")}
             className={cn(
               "object-contain transition-opacity duration-300",
               !isFullImageLoaded || isFullImageError ? "opacity-0" : "opacity-100"

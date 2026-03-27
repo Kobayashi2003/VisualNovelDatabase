@@ -36,13 +36,13 @@ const fetchVNDB = async<T>(
 ): Promise<PaginatedResponse<T>> => {
   const queryString = new URLSearchParams(params as Record<string, string>).toString()
   const url = `${getBaseUrl("vndb")}/${endpoint}?${queryString}`
-  const response = await fetch(url, { method: "GET", headers: {}, body: null, signal: abortSignal })
+  const response = await fetch(url, { method: "GET", signal: abortSignal })
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
   }
   const data: PaginatedResponse<T> = await response.json()
   if (data.status === "ERROR") {
-    throw new Error(`VNDB error! ${data.results}`)
+    throw new Error(`VNDB error! status: ${data.status}`)
   }
   if (data.status === "NOT_FOUND") {
     data.results = []
@@ -60,7 +60,7 @@ const fetchVNDBById = async<T>(
 ): Promise<T> => {
   const queryString = new URLSearchParams(params as Record<string, string>).toString()
   const url = `${getBaseUrl("vndb")}/${endpoint}?${queryString}`
-  const response = await fetch(url, { method: "GET", headers: {}, body: null, signal: abortSignal })
+  const response = await fetch(url, { method: "GET", signal: abortSignal })
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
   }

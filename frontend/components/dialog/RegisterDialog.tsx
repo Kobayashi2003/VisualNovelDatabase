@@ -40,6 +40,7 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) return
     handleRegister(username, password)
   }
 

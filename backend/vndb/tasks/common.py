@@ -2,7 +2,7 @@ from typing import Any
 
 from functools import wraps
 
-from vndb import celery, cache, db 
+from vndb import celery, cache, db
 from vndb.database import convert_model_to_dict
 
 NOT_FOUND = {'status': 'NOT_FOUND', 'result': None}
@@ -46,6 +46,14 @@ def task_with_cache_clear(func):
         return func(*args, **kwargs)
     return wrapper
 
+def task_plain(func):
+    @celery.task
+    @wraps(func)
+    @error_handler
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
 def dont_cache(response):
     # Don't cache if the response is not a dict or if status is 'ERROR'
     return not isinstance(response, dict) or response.get('status') == 'ERROR'
@@ -62,6 +70,6 @@ def task_with_memoize(timeout=60*60*24):
                 result = func(*args, **kwargs)
                 if result['status'] == 'SUCCESS':
                     cache.set(cache_key, result, timeout=timeout)
-            return result 
+            return result
         return wrapper
     return decorator

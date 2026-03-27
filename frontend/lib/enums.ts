@@ -163,7 +163,7 @@ export const ENUMS = {
   },
   "RTYPE": {
     trial: "Trial",
-    partical: "Partical",
+    partial: "Partial",
     complete: "Complete",
   },
   "CHARACTER_ROLE": {

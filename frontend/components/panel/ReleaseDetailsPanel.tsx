@@ -39,7 +39,7 @@ export function ReleaseDetailsPanel({ release }: { release: Release }) {
   ].filter(Boolean).join(", ")
 
   return (
-    <div className="flex flex-col gap-4 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-8">
+    <div className="flex flex-col gap-3 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold">{mainTitle}</h1>
         {subTitle && <h2 className="text-sm text-gray-500">{subTitle}</h2>}

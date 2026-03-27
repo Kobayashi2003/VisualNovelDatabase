@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { Row } from "@/components/row/Row"
 import { VN } from "@/lib/types"
 import { ENUMS } from "@/lib/enums"
 
@@ -26,25 +25,24 @@ export function VNStaffPanel({ vn }: { vn: VN }) {
   return (
     <div className="bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 flex flex-col gap-4">
       <h2 className="text-lg font-bold">Staff</h2>
-      <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2">
         {sortedRoles.map(role => (
-          <Row key={role} label={ENUMS.STAFF_ROLE[role as keyof typeof ENUMS.STAFF_ROLE] || role} value={
-            <div className="flex flex-col gap-0.5">
-              {groupedStaff[role].map((member, index) => (
-                <div key={`${member.id}-${index}`} className="flex items-center gap-1.5">
-                  <Link
-                    href={`/${member.id[0]}/${member.id.slice(1)}`}
-                    className="text-blue-400 hover:text-blue-500 transition-colors text-sm"
-                  >
-                    {member.name}
-                  </Link>
-                  {member.note && (
-                    <span className="text-white/40 text-xs">({member.note})</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          } />
+          <div key={role} className="flex flex-col gap-0.5">
+            <h3 className="font-bold text-white/60 text-sm">{ENUMS.STAFF_ROLE[role as keyof typeof ENUMS.STAFF_ROLE] || role}</h3>
+            {groupedStaff[role].map((member, index) => (
+              <div key={`${member.id}-${index}`} className="flex items-center gap-1.5 pl-2">
+                <Link
+                  href={`/${member.id[0]}/${member.id.slice(1)}`}
+                  className="text-blue-400 hover:text-blue-500 transition-colors text-sm"
+                >
+                  {member.name}
+                </Link>
+                {member.note && (
+                  <span className="text-white/40 text-xs">({member.note})</span>
+                )}
+              </div>
+            ))}
+          </div>
         ))}
       </div>
     </div>

@@ -62,7 +62,7 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
   const description = vn.description
 
   return (
-    <div className="flex flex-col gap-4 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-8">
+    <div className="flex flex-col gap-3 bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 md:p-6">
       <div>
         {/* TITLE */}
         <div className="flex flex-wrap items-center gap-2">
@@ -80,8 +80,8 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
         <h2 className="text-sm text-gray-500">{subTitle}</h2>
       </div>
       <div className={cn(
-        "grid",
-        image_url && "md:grid-cols-[250px_1fr]"
+        "grid gap-4",
+        image_url && "md:grid-cols-[220px_1fr]"
       )}>
         {/* IMAGE */}
         {red_alert ? (
@@ -156,11 +156,12 @@ export function VNDetailsPanel({ vn, sexualLevel, violenceLevel }: VNDetailsPane
               </div>
             } />
           )}
-          <Row label="Play Time" value={ENUMS.LENGTH[length as keyof typeof ENUMS.LENGTH]
+          <Row label="Play Time" value={length != null ? (
+            ENUMS.LENGTH[length as keyof typeof ENUMS.LENGTH]
             + ((lengthHours || lengthMinutes)
               ? ` (${lengthHours ? `${lengthHours}h` : ``}${lengthMinutes ? `${lengthMinutes}m` : ``} from ${lengthVotes} votes)`
               : ``)
-          } />
+          ) : undefined} />
           <Row label="Release Date" value={released} />
           <PlatformsRow platforms={platforms} />
           <DevelopersRow developers={developers} />

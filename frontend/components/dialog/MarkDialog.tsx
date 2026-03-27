@@ -39,7 +39,7 @@ export function MarkDialog({ open, setOpen, state, categories, toggledCategoryId
             {state === "loading" && <Loader2 className="w-10 h-10 animate-spin" />}
             {state === "error" && <p className="text-red-500/80 font-bold">Something went wrong</p>}
             {state === "notFound" && <p className="text-yellow-500/80 font-bold">No categories found</p>}
-            {state === "error" || state === "notFound" && (
+            {(state === "error" || state === "notFound") && (
               <button onClick={handleRefreshCategories}>
                 <RefreshCw className="w-10 h-10 hover:animate-spin" />
               </button>)}

@@ -69,7 +69,7 @@ export function PaginationButtons({ currentPage, totalPages, onPageChange, disab
 
       {getPageButtons(currentPage, totalPages, "long").map((page) => (
         <Button
-          key={page}
+          key={`long-${page}`}
           variant="outline"
           size="icon"
           onClick={() => onPageChange(page)}
@@ -82,12 +82,12 @@ export function PaginationButtons({ currentPage, totalPages, onPageChange, disab
 
       {addIndicators(getPageButtons(currentPage, totalPages, "medium")).map((page, index) => (
         page === 0 ? (
-          <div key={`page-ellipsis-${index}`} className="hidden md:block lg:hidden">
+          <div key={`med-ellipsis-${index}`} className="hidden md:block lg:hidden">
             ...
           </div>
         ) : (
           <Button
-            key={page}
+            key={`med-${page}`}
             variant="outline"
             size="icon"
             onClick={() => onPageChange(page)}
@@ -101,12 +101,12 @@ export function PaginationButtons({ currentPage, totalPages, onPageChange, disab
 
       {addIndicators(getPageButtons(currentPage, totalPages, "short")).map((page, index) => (
         page === 0 ? (
-          <div key={`page-ellipsis-${index}`} className="block md:hidden">
+          <div key={`short-ellipsis-${index}`} className="block md:hidden">
             ...
           </div>
         ) : (
           <Button
-            key={page}
+            key={`short-${page}`}
             variant="outline"
             size="icon"
             onClick={() => onPageChange(page)}

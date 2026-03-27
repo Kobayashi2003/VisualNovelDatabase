@@ -9,7 +9,7 @@ export function VNVoiceActorsPanel({ vn }: { vn: VN }) {
   return (
     <div className="bg-[#0F2942]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10 p-4 flex flex-col gap-4">
       <h2 className="text-lg font-bold">Voice Actors</h2>
-      <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-1">
         {va.map((entry, index) => (
           <div key={index} className="flex flex-wrap items-center gap-1.5 py-1 border-b border-white/5 last:border-0">
             <Link

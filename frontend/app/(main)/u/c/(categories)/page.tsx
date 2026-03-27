@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { motion, AnimatePresence } from "motion/react"
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 import { CategoryControlPanel } from "@/components/category/CategoryControlPanel"
 import { TogglePanelButton } from "@/components/button/TogglePanelButton"
 import { Loading } from "@/components/status/Loading"
-import { Error } from "@/components/status/Error"
+import { Error as ErrorStatus } from "@/components/status/Error"
 import { NotFound } from "@/components/status/NotFound"
 
 import { DeleteButton } from "@/components/button/DeleteButton"
@@ -83,8 +83,8 @@ function CategoryPageContent() {
   const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
   const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
 
-  const [categoriesAbortController, setCategoriesAbortController] = useState<AbortController>()
-  const [resourcesAbortController, setResourcesAbortController] = useState<AbortController>()
+  const categoriesAbortControllerRef = useRef<AbortController | null>(null)
+  const resourcesAbortControllerRef = useRef<AbortController | null>(null)
 
   const setSelectedType = (value: string) => {
     updateKey("type", value)
@@ -121,9 +121,9 @@ function CategoryPageContent() {
   const fetchCategories = async () => {
     if (!selectedType) return
     try {
-      categoriesAbortController?.abort()
+      categoriesAbortControllerRef.current?.abort()
       const newAbortController = new AbortController()
-      setCategoriesAbortController(newAbortController)
+      categoriesAbortControllerRef.current = newAbortController
 
       setResourceData({
         vns: [],
@@ -159,9 +159,10 @@ function CategoryPageContent() {
         })
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -189,9 +190,9 @@ function CategoryPageContent() {
     }
 
     try {
-      resourcesAbortController?.abort()
+      resourcesAbortControllerRef.current?.abort()
       const newAbortController = new AbortController()
-      setResourcesAbortController(newAbortController)
+      resourcesAbortControllerRef.current = newAbortController
 
       setResourceData({
         vns: [],
@@ -240,7 +241,8 @@ function CategoryPageContent() {
         marksResponse.results = marksResponse.results.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
       }
 
-      const markIds = marksResponse.results.map(mark => mark.id).join(",")
+      const markIdsArray = marksResponse.results.map(mark => mark.id)
+      const markIds = markIdsArray.join(",")
       const requestFunction = {
         v: api.small.vn,
         r: api.small.release,
@@ -272,16 +274,14 @@ function CategoryPageContent() {
 
       if (sortBy === "marked_at") {
         response.results.sort((a, b) => {
-          const aId = a.id.slice(1)
-          const bId = b.id.slice(1)
-          return markIds.indexOf(aId) - markIds.indexOf(bId)
+          return markIdsArray.indexOf(Number(a.id.slice(1))) - markIdsArray.indexOf(Number(b.id.slice(1)))
         })
       }
 
-      setResourceData({
-        ...resourceData,
+      setResourceData(prev => ({
+        ...prev,
         [requestResource[selectedType as keyof typeof requestResource]]: response.results
-      })
+      }))
       setCurrentPageItemsCount(response.results.length)
 
       setResourceState({
@@ -289,9 +289,10 @@ function CategoryPageContent() {
         message: null
       })
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setResourceState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -325,7 +326,7 @@ function CategoryPageContent() {
     } catch (error) {
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -343,7 +344,7 @@ function CategoryPageContent() {
     } catch (error) {
       setCategoryState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -362,7 +363,7 @@ function CategoryPageContent() {
     } catch (error) {
       setResourceState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -395,13 +396,6 @@ function CategoryPageContent() {
   }, [openControlPanel]);
 
   useEffect(() => {
-    return () => {
-      categoriesAbortController?.abort()
-      resourcesAbortController?.abort()
-    }
-  }, [categoriesAbortController, resourcesAbortController])
-
-  useEffect(() => {
     if (categoryState.state !== "error") return
 
     const timeout = setTimeout(() => {
@@ -428,12 +422,18 @@ function CategoryPageContent() {
   useEffect(() => {
     removeMultipleKeys(["cid", "q", "page", "sort", "order"])
     fetchCategories()
+    return () => {
+      categoriesAbortControllerRef.current?.abort()
+    }
   }, [selectedType])
 
   useEffect(() => {
     // removeMultipleKeys(["q", "page", "sort", "order"])
     removeMultipleKeys(["q", "page"])
     fetchResources()
+    return () => {
+      resourcesAbortControllerRef.current?.abort()
+    }
   }, [selectedCategoryId])
 
   useEffect(() => {
@@ -628,7 +628,7 @@ function CategoryPageContent() {
               <Loading message="Loading..." />
             )}
             {resourceState.state === "error" && (
-              <Error message={`${resourceState.message || "Unknown error"}`} />
+              <ErrorStatus message={`${resourceState.message || "Unknown error"}`} />
             )}
             {resourceState.state === "notFound" && (
               <NotFound message="No resources found" />

@@ -43,15 +43,19 @@ def handle_query(query):
             return execute_task(search_resources_task,
                 True, type, params, response_size, page, limit, sort, reverse, count)
 
+        # Default: local-first, fall back to remote if local has no results
+        func_return = get_resources_task(
+            type, params, response_size, page, limit, sort, reverse, count)
+        if func_return.get('status') == 'SUCCESS':
+            return jsonify(func_return)
+
         try:
             func_return = search_resources_task(
                 type, params, response_size, page, limit, sort, reverse, count)
-            assert func_return['status'] == 'SUCCESS'
             return jsonify(func_return)
         except Exception as exc:
-            print(f"Error in search_and_synchronize_remote_task: {exc}")
-            return execute_task(get_resources_task,
-                True, type, params, response_size, page, limit, sort, reverse, count)
+            print(f"Error in search_resources_task: {exc}")
+            return jsonify(func_return)
 
     elif len(query) > 1:
         # Handle get by ID
@@ -71,15 +75,22 @@ def handle_query(query):
             return execute_task(get_resources_task,
                 True, type, {'id':query}, response_size, 1, 1, 'id', False, True)
 
+        # Default: local-first, fall back to remote if local has no results
+        func_return = get_resources_task(
+            type, {'id':query}, response_size, 1, 1, 'id', False, True)
+        if func_return.get('status') == 'SUCCESS':
+            # Async refresh: trigger remote fetch in background to keep local data fresh
+            search_resources_task.delay(
+                type, {'id':query}, response_size, 1, 1, 'id', False, True)
+            return jsonify(func_return)
+
         try:
             func_return = search_resources_task(
                 type, {'id':query}, response_size, 1, 1, 'id', False, True)
-            assert func_return['status'] == 'SUCCESS'
             return jsonify(func_return)
         except Exception as exc:
-            print(f"Error in search_and_synchronize_remote_task: {exc}")
-            return execute_task(get_resources_task,
-                True, type, {'id':query}, response_size, 1, 1, 'id', False, True)
+            print(f"Error in search_resources_task: {exc}")
+            return jsonify(func_return)
 
     else:
         abort(400, description="Invalid query")

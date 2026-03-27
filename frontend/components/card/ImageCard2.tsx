@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -9,15 +10,15 @@ import { ImageOff, RotateCw, RefreshCw } from "lucide-react"
 interface ImageCardProps {
   title: string
   url: string
-  dims?: [number, number]
   msgs?: string[]
   link?: string
   className?: string
 }
 
 
-export function ImageCard2({ title, url, dims, msgs, link, className }: ImageCardProps) {
+export function ImageCard2({ title, url, msgs, link, className }: ImageCardProps) {
 
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [imgUrl, setImgUrl] = useState(url)
@@ -27,6 +28,13 @@ export function ImageCard2({ title, url, dims, msgs, link, className }: ImageCar
     setError(false)
     setImgUrl(url)
   }, [url])
+
+  const imgRef = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) {
+      setLoading(false)
+      setError(false)
+    }
+  }, [imgUrl])
 
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -38,7 +46,7 @@ export function ImageCard2({ title, url, dims, msgs, link, className }: ImageCar
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (link) {
-      window.location.href = link
+      router.push(link)
     }
   }
 
@@ -77,8 +85,9 @@ export function ImageCard2({ title, url, dims, msgs, link, className }: ImageCar
         {imgUrl ? (<>
           <Link href={link || ""}>
             <Image
+              ref={imgRef}
               src={imgUrl}
-              alt={imgUrl}
+              alt={title}
               fill
               loading="lazy"
               onLoad={() => { setLoading(false); setError(false) }}

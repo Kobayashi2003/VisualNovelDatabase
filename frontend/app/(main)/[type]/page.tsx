@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams, useParams } from "next/navigation"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useSearchContext } from "@/context/SearchContext"
@@ -14,7 +14,7 @@ import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 
 import { Loading } from "@/components/status/Loading"
-import { Error } from "@/components/status/Error"
+import { Error as ErrorStatus } from "@/components/status/Error"
 import { NotFound } from "@/components/status/NotFound"
 
 import {
@@ -62,13 +62,13 @@ function SearchResultsContent() {
   const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
   const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
 
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchItems = async () => {
     try {
-      abortController?.abort()
+      abortControllerRef.current?.abort()
       const newController = new AbortController()
-      setAbortController(newController)
+      abortControllerRef.current = newController
 
       const requestFunction = {
         v: api.small.vn,
@@ -112,10 +112,10 @@ function SearchResultsContent() {
       }
 
       const response = await requestFunction[type as keyof typeof requestFunction](params, newController.signal)
-      setResourceData({
-        ...resourceData,
+      setResourceData(prev => ({
+        ...prev,
         [requestResource[type as keyof typeof requestResource]]: response.results
-      })
+      }))
       setTotalPages(Math.ceil(response.count / itemsPerPage))
       if (response.results.length === 0) {
         setResourceState({
@@ -129,9 +129,10 @@ function SearchResultsContent() {
         })
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setResourceState({
         state: "error",
-        message: error as string
+        message: error instanceof Error ? error.message : String(error)
       })
     }
   }
@@ -143,13 +144,10 @@ function SearchResultsContent() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
     fetchItems()
-  }, [currentPage, searchParams, type, sortBy])
-
-  useEffect(() => {
     return () => {
-      abortController?.abort()
+      abortControllerRef.current?.abort()
     }
-  }, [abortController])
+  }, [currentPage, searchParams, type, sortBy])
 
   return (
     <main className="container mx-auto min-h-screen flex flex-col p-4 pb-8">
@@ -211,7 +209,7 @@ function SearchResultsContent() {
           )}
         >
           {resourceState.state === "loading" && <Loading message="Loading..." />}
-          {resourceState.state === "error" && <Error message={`${resourceState.message || "Unknown error"}`} />}
+          {resourceState.state === "error" && <ErrorStatus message={`${resourceState.message || "Unknown error"}`} />}
           {resourceState.state === "notFound" && <NotFound message="No items found" />}
         </motion.div>
 

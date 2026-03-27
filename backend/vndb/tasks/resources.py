@@ -9,11 +9,11 @@ from vndb.database import (
     delete, delete_all, exists
 )
 from .common import (
-    task_with_memoize, task_with_cache_clear, task_plain,
+    task_with_memoize, task_with_cache_clear,
     format_results, NOT_FOUND
 )
 
-@task_with_memoize(timeout=3600)
+@task_with_memoize(timeout=600)
 def get_resource_task(resource_type: str, resource_id: str, response_size: str = 'small') -> dict[str, Any]:
     results = search_local(resource_type, {'id': resource_id}, response_size)
     if not results or not isinstance(results, dict) or not results.get('results'):
@@ -23,7 +23,7 @@ def get_resource_task(resource_type: str, resource_id: str, response_size: str =
     results['source'] = 'local'
     return results
 
-@task_with_memoize(timeout=3600)
+@task_with_memoize(timeout=600)
 def get_resources_task(resource_type: str, args: dict[str, Any], response_size: str = 'small',
                        page: int = 1, limit: int = 20, sort: str = 'id', reverse: bool = False, count: bool = True) -> dict[str, Any]:
     results = search_local(resource_type, args, response_size, page, limit, sort, reverse, count)
@@ -34,7 +34,7 @@ def get_resources_task(resource_type: str, args: dict[str, Any], response_size: 
     results['source'] = 'local'
     return results
 
-@task_with_memoize(timeout=3600)
+@task_with_memoize(timeout=600)
 def search_resource_task(resource_type: str, resource_id: str, response_size: str = 'small') -> dict[str, Any]:
     results = search_remote(resource_type, {'id': resource_id}, response_size)
     if not results or not isinstance(results, dict) or not results.get('results'):
@@ -47,7 +47,7 @@ def search_resource_task(resource_type: str, resource_id: str, response_size: st
     results['source'] = 'remote'
     return results
 
-@task_with_memoize(timeout=3600)
+@task_with_memoize(timeout=600)
 def search_resources_task(resource_type: str, params: dict[str, Any], response_size: str = 'small',
                            page: int = 1, limit: int = 20, sort: str = 'id', reverse: bool = False, count: bool = True) -> dict[str, Any]:
     results = search_remote(resource_type, params, response_size, page, limit, sort, reverse, count)
@@ -116,7 +116,7 @@ def edit_resources_task(resource_type: str, update_datas: list[dict[str, Any]]) 
     return format_results(update_results)
 
 
-@task_plain
+@task_with_cache_clear
 def synchronize_resources_task(resource_type: str, results: list[dict[str, Any]]) -> dict[str, dict[str, bool]]:
     created = {}
     updated = {}

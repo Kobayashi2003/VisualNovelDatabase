@@ -9,7 +9,7 @@ from .local.search import (
 )
 
 from .remote.search import (
-    search as search_remote,
+    search_cache as search_remote,
     search_resources_by_vnid_paginated as search_resources_by_vnid_remote,
     search_resources_by_charid_paginated as search_resources_by_charid_remote,
     search_resources_by_release_id_paginated as search_resources_by_release_id_remote,

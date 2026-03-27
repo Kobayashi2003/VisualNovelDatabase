@@ -59,7 +59,7 @@ def count_inactive_all(type: str) -> int:
     model = MODEL_MAP[type]
     return db.session.query(model).filter(model.deleted_at != None).count()
 
-def updatable(type: str, id: str, update_interval: timedelta = timedelta(hours=1)) -> bool:
+def updatable(type: str, id: str, update_interval: timedelta = timedelta(minutes=10)) -> bool:
     id = formatId(type, id)
     item = get(type, id)
     if not item:

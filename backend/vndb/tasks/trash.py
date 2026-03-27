@@ -11,12 +11,12 @@ from .common import (
     format_results, NOT_FOUND
 )
 
-@task_with_memoize(timeout=3600)
+@task_with_memoize(timeout=600)
 def get_inactive_resource_task(item_type: str, item_id: str) -> dict[str, Any]:
     result = get_inactive(item_type, item_id)
     return format_results(result)
 
-@task_with_memoize(timeout=3600)
+@task_with_memoize(timeout=600)
 def get_inactive_resources_task(item_type: str, page: int = None, limit: int = None, sort: str = 'id', reverse: bool = False, count: bool = True) -> dict[str, Any]:
     results = get_inactive_all(item_type, page, limit, sort, reverse)
     if not results:

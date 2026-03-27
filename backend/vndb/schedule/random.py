@@ -35,8 +35,8 @@ def random_fetch_schedule():
         ('vn', 30),
         # ('release', 30),
         ('character', 30),
-        ('producer', 5),
-        ('staff', 5),
+        # ('producer', 5),
+        # ('staff', 5),
         # ('tag', 5),
         # ('trait', 5)
     ]:
@@ -55,7 +55,7 @@ def random_update_schedule():
 
     def random_update(type: str, update_count: int = 5):
         model = MODEL_MAP[type]
-        ids = [vn.id for vn in model.query.filter(model.deleted_at == None).order_by(model.updated_at.asc().nullsfirst()).limit(update_count).all()]
+        ids = [vn.id for vn in model.query.filter(model.deleted_at == None).order_by(model.id).limit(update_count).all()]
         for id in ids:
             try:
                 if updatable(type, id):
@@ -70,11 +70,11 @@ def random_update_schedule():
                 print(f"Error updating {type} {id}: {e}")
 
     for type, update_count in [
-        ('vn', 3),
+        # ('vn', 3),
         # ('release', 3),
-        ('character', 3),
-        ('producer', 3),
-        ('staff', 3),
+        # ('character', 3),
+        # ('producer', 5),
+        # ('staff', 5),
         # ('tag', 5),
         # ('trait', 5)
     ]:

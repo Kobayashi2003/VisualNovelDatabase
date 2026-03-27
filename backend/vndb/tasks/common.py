@@ -46,14 +46,6 @@ def task_with_cache_clear(func):
         return func(*args, **kwargs)
     return wrapper
 
-def task_plain(func):
-    @celery.task
-    @wraps(func)
-    @error_handler
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    return wrapper
-
 def dont_cache(response):
     # Don't cache if the response is not a dict or if status is 'ERROR'
     return not isinstance(response, dict) or response.get('status') == 'ERROR'

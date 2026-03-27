@@ -189,56 +189,6 @@ def vn_additional_field_releases(vnid: str):
     )['results']
     return releases
 
-def vn_batch_additional_fields(vns: list[dict[str, Any]]):
-    """Batch fetch characters, releases, and publishers for multiple VNs in 2 API calls instead of 2N."""
-    vnids = [vn['id'] for vn in vns]
-
-    # Batch fetch all characters
-    if len(vnids) == 1:
-        char_filter = ["vn", "=", ["id", "=", vnids[0]]]
-    else:
-        char_filter = ["or"] + [["vn", "=", ["id", "=", vid]] for vid in vnids]
-
-    character_fields = get_remote_fields("character", "small")
-    all_characters = []
-    page = 1
-    more = True
-    while more:
-        resp = api.get_character(char_filter, character_fields, page=page, results=100)
-        all_characters.extend(resp.get('results', []))
-        more = resp.get('more', False)
-        page += 1
-
-    # Batch fetch all releases
-    if len(vnids) == 1:
-        rel_filter = ["vn", "=", ["id", "=", vnids[0]]]
-    else:
-        rel_filter = ["or"] + [["vn", "=", ["id", "=", vid]] for vid in vnids]
-
-    release_fields = get_remote_fields("release", "small")
-    all_releases = []
-    page = 1
-    more = True
-    while more:
-        resp = api.get_release(rel_filter, release_fields, page=page, results=100)
-        all_releases.extend(resp.get('results', []))
-        more = resp.get('more', False)
-        page += 1
-
-    # Distribute to each VN
-    for vn in vns:
-        vnid = vn['id']
-        vn['characters'] = [
-            {key: char[key] for key in ['id', 'name', 'original', 'sex', 'vns', 'image']}
-            for char in all_characters
-            if any(v['id'] == vnid for v in char.get('vns', []))
-        ]
-        vn['releases'] = [
-            rel for rel in all_releases
-            if any(v['id'] == vnid for v in rel.get('vns', []))
-        ]
-        vn['publishers'] = vn_additional_field_publishers(vn['releases'])
-
 def vn_additional_field_publishers(releases: list[dict[str, Any]]):
     release_languages = [
         [language['lang'] for language in release['languages']]
@@ -275,7 +225,7 @@ def vn_additional_field_publishers(releases: list[dict[str, Any]]):
 def character_additional_field_seiyuu(character: dict[str, Any]):
     charid = character['id']
 
-    vns = api.get_vn(
+    vns = get_vn_cache(
         filters=get_remote_filters('vn', {'id': ','.join([ vn['id'] for vn in character['vns']])}),
         fields=['va.staff.id', 'va.staff.name', 'va.staff.original', 'va.character.id', 'va.note']
     )['results']
@@ -331,8 +281,11 @@ def search(resource_type: str, params: dict[str, Any], response_size: str = 'sma
         )
 
     if (resource_type == 'vn' and response_size == 'large'):
-        if results.get('results'):
-            vn_batch_additional_fields(results['results'])
+        for vn in results['results']:
+            vnid = vn['id']
+            vn['characters'] = vn_additional_field_characters(vnid)
+            vn['releases'] = vn_additional_field_releases(vnid)
+            vn['publishers'] = vn_additional_field_publishers(vn['releases'])
 
     if (resource_type == 'character' and response_size == 'large'):
         for char in results['results']:
@@ -529,6 +482,30 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
         vn['characters'] = characters['results']
     return results
 
+
+@memoize(timeout=3600)
+def get_vn_cache(*args, **kwargs): return api.get_vn(*args, **kwargs)
+
+@memoize(timeout=3600)
+def get_release_cache(*args, **kwargs): return api.get_release(*args, **kwargs)
+
+@memoize(timeout=3600)
+def get_character_cache(*args, **kwargs): return api.get_character(*args, **kwargs)
+
+@memoize(timeout=3600)
+def get_producer_cache(*args, **kwargs): return api.get_producer(*args, **kwargs)
+
+@memoize(timeout=3600)
+def get_staff_cache(*args, **kwargs): return api.get_staff(*args, **kwargs)
+
+@memoize(timeout=3600)
+def get_tag_cache(*args, **kwargs): return api.get_tag(*args, **kwargs)
+
+@memoize(timeout=3600)
+def get_trait_cache(*args, **kwargs): return api.get_trait(*args, **kwargs)
+
+@memoize(timeout=3600)
+def search_cache(*args, **kwargs): return search(*args, **kwargs)
 
 @memoize(timeout=3600)
 def search_resources_by_vnid_cache(*args, **kwargs): return search_resources_by_vnid(*args, **kwargs)

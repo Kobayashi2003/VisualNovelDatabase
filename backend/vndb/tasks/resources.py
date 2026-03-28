@@ -9,7 +9,7 @@ from vndb.database import (
     delete, delete_all, exists
 )
 from .common import (
-    task_with_memoize, task_with_cache_clear,
+    task_with_memoize, task_with_cache_clear, task_basic,
     format_results, NOT_FOUND
 )
 
@@ -116,14 +116,15 @@ def edit_resources_task(resource_type: str, update_datas: list[dict[str, Any]]) 
     return format_results(update_results)
 
 
-@task_with_cache_clear
+@task_basic
 def synchronize_resources_task(resource_type: str, results: list[dict[str, Any]]) -> dict[str, dict[str, bool]]:
     created = {}
     updated = {}
     for result in results:
         id = result['id']
+        data = convert_remote_to_local(resource_type, result)
         if not exists(resource_type, id):
-            created[id] = (create(resource_type, id, result) is not None)
+            created[id] = (create(resource_type, id, data) is not None)
         elif updatable(resource_type, id):
-            updated[id] = (update(resource_type, id, result) is not None)
+            updated[id] = (update(resource_type, id, data) is not None)
     return {'created': created, 'updated': updated}

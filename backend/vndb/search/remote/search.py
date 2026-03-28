@@ -476,7 +476,7 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
     for vn in results['results']:
         vnid = vn['id']
         characters = unpaginated_search(
-            search_function=search_characters_by_resource_id,
+            search_function=search_characters_by_resource_id_cache,
             resource_type='vn', resource_id=vnid, response_size='small'
         )
         vn['characters'] = characters['results']

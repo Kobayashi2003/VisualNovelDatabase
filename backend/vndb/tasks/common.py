@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from functools import wraps
@@ -46,9 +47,13 @@ def task_with_cache_clear(func):
         return func(*args, **kwargs)
     return wrapper
 
-def dont_cache(response):
-    # Don't cache if the response is not a dict or if status is 'ERROR'
-    return not isinstance(response, dict) or response.get('status') == 'ERROR'
+def task_basic(func):
+    @celery.task
+    @wraps(func)
+    @error_handler
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
 
 def task_with_memoize(timeout=60*60*24):
     def decorator(func):
@@ -56,7 +61,7 @@ def task_with_memoize(timeout=60*60*24):
         @wraps(func)
         @error_handler
         def wrapper(*args, **kwargs):
-            cache_key = f"{func.__name__}:{args}:{kwargs}"
+            cache_key = f"{func.__name__}:{json.dumps(args, sort_keys=True, default=str)}"
             result = cache.get(cache_key)
             if result is None:
                 result = func(*args, **kwargs)

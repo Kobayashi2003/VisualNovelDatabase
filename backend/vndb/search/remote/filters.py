@@ -76,6 +76,7 @@ class VNDBFilters:
         "search": VNDBFilter("search", FilterType.STRING, "m"),
         "lang": VNDBFilter("lang", FilterType.STRING),
         "type": VNDBFilter("type", FilterType.STRING),
+        "extlink": VNDBFilter("extlink", FilterType.STRING, "m"),
     }
 
     STAFF = {
@@ -293,11 +294,9 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
     return vals[0] if vals else {}
 
 def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, Any]:
+    from .search import api
     url = "https://api.vndb.org/kana/tag"
-    client = httpx.Client()
-
-    def _cleanup():
-        client.close()
+    client = api.client
 
     def get_tag_ids(tag: str) -> list[str]:
         """Get tag IDs from tag name using unpaginated search"""
@@ -350,35 +349,11 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
         return new_expr
 
     new_expression = process_tags(expression.strip())
-    _cleanup()
 
     field = 'dtag' if directly else 'tag'
     return parse_logical_expression(new_expression, field)
 
 def parse_trait_expression(expression: str, directly: bool = False) -> dict[str, Any]:
-    url = "https://api.vndb.org/kana/trait"
-    client = httpx.Client()
-
-    def _cleanup():
-        client.close()
-
-    # def get_trait_ids(trait: str) -> List[str]:
-    #     """Get trait IDs from trait name using unpaginated search"""
-    #     results = []
-    #     page = 1
-    #     more = True
-    #     while more:
-    #         payload = {
-    #             "filters": ["search", "=", trait],
-    #             "fields": "id",
-    #             "page": page,
-    #             "results": 100
-    #         }
-    #         response = client.post(url, json=payload)
-    #         results.extend(response.json().get('results', []))
-    #         more = response.json().get('more', False)
-    #         page += 1
-    #     return [result['id'] for result in results]
 
     def get_trait_ids(trait: str) -> list[str]:
         # Recently, there is no way to get trait ids from trait name and trait group name at the same time.
@@ -405,7 +380,6 @@ def parse_trait_expression(expression: str, directly: bool = False) -> dict[str,
         return new_expr
 
     new_expression = process_traits(expression.strip())
-    _cleanup()
 
     field = 'dtrait' if directly else 'trait'
     return parse_logical_expression(new_expression, field)
@@ -707,6 +681,9 @@ def get_producer_filters(params: dict[str, Any]) -> dict[str, Any]:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, field):
                 filters.append(parsed)
+
+    if extlink := params.get('extlink'):
+        filters.append({"extlink": extlink})
 
     filters.extend(get_producer_additional_filters(params))
 

@@ -19,8 +19,8 @@ query_bp = Blueprint('query', __name__, url_prefix='/')
 @query_bp.route('/<string:query>', methods=['GET'])
 def handle_query(query):
 
-    type = RESOURCE_TYPE_MAP.get(query[0].lower())
-    if not type:
+    resource_type = RESOURCE_TYPE_MAP.get(query[0].lower())
+    if not resource_type:
         abort(400, description="Invalid resource type")
 
     params = request.args.to_dict()
@@ -38,20 +38,21 @@ def handle_query(query):
 
         if search_from == 'local':
             return execute_task(get_resources_task,
-                True, type, params, response_size, page, limit, sort, reverse, count)
+                True, resource_type, params, response_size, page, limit, sort, reverse, count)
         elif search_from == 'remote':
             return execute_task(search_resources_task,
-                True, type, params, response_size, page, limit, sort, reverse, count)
+                True, resource_type, params, response_size, page, limit, sort, reverse, count)
 
         try:
             func_return = search_resources_task(
-                type, params, response_size, page, limit, sort, reverse, count)
-            assert func_return['status'] == 'SUCCESS'
+                resource_type, params, response_size, page, limit, sort, reverse, count)
+            if func_return['status'] != 'SUCCESS':
+                raise ValueError(func_return['status'])
             return jsonify(func_return)
         except Exception as exc:
             print(f"Error in search_and_synchronize_remote_task: {exc}")
             return execute_task(get_resources_task,
-                True, type, params, response_size, page, limit, sort, reverse, count)
+                True, resource_type, params, response_size, page, limit, sort, reverse, count)
 
     elif len(query) > 1:
         # Handle get by ID
@@ -63,23 +64,23 @@ def handle_query(query):
         search_from = params.pop('from', '')
         response_size = params.pop('size', 'large')
 
-
         if search_from == 'remote':
             return execute_task(search_resources_task,
-                True, type, {'id':query}, response_size, 1, 1, 'id', False, True)
+                True, resource_type, {'id':query}, response_size, 1, 1, 'id', False, True)
         elif search_from == 'local':
             return execute_task(get_resources_task,
-                True, type, {'id':query}, response_size, 1, 1, 'id', False, True)
+                True, resource_type, {'id':query}, response_size, 1, 1, 'id', False, True)
 
         try:
             func_return = search_resources_task(
-                type, {'id':query}, response_size, 1, 1, 'id', False, True)
-            assert func_return['status'] == 'SUCCESS'
+                resource_type, {'id':query}, response_size, 1, 1, 'id', False, True)
+            if func_return['status'] != 'SUCCESS':
+                raise ValueError(func_return['status'])
             return jsonify(func_return)
         except Exception as exc:
             print(f"Error in search_and_synchronize_remote_task: {exc}")
             return execute_task(get_resources_task,
-                True, type, {'id':query}, response_size, 1, 1, 'id', False, True)
+                True, resource_type, {'id':query}, response_size, 1, 1, 'id', False, True)
 
     else:
         abort(400, description="Invalid query")

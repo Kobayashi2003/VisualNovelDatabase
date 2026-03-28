@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     with open(payload_file_path, 'r') as f:
         payload = json.load(f)
-    
+
     # payload['filters'] = and_filters(
     #     or_filters(
     #         ["platform", "=", "psp"],

@@ -61,8 +61,7 @@ def search_resources_task(resource_type: str, params: dict[str, Any], response_s
     results['source'] = 'remote'
     return results
 
-@task_with_cache_clear
-def update_resource_task(resource_type: str, resource_id: str) -> dict[str, Any]:
+def _update_resource(resource_type: str, resource_id: str) -> dict[str, Any]:
     remote_result = search_remote(resource_type, {'id':resource_id}, 'large')
     if not remote_result or not remote_result.get('results'):
         return NOT_FOUND
@@ -77,13 +76,17 @@ def update_resource_task(resource_type: str, resource_id: str) -> dict[str, Any]
     return format_results(data)
 
 @task_with_cache_clear
+def update_resource_task(resource_type: str, resource_id: str) -> dict[str, Any]:
+    return _update_resource(resource_type, resource_id)
+
+@task_with_cache_clear
 def update_resources_task(resource_type: str) -> dict[str, Any]:
     update_results = {}
 
     resources = get_all(resource_type)
     for resource in resources:
-        result = update_resource_task(resource_type, resource.id)
-        update_results[resource.id] = True if result['status'] == 'SUCCESS' else False
+        result = _update_resource(resource_type, resource.id)
+        update_results[resource.id] = result['status'] == 'SUCCESS'
 
     return format_results(update_results)
 
@@ -97,10 +100,13 @@ def delete_resources_task(resource_type: str) -> dict[str, Any]:
     deleted_count = delete_all(resource_type)
     return format_results(deleted_count)
 
-@task_with_cache_clear
-def edit_resource_task(resource_type: str, resource_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
+def _edit_resource(resource_type: str, resource_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
     result = update(resource_type, resource_id, update_data)
     return format_results(result)
+
+@task_with_cache_clear
+def edit_resource_task(resource_type: str, resource_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
+    return _edit_resource(resource_type, resource_id, update_data)
 
 @task_with_cache_clear
 def edit_resources_task(resource_type: str, update_datas: list[dict[str, Any]]) -> dict[str, Any]:
@@ -110,8 +116,8 @@ def edit_resources_task(resource_type: str, update_datas: list[dict[str, Any]]) 
         resource_id = update_data.pop('id', None)
         if not resource_id:
             continue
-        result = edit_resource_task(resource_type, resource_id, update_data)
-        update_results[resource_id] = True if result['status'] == 'SUCCESS' else False
+        result = _edit_resource(resource_type, resource_id, update_data)
+        update_results[resource_id] = result['status'] == 'SUCCESS'
 
     return format_results(update_results)
 

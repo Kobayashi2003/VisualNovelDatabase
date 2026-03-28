@@ -174,18 +174,18 @@ class Trait(db.Model):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 # ----------------------------------------
-# Variables 
+# Variables
 # ----------------------------------------
 
 ModelType = Union[VN, Tag, Producer, Staff, Character, Trait, Release]
 
 MODEL_MAP = {
-    'vn': VN, 
-    'tag': Tag, 
+    'vn': VN,
+    'tag': Tag,
     'producer': Producer,
-    'staff': Staff, 
+    'staff': Staff,
     'character': Character,
-    'trait': Trait, 
+    'trait': Trait,
     'release': Release
 }
 

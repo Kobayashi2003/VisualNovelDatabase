@@ -918,8 +918,8 @@ def get_producer_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if lang := params.get('lang'):
         filters.append(Producer.lang == lang)
     
-    if type := params.get('type'):
-        filters.append(Producer.type == type)
+    if producer_type := params.get('type'):
+        filters.append(Producer.type == producer_type)
 
     if extlink := params.get('extlink'):
         filters.append(or_(

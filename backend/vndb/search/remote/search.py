@@ -309,16 +309,15 @@ def search_resources_by_release_id(release_id: str, related_resource_type: str, 
         "results": 100
     }
 
-    with httpx.Client() as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        results = response.json()['results'][0]
-        results = results.get(
-            {
-                'vn': 'vns',
-                'producer': 'producers'
-            }.get(related_resource_type)
-        )
+    response = api.client.post(url, json=payload)
+    response.raise_for_status()
+    results = response.json()['results'][0]
+    results = results.get(
+        {
+            'vn': 'vns',
+            'producer': 'producers'
+        }.get(related_resource_type)
+    )
 
     return {'results': results}
 
@@ -337,16 +336,15 @@ def search_resources_by_charid(charid: str, related_resource_type: str, response
         "results": 100
     }
 
-    with httpx.Client() as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        results = response.json()['results'][0]
-        results = results.get(
-            {
-                'trait': 'traits',
-                'vn': 'vns'
-            }.get(related_resource_type)
-        )
+    response = api.client.post(url, json=payload)
+    response.raise_for_status()
+    results = response.json()['results'][0]
+    results = results.get(
+        {
+            'trait': 'traits',
+            'vn': 'vns'
+        }.get(related_resource_type)
+    )
 
     return {'results': results}
 
@@ -367,18 +365,17 @@ def search_resources_by_vnid(vnid: str, related_resource_type: str, response_siz
         "results": 100
     }
 
-    with httpx.Client() as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        results = response.json()['results'][0]
-        results = results.get(
-            {
-                'vn': 'relations',
-                'tag': 'tags',
-                'producer': 'developers',
-                'staff': 'staff'
-            }.get(related_resource_type)
-        )
+    response = api.client.post(url, json=payload)
+    response.raise_for_status()
+    results = response.json()['results'][0]
+    results = results.get(
+        {
+            'vn': 'relations',
+            'tag': 'tags',
+            'producer': 'developers',
+            'staff': 'staff'
+        }.get(related_resource_type)
+    )
 
     return {'results': results}
 
@@ -403,12 +400,10 @@ def search_releases_by_resource_id(resource_type: str, resource_id: str, respons
         "count": count
     }
 
-    with httpx.Client() as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        results = response.json()
+    response = api.client.post(url, json=payload)
+    response.raise_for_status()
 
-    return results
+    return response.json()
 
 def search_characters_by_resource_id(resource_type: str, resource_id: str, response_size: str = 'small',
                                       sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
@@ -432,12 +427,10 @@ def search_characters_by_resource_id(resource_type: str, resource_id: str, respo
         "count": count
     }
 
-    with httpx.Client() as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        results = response.json()
+    response = api.client.post(url, json=payload)
+    response.raise_for_status()
 
-    return results
+    return response.json()
 
 def search_vns_by_resource_id(resource_type: str, resource_id: str, response_size: str = 'small',
                               sort: str = 'id', reverse: bool = False, limit: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
@@ -465,10 +458,9 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
         "count": count
     }
 
-    with httpx.Client() as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        results = response.json()
+    response = api.client.post(url, json=payload)
+    response.raise_for_status()
+    results = response.json()
 
     if response_size == 'small':
         return results

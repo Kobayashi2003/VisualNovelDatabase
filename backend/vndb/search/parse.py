@@ -64,16 +64,16 @@ class Parser:
     def validate_expression(self) -> bool:
         """
         Validate the syntax of the expression.
-        
+
         Grammar:
         expression ::= term (',' term)*
         term      ::= factor ('+' factor)*
         factor    ::= '(' expression ')'
                   |  term
-        
+
         Returns:
             bool: True if the expression is syntactically valid
-            
+
         Raises:
             ParserError: If the expression is invalid
         """
@@ -92,7 +92,7 @@ class Parser:
     def _validate_expression(self) -> None:
         """Validate an expression (OR level)."""
         self._validate_term()
-        
+
         while self.check(TokenType.OR):
             self.match(TokenType.OR)
             self._validate_term()
@@ -100,7 +100,7 @@ class Parser:
     def _validate_term(self) -> None:
         """Validate a term (AND level)."""
         self._validate_factor()
-        
+
         while self.check(TokenType.AND):
             self.match(TokenType.AND)
             self._validate_factor()
@@ -123,10 +123,10 @@ class Parser:
 def normalize_expression(expression: str) -> str:
     """
     Normalize the expression by removing spaces around operators while preserving spaces within terms.
-    
+
     Args:
         expression: The input expression to normalize
-        
+
     Returns:
         The normalized expression
     """
@@ -135,25 +135,25 @@ def normalize_expression(expression: str) -> str:
     normalized = re.sub(r'\s*,\s*', ',', normalized)
     normalized = re.sub(r'\s*\(\s*', '(', normalized)
     normalized = re.sub(r'\s*\)\s*', ')', normalized)
-    
+
     return normalized
 
 def tokenize(expression: str) -> list[Token]:
     """
     Tokenize the input expression into a list of tokens.
-    
+
     Args:
         expression: The input string to tokenize
-        
+
     Returns:
         list of Token objects
-        
+
     Raises:
         ParserError: If invalid characters are found
     """
     tokens = []
     position = 0
-    
+
     # Define token patterns
     patterns = {
         'LPAREN': r'\(',
@@ -162,38 +162,38 @@ def tokenize(expression: str) -> list[Token]:
         'OR': r',',
         'TERM': r'[^\(\)\+,]+',  # Match any characters except ()+ and ,
     }
-    
+
     # Create regex pattern
     pattern = '|'.join(f'(?P<{k}>{v})' for k, v in patterns.items())
     regex = re.compile(pattern)
-    
+
     # Find all matches
     for match in regex.finditer(expression):
         token_type = match.lastgroup
         token_value = match.group(token_type)
         start_pos = match.start()
-        
+
         # Skip whitespace
         if start_pos > position:
             raise TokenizeError(f"Invalid characters at position {position}", position)
-            
+
         tokens.append(Token(TokenType[token_type], token_value, start_pos))
         position = match.end()
-    
+
     # Check for remaining characters
     if position < len(expression):
         raise TokenizeError(f"Invalid characters at position {position}", position)
-    
+
     tokens.append(Token(TokenType.EOF, position=len(expression)))
     return tokens
 
 def validate_logical_expression(expression: str) -> bool:
     """
     Validate the syntax of a logical expression.
-    
+
     Args:
         expression: The input expression to validate
-        
+
     Returns:
         bool: True if the expression is syntactically valid
     """
@@ -222,7 +222,7 @@ if __name__ == "__main__":
         "Gang Rape + + b", # Invalid
         "Gang Rape , , b", # Invalid
     ]
-    
+
     for expr in test_cases:
         print(f"\nExpression: {expr}")
         try:

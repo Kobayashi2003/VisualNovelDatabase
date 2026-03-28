@@ -49,8 +49,8 @@ class FieldGroup(metaclass=FieldMeta):
 class VNDBFields:
     class VN(FieldGroup):
         _prefix = ""
-        _fields = ['ID', 'TITLE', 'ALTTITLE', 'ALIASES', 'OLANG', 'DEVSTATUS', 'RELEASED', 
-                   'LANGUAGES', 'PLATFORMS', 'LENGTH', 'LENGTH_MINUTES', 'LENGTH_VOTES', 
+        _fields = ['ID', 'TITLE', 'ALTTITLE', 'ALIASES', 'OLANG', 'DEVSTATUS', 'RELEASED',
+                   'LANGUAGES', 'PLATFORMS', 'LENGTH', 'LENGTH_MINUTES', 'LENGTH_VOTES',
                    'DESCRIPTION', 'AVERAGE', 'RATING', 'VOTECOUNT']
 
         class TITLES(FieldGroup):
@@ -64,7 +64,7 @@ class VNDBFields:
         class SCREENSHOTS(FieldGroup):
             _prefix = "screenshots."
             _fields = ['URL', 'DIMS', 'SEXUAL', 'VIOLENCE', 'THUMBNAIL', 'THUMBNAIL_DIMS']
-            
+
             class RELEASE(FieldGroup):
                 _prefix = "release."
                 _fields = ['ID', 'TITLE']
@@ -110,7 +110,7 @@ class VNDBFields:
 
     class Release(FieldGroup):
         _prefix = ""
-        _fields = ['ID', 'TITLE', 'ALTTITLE', 'PLATFORMS', 'RELEASED', 'MINAGE', 'PATCH', 'FREEWARE', 
+        _fields = ['ID', 'TITLE', 'ALTTITLE', 'PLATFORMS', 'RELEASED', 'MINAGE', 'PATCH', 'FREEWARE',
                    'UNCENSORED', 'OFFICIAL', 'HAS_ERO', 'RESOLUTION', 'ENGINE', 'VOICED', 'NOTES', 'GTIN', 'CATALOG']
 
         class LANGUAGES(FieldGroup):
@@ -120,18 +120,18 @@ class VNDBFields:
         class MEDIA(FieldGroup):
             _prefix = "media."
             _fields = ['MEDIUM', 'QTY']
-        
+
         class VNS(FieldGroup):
             _prefix = "vns."
             _fields = ['ID', 'RTYPE', 'TITLE']
-        
+
         class PRODUCERS(FieldGroup):
             _prefix = "producers."
             _fields = ['ID', 'DEVELOPER', 'PUBLISHER', 'NAME', 'ORIGINAL']
 
         class IMAGES(FieldGroup):
             _prefix = "images."
-            _fields = ['ID', 'TYPE', 'VN', 'LANGUAGES', 'PHOTO', 'URL', 'DIMS', 'SEXUAL', 
+            _fields = ['ID', 'TYPE', 'VN', 'LANGUAGES', 'PHOTO', 'URL', 'DIMS', 'SEXUAL',
                        'VIOLENCE', 'THUMBNAIL', 'THUMBNAIL_DIMS']
 
         class EXTLINKS(FieldGroup):
@@ -140,7 +140,7 @@ class VNDBFields:
 
     class Character(FieldGroup):
         _prefix = ""
-        _fields = ['ID', 'NAME', 'ORIGINAL', 'ALIASES', 'DESCRIPTION', 'BLOOD_TYPE', 'HEIGHT', 
+        _fields = ['ID', 'NAME', 'ORIGINAL', 'ALIASES', 'DESCRIPTION', 'BLOOD_TYPE', 'HEIGHT',
                    'WEIGHT', 'BUST', 'WAIST', 'HIPS', 'CUP', 'AGE', 'BIRTHDAY', 'SEX']
 
         class IMAGE(FieldGroup):
@@ -185,7 +185,7 @@ class VNDBFields:
 
     class Trait(FieldGroup):
         _prefix = ""
-        _fields = ['ID', 'NAME', 'ALIASES', 'DESCRIPTION', 'SEARCHABLE', 'APPLICABLE', 
+        _fields = ['ID', 'NAME', 'ALIASES', 'DESCRIPTION', 'SEARCHABLE', 'APPLICABLE',
                    'GROUP_ID', 'GROUP_NAME', 'CHAR_COUNT']
 
 

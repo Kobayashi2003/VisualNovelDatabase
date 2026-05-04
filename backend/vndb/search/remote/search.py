@@ -311,7 +311,10 @@ def search_resources_by_release_id(release_id: str, related_resource_type: str, 
 
     response = api.client.post(url, json=payload)
     response.raise_for_status()
-    results = response.json()['results'][0]
+    api_results = response.json().get('results', [])
+    if not api_results:
+        return {'results': []}
+    results = api_results[0]
     results = results.get(
         {
             'vn': 'vns',
@@ -338,7 +341,10 @@ def search_resources_by_charid(charid: str, related_resource_type: str, response
 
     response = api.client.post(url, json=payload)
     response.raise_for_status()
-    results = response.json()['results'][0]
+    api_results = response.json().get('results', [])
+    if not api_results:
+        return {'results': []}
+    results = api_results[0]
     results = results.get(
         {
             'trait': 'traits',
@@ -367,7 +373,10 @@ def search_resources_by_vnid(vnid: str, related_resource_type: str, response_siz
 
     response = api.client.post(url, json=payload)
     response.raise_for_status()
-    results = response.json()['results'][0]
+    api_results = response.json().get('results', [])
+    if not api_results:
+        return {'results': []}
+    results = api_results[0]
     results = results.get(
         {
             'vn': 'relations',

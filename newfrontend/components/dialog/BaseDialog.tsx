@@ -1,0 +1,60 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import { cn } from "@/lib/utils"
+import { X } from "lucide-react"
+
+interface BaseDialogProps {
+  open: boolean
+  setOpen: (open: boolean) => void
+  title: string
+  children: React.ReactNode
+  className?: string
+}
+
+export function BaseDialog({ open, setOpen, title, children, className }: BaseDialogProps) {
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+    if (open) document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [open, setOpen])
+
+  if (!open || !mounted) return null
+
+  return createPortal(
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+      onClick={(e) => { if (e.target === overlayRef.current) setOpen(false) }}
+    >
+      <div className={cn(
+        "relative w-full max-w-md",
+        "bg-elevated border border-white/10 rounded-xl",
+        "shadow-2xl shadow-black/50",
+        "max-h-[80vh] overflow-y-auto",
+        className
+      )}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <h2 className="text-lg font-bold text-white">{title}</h2>
+          <button
+            onClick={() => setOpen(false)}
+            className="p-1.5 rounded-full text-muted hover:text-white hover:bg-white/10 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-6 py-4">{children}</div>
+      </div>
+    </div>,
+    document.body
+  )
+}

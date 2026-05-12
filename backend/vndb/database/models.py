@@ -143,7 +143,6 @@ class Tag(db.Model):
     __tablename__ = 'tags'
 
     id = Column(String, primary_key=True)
-    aid = Column(String)
     name = Column(String)
     aliases = Column(ARRAY(String))
     description = Column(Text)

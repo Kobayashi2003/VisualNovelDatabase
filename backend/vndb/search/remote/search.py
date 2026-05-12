@@ -19,7 +19,10 @@ class VNDBEndpoint(Enum):
 
 class VNDBAPIWrapper:
     def __init__(self, api_token: str | None = None):
-        self.client = httpx.Client()
+        self.client = httpx.Client(
+            timeout=30.0,
+            transport=httpx.HTTPTransport(retries=1)
+        )
         self.client.headers.update({"Content-Type": "application/json"})
         if api_token:
             self.client.headers.update({"Authorization": f"Token {api_token}"})

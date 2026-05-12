@@ -133,7 +133,7 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
 
     operator, filter_value = '=', value
 
-    if 'o' in filter_def.flags:
+    if 'o' in filter_def.flags and isinstance(value, str):
         pattern = r'^(>=|<=|>|<|=|!=)(.+)$'
         match = re.match(pattern, value.strip())
         if match:
@@ -203,7 +203,8 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
             raise ValueError(f"Invalid value: {value}")
         filter_value = match.group(1)
 
-    filter_value = str(filter_value)
+    if not isinstance(filter_value, list):
+        filter_value = str(filter_value)
 
     return [key, operator, filter_value]
 

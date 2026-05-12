@@ -45,13 +45,14 @@ interface SearchPanelProps {
   initialOrder: string
   initialFilters: Record<string, string>
   onApply: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>) => void
+  onSave?: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>) => void
 }
 
 export function SearchPanel({
   open, setOpen,
   initialFrom,
   initialType, initialSortBy, initialOrder, initialFilters,
-  onApply,
+  onApply, onSave,
 }: SearchPanelProps) {
   const [mounted, setMounted] = useState(false)
   const [localFrom, setLocalFromRaw] = useState(initialFrom)
@@ -98,6 +99,12 @@ export function SearchPanel({
   const handleApply = () => {
     const filterParams = buildFilterParams(localType, localFilterState)
     onApply(localFrom, localType, localSortBy, localOrder, filterParams)
+    setOpen(false)
+  }
+
+  const handleApplyOnly = () => {
+    const filterParams = buildFilterParams(localType, localFilterState)
+    onSave?.(localFrom, localType, localSortBy, localOrder, filterParams)
     setOpen(false)
   }
 
@@ -261,12 +268,18 @@ export function SearchPanel({
         </div>
 
         {/* ── Footer ──────────────────────────────────────────────────────── */}
-        <div className="shrink-0 px-5 py-4 border-t border-white/10">
+        <div className="shrink-0 px-5 py-4 border-t border-white/10 flex gap-2">
           <button
             onClick={handleApply}
-            className="w-full py-2.5 rounded-full text-sm font-bold text-white bg-accent hover:bg-accent-hover transition-all"
+            className="flex-1 py-2.5 rounded-full text-sm font-bold text-white bg-accent hover:bg-accent-hover transition-all"
           >
             Search
+          </button>
+          <button
+            onClick={handleApplyOnly}
+            className="flex-1 py-2.5 rounded-full text-sm font-bold text-white/80 bg-white/10 hover:bg-white/20 transition-all"
+          >
+            Apply
           </button>
         </div>
       </div>

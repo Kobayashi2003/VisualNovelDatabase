@@ -147,6 +147,7 @@ export interface VN {
     id: string
     title: string
     released?: string
+    official?: boolean
     languages?: Array<{
       lang: string
       title?: string
@@ -455,3 +456,5 @@ export interface Trait_Small {
   group_id?: string
   group_name?: string
 }
+
+export type MarkedItem<T> = T & { marked_at: string }

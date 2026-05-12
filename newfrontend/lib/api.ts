@@ -79,6 +79,14 @@ const fetchUserserve = async <T>(
   return await response.json()
 }
 
+// Maps full type names (used in frontend) to single-letter route prefixes (used by backend)
+const TYPE_ROUTE: Record<string, string> = {
+  vn: 'v', release: 'r', character: 'c', producer: 'p', staff: 's', tag: 'g', trait: 'i',
+}
+function typeRoute(type: string): string {
+  return TYPE_ROUTE[type] ?? type
+}
+
 function convertToImgserveUrl(url: string): string {
   const match = url.match(/^https?:\/\/[^/]+\/(cv|sf|ch|cv\.t|sf\.t|ch\.t)\/\d+\/(\d+)\.jpg$/)
   if (!match) return url
@@ -206,6 +214,37 @@ export const api = {
       trait: (id: number, params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
         params.size = "small"; return fetchVNDBById<Trait_Small>(`i${id}`, params, undefined, abortSignal)
       }
+    },
+
+    byIds: {
+      vn: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as VN_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<VN_Small>(`v`, { ...params, size: "small", id: ids.map(id => `v${id}`).join(",") }, processSmallVNImages, abortSignal)
+      },
+      release: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as Release_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<Release_Small>(`r`, { ...params, size: "small", id: ids.map(id => `r${id}`).join(",") }, undefined, abortSignal)
+      },
+      character: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as Character_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<Character_Small>(`c`, { ...params, size: "small", id: ids.map(id => `c${id}`).join(",") }, processSmallCharacterImages, abortSignal)
+      },
+      producer: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as Producer_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<Producer_Small>(`p`, { ...params, size: "small", id: ids.map(id => `p${id}`).join(",") }, undefined, abortSignal)
+      },
+      staff: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as Staff_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<Staff_Small>(`s`, { ...params, size: "small", id: ids.map(id => `s${id}`).join(",") }, undefined, abortSignal)
+      },
+      tag: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as Tag_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<Tag_Small>(`g`, { ...params, size: "small", id: ids.map(id => `g${id}`).join(",") }, undefined, abortSignal)
+      },
+      trait: (ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+        if (!ids.length) return Promise.resolve({ results: [] as Trait_Small[], status: 'OK', source: 'local', more: false, count: 0 })
+        return fetchVNDB<Trait_Small>(`i`, { ...params, size: "small", id: ids.map(id => `i${id}`).join(",") }, undefined, abortSignal)
+      },
     }
   },
 
@@ -220,16 +259,20 @@ export const api = {
 
   category: {
     get: (type: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<Category[]>(`${type}/c`, "GET", undefined, abortSignal),
+      fetchUserserve<Category[]>(`${typeRoute(type)}/c`, "GET", undefined, abortSignal),
     create: (type: string, categoryName: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<Category>(`${type}/c`, "POST", { category_name: categoryName }, abortSignal),
+      fetchUserserve<Category>(`${typeRoute(type)}/c`, "POST", { category_name: categoryName }, abortSignal),
     update: (type: string, categoryId: number, newCategoryName: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<Category>(`${type}/c${categoryId}`, "PUT", { category_name: newCategoryName }, abortSignal),
+      fetchUserserve<Category>(`${typeRoute(type)}/c${categoryId}`, "PUT", { category_name: newCategoryName }, abortSignal),
     delete: (type: string, categoryId: number, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ message: string }>(`${type}/c${categoryId}`, "DELETE", undefined, abortSignal),
+      fetchUserserve<{ message: string }>(`${typeRoute(type)}/c${categoryId}`, "DELETE", undefined, abortSignal),
     addMark: (type: string, categoryId: number, markId: number, abortSignal?: AbortSignal) =>
-      fetchUserserve<Category>(`${type}/c${categoryId}/m`, "POST", { mark_id: markId }, abortSignal),
+      fetchUserserve<Category>(`${typeRoute(type)}/c${categoryId}/m`, "POST", { mark_id: markId }, abortSignal),
     removeMark: (type: string, categoryId: number, markId: number, abortSignal?: AbortSignal) =>
-      fetchUserserve<Category>(`${type}/c${categoryId}/m`, "DELETE", { mark_id: markId }, abortSignal),
+      fetchUserserve<Category>(`${typeRoute(type)}/c${categoryId}/m`, "DELETE", { mark_id: markId }, abortSignal),
+    removeMarks: (type: string, categoryId: number, markIds: number[], abortSignal?: AbortSignal) =>
+      fetchUserserve<Category>(`${typeRoute(type)}/c${categoryId}/m`, "DELETE", { mark_ids: markIds }, abortSignal),
+    moveMarks: (type: string, fromCategoryId: number, toCategoryId: number, markIds: number[], abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>(`${typeRoute(type)}/c/m`, "PUT", { category_from_id: fromCategoryId, category_to_id: toCategoryId, mark_ids: markIds }, abortSignal),
   }
 }

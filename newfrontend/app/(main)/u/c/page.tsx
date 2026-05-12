@@ -1,0 +1,653 @@
+"use client"
+
+import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
+import {
+  LayoutGrid, LayoutList, AlignJustify, ArrowDown, ArrowUp,
+  Pencil, Menu, Lock, Library, X, ChevronDown
+} from "lucide-react"
+
+import { useUrlParams } from "@/hooks/useUrlParams"
+import { useUserContext } from "@/context/UserContext"
+import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
+import type {
+  Category, Mark,
+  VN_Small, Release_Small, Character_Small, Producer_Small,
+  Staff_Small, Tag_Small, Trait_Small,
+} from "@/lib/types"
+
+import { CollectionSidebar } from "@/components/category/CollectionSidebar"
+import { MoveToDialog } from "@/components/category/MoveToDialog"
+import {
+  VNsCardsGrid, ReleasesCardsGrid, CharactersCardsGrid,
+  ProducersCardsGrid, StaffCardsGrid, TagsCardsGrid, TraitsCardsGrid,
+  CollectionCardProps,
+} from "@/components/card/CardsGrid"
+import { PaginationButtons } from "@/components/button/PaginationButtons"
+import { Loading } from "@/components/status/Loading"
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const LIMIT = 24
+
+const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  vn:        [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "rating", label: "Rating" }, { value: "released", label: "Released" }],
+  release:   [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "released", label: "Released" }],
+  character: [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
+  producer:  [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
+  staff:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
+  tag:       [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
+  trait:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
+}
+
+// ─── Inline type metadata (avoids Turbopack module-init timing issues) ─────
+const TYPE_PREFIXES: Record<string, string> = {
+  vn: "v", release: "r", character: "c", producer: "p", staff: "s", tag: "g", trait: "i",
+}
+const TYPE_LABELS: Record<string, string> = {
+  vn: "Visual Novel", release: "Release", character: "Character",
+  producer: "Producer", staff: "Staff", tag: "Tag", trait: "Trait",
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function prefixForType(type: string): string {
+  return TYPE_PREFIXES[type] ?? ""
+}
+
+async function fetchByIdsForType(
+  type: string,
+  ids: number[],
+  params: Record<string, unknown>,
+  signal?: AbortSignal
+) {
+  const b = api.small.byIds
+  switch (type) {
+    case "vn":        return b.vn(ids, params, signal)
+    case "release":   return b.release(ids, params, signal)
+    case "character": return b.character(ids, params, signal)
+    case "producer":  return b.producer(ids, params, signal)
+    case "staff":     return b.staff(ids, params, signal)
+    case "tag":       return b.tag(ids, params, signal)
+    case "trait":     return b.trait(ids, params, signal)
+    default:          return b.vn(ids, params, signal)
+  }
+}
+
+type ViewMode = "grid" | "list" | "compact"
+
+interface CollectionGridProps extends CollectionCardProps {
+  view: ViewMode
+}
+
+function renderCollectionGrid(type: string, items: unknown[], props: CollectionGridProps) {
+  switch (type) {
+    case "vn":        return <VNsCardsGrid        vns={items as VN_Small[]}           {...props} />
+    case "release":   return <ReleasesCardsGrid    releases={items as Release_Small[]} {...props} />
+    case "character": return <CharactersCardsGrid  characters={items as Character_Small[]} {...props} />
+    case "producer":  return <ProducersCardsGrid   producers={items as Producer_Small[]} {...props} />
+    case "staff":     return <StaffCardsGrid       staff={items as Staff_Small[]}      {...props} />
+    case "tag":       return <TagsCardsGrid        tags={items as Tag_Small[]}         {...props} />
+    case "trait":     return <TraitsCardsGrid      traits={items as Trait_Small[]}     {...props} />
+    default:          return null
+  }
+}
+
+// ─── Main content (requires Suspense for useSearchParams) ────────────────────
+function CollectionContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const { updateKey, updateMultipleKeys } = useUrlParams()
+  const { user, isLoading: authLoading } = useUserContext()
+
+  // URL params
+  const type    = searchParams.get("type")  ?? "vn"
+  const cidRaw  = searchParams.get("cid")   ?? "all"
+  const q       = searchParams.get("q")     ?? ""
+  const sort    = searchParams.get("sort")  ?? "date_added"
+  const order   = searchParams.get("order") ?? "desc"
+
+  const activeCategory: number | "all" = cidRaw === "all" ? "all" : parseInt(cidRaw)
+
+  // Local page state (not persisted in URL)
+  const [page, setPage] = useState(1)
+
+  // State
+  const [categories, setCategories]         = useState<Category[]>([])
+  const [items, setItems]                   = useState<unknown[]>([])
+  const [totalCount, setTotalCount]         = useState(0)
+  const [hasMore, setHasMore]               = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [loadingItems, setLoadingItems]     = useState(false)
+  const [editMode, setEditMode]             = useState(false)
+  const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set())
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+  const [moveSingleId, setMoveSingleId]     = useState<string | null>(null)
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
+  const [view, setView]                     = useState<ViewMode>("grid")
+
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Restore view from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("collectionView") as ViewMode | null
+    if (stored && ["grid", "list", "compact"].includes(stored)) setView(stored)
+  }, [])
+
+  // Reset to page 1 when filters/type/category change
+  useEffect(() => { setPage(1) }, [q, sort, order, type, cidRaw])
+
+  // ── allMarks: flat sorted list of marks for current type+category ──────────
+  const allMarks = useMemo<Mark[]>(() => {
+    if (activeCategory === "all") {
+      const seen = new Set<number>()
+      const merged: Mark[] = []
+      for (const cat of categories) {
+        for (const m of cat.marks) {
+          if (!seen.has(m.id)) { seen.add(m.id); merged.push(m) }
+        }
+      }
+      return merged.sort((a, b) =>
+        order === "asc"
+          ? new Date(a.marked_at).getTime() - new Date(b.marked_at).getTime()
+          : new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime()
+      )
+    }
+    const cat = categories.find(c => c.id === activeCategory)
+    if (!cat) return []
+    return [...cat.marks].sort((a, b) =>
+      order === "asc"
+        ? new Date(a.marked_at).getTime() - new Date(b.marked_at).getTime()
+        : new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime()
+    )
+  }, [categories, activeCategory, order])
+
+  // ── markedAtMap: `${prefix}${id}` → iso string ────────────────────────────
+  const markedAtMap = useMemo<Record<string, string>>(() => {
+    const prefix = prefixForType(type)
+    const map: Record<string, string> = {}
+    for (const m of allMarks) map[`${prefix}${m.id}`] = m.marked_at
+    return map
+  }, [allMarks, type])
+
+  // ── Refresh categories ─────────────────────────────────────────────────────
+  const refreshCategories = useCallback(async () => {
+    if (!user) return
+    const data = await api.category.get(type)
+    setCategories(data)
+  }, [user, type])
+
+  // ── Load categories on type/user change ───────────────────────────────────
+  useEffect(() => {
+    if (!user) { setCategories([]); return }
+    setLoadingCategories(true)
+    api.category.get(type)
+      .then(data => {
+        setCategories(data)
+        // If active category no longer exists for new type, reset to 'all'
+        if (cidRaw !== "all") {
+              const exists = data.some(c => c.id === parseInt(cidRaw))
+              if (!exists) {
+                const params = new URLSearchParams(searchParams)
+                params.delete("cid")
+                router.replace(`${pathname}?${params.toString()}`)
+              }
+            }
+      })
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingCategories(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, type])
+
+  // ── Fetch items ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    abortRef.current?.abort()
+    if (!user || allMarks.length === 0) {
+      setItems([])
+      setTotalCount(0)
+      setHasMore(false)
+      setLoadingItems(false)
+      return
+    }
+
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    setLoadingItems(true)
+
+    const run = async () => {
+      try {
+        if (sort === "date_added" && !q) {
+          // Client-side pagination: allMarks is already sorted by marked_at
+          const pageIds = allMarks.slice((page - 1) * LIMIT, page * LIMIT).map(m => m.id)
+          const data = await fetchByIdsForType(type, pageIds, {}, ctrl.signal)
+          // Reorder to match mark order
+          const idMap = new Map(data.results.map((item: { id: string }) => [
+            parseInt(item.id.replace(/^[a-z]+/, "")),
+            item
+          ]))
+          const ordered = pageIds.map(id => idMap.get(id)).filter(Boolean)
+          setItems(ordered)
+          setTotalCount(allMarks.length)
+          setHasMore(page * LIMIT < allMarks.length)
+        } else {
+          const allIds = allMarks.map(m => m.id)
+          const params: Record<string, unknown> = {
+            sort: sort === "date_added" ? "id" : sort,
+            reverse: order === "desc",
+            page,
+            limit: LIMIT,
+            ...(q ? { search: q } : {}),
+          }
+          const data = await fetchByIdsForType(type, allIds, params, ctrl.signal)
+          setItems(data.results)
+          setTotalCount(data.count)
+          setHasMore(data.more)
+        }
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name !== "AbortError") {
+          setItems([])
+          setTotalCount(0)
+        }
+      } finally {
+        if (!ctrl.signal.aborted) setLoadingItems(false)
+      }
+    }
+    run()
+    return () => ctrl.abort()
+  }, [allMarks, sort, order, page, q, type, user])
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleRemove = async (itemId: string) => {
+    const markId = parseInt(itemId.replace(/^[a-z]+/, ""))
+    if (activeCategory === "all") {
+      // Find which category contains this mark
+      const cat = categories.find(c => c.marks.some(m => m.id === markId))
+      if (!cat) return
+      await api.category.removeMark(type, cat.id, markId)
+    } else {
+      await api.category.removeMark(type, activeCategory as number, markId)
+    }
+    await refreshCategories()
+  }
+
+  const handleMove = (itemId: string) => {
+    setMoveSingleId(itemId)
+    setMoveDialogOpen(true)
+  }
+
+  const handleMoveConfirm = async (targetCategoryId: number) => {
+    const fromCategoryId = activeCategory === "all" ? null : (activeCategory as number)
+    if (moveSingleId) {
+      const markId = parseInt(moveSingleId.replace(/^[a-z]+/, ""))
+      const sourceCat = fromCategoryId != null
+        ? fromCategoryId
+        : categories.find(c => c.marks.some(m => m.id === markId))?.id
+      if (sourceCat != null) {
+        await api.category.moveMarks(type, sourceCat, targetCategoryId, [markId])
+      }
+    } else if (selectedIds.size > 0) {
+      const markIds = Array.from(selectedIds).map(id => parseInt(id.replace(/^[a-z]+/, "")))
+      if (fromCategoryId != null) {
+        await api.category.moveMarks(type, fromCategoryId, targetCategoryId, markIds)
+      }
+    }
+    setMoveSingleId(null)
+    setSelectedIds(new Set())
+    setEditMode(false)
+    setMoveDialogOpen(false)
+    await refreshCategories()
+  }
+
+  const handleBatchDelete = async () => {
+    const markIds = Array.from(selectedIds).map(id => parseInt(id.replace(/^[a-z]+/, "")))
+    if (activeCategory === "all") {
+      // Group by category
+      const groups = new Map<number, number[]>()
+      for (const markId of markIds) {
+        const cat = categories.find(c => c.marks.some(m => m.id === markId))
+        if (cat) {
+          const arr = groups.get(cat.id) ?? []
+          arr.push(markId)
+          groups.set(cat.id, arr)
+        }
+      }
+      await Promise.all(Array.from(groups.entries()).map(([catId, ids]) =>
+        api.category.removeMarks(type, catId, ids)
+      ))
+    } else {
+      await api.category.removeMarks(type, activeCategory as number, markIds)
+    }
+    setSelectedIds(new Set())
+    setEditMode(false)
+    await refreshCategories()
+  }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const handleTypeChange = (newType: string) => {
+    setItems([])   // clear immediately to avoid stale type mismatch render
+    const params = new URLSearchParams()
+    params.set("type", newType)
+    router.push(`${pathname}?${params.toString()}`)
+    setEditMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const handleCategorySelect = (id: number | "all") => {
+    const params = new URLSearchParams(searchParams)
+    if (id === "all") params.delete("cid")
+    else params.set("cid", String(id))
+    router.push(`${pathname}?${params.toString()}`)
+    setShowMobileSidebar(false)
+    setEditMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const handleCreate = async (name: string) => {
+    await api.category.create(type, name)
+    await refreshCategories()
+  }
+
+  const handleRename = async (id: number, name: string) => {
+    await api.category.update(type, id, name)
+    await refreshCategories()
+  }
+
+  const handleDelete = async (id: number) => {
+    await api.category.delete(type, id)
+    if (activeCategory === id) {
+      const params = new URLSearchParams(searchParams)
+      params.delete("cid")
+      router.replace(`${pathname}?${params.toString()}`)
+    }
+    await refreshCategories()
+  }
+
+  const setViewPersisted = (v: ViewMode) => {
+    setView(v)
+    localStorage.setItem("collectionView", v)
+  }
+
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(totalCount / LIMIT)
+  const activeCategoryName = activeCategory === "all"
+    ? `All ${TYPE_LABELS[type] ?? type}s`
+    : (categories.find(c => c.id === activeCategory)?.category_name ?? "")
+
+  const sortOptions = SORT_OPTIONS[type] ?? SORT_OPTIONS.vn
+  const canMove = activeCategory !== "all" && categories.length > 1
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="flex overflow-hidden" style={{ height: "calc(100vh - var(--header-height, 56px))" }}>
+      {/* Desktop sidebar */}
+      <CollectionSidebar
+        className="hidden lg:flex shrink-0 w-64"
+        activeType={type}
+        activeCategory={activeCategory}
+        categories={categories}
+        onTypeChange={handleTypeChange}
+        onCategorySelect={handleCategorySelect}
+        onCreate={handleCreate}
+        onRename={handleRename}
+        onDelete={handleDelete}
+      />
+
+      {/* Mobile sidebar overlay */}
+      {showMobileSidebar && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/60"
+          onClick={() => setShowMobileSidebar(false)}
+        >
+          <div
+            className="absolute left-0 inset-y-0 w-64"
+            onClick={e => e.stopPropagation()}
+          >
+            <CollectionSidebar
+              className="flex w-full h-full"
+              activeType={type}
+              activeCategory={activeCategory}
+              categories={categories}
+              onTypeChange={handleTypeChange}
+              onCategorySelect={handleCategorySelect}
+              onCreate={handleCreate}
+              onRename={handleRename}
+              onDelete={handleDelete}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="px-4 lg:px-6 py-6 max-w-7xl mx-auto">
+
+          {/* Mobile: Collections toggle button */}
+          <button
+            className="lg:hidden flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-elevated text-sm text-muted hover:text-white hover:bg-white/10 transition-colors"
+            onClick={() => setShowMobileSidebar(true)}
+          >
+            <Menu className="w-4 h-4" />
+            Collections
+          </button>
+
+          {/* Unauthenticated */}
+          {!user && !authLoading && (
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted">
+              <Lock className="w-12 h-12 opacity-40" />
+              <p className="text-base">Sign in to view your collection</p>
+            </div>
+          )}
+
+          {authLoading && (
+            <div className="flex justify-center py-24">
+              <Loading />
+            </div>
+          )}
+
+          {user && (
+            <>
+              {/* Category heading */}
+              <div className="flex items-center gap-3 mb-4">
+                <h1 className="text-2xl font-bold text-white">
+                  {activeCategoryName}
+                  {totalCount > 0 && (
+                    <span className="text-muted font-normal text-base ml-2">{totalCount}</span>
+                  )}
+                </h1>
+              </div>
+
+              {/* Search / sort / view bar */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {/* Search */}
+                <div className="flex-1 min-w-40 lg:w-64 lg:flex-none relative">
+                  <input
+                    type="text"
+                    value={q}
+                    onChange={e => updateMultipleKeys({ q: e.target.value })}
+                    placeholder="Search in collection…"
+                    className="w-full bg-elevated border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-muted/50 outline-none focus:border-white/30 transition-colors"
+                  />
+                  {q && (
+                    <button
+                      onClick={() => updateMultipleKeys({ q: "" })}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Sort */}
+                <div className="relative">
+                  <select
+                    value={sort}
+                    onChange={e => updateMultipleKeys({ sort: e.target.value })}
+                    className="appearance-none bg-elevated border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-sm text-white outline-none focus:border-white/30 cursor-pointer transition-colors"
+                  >
+                    {sortOptions.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                </div>
+
+                {/* Order toggle */}
+                <button
+                  onClick={() => updateMultipleKeys({ order: order === "desc" ? "asc" : "desc" })}
+                  className="p-1.5 rounded-lg bg-elevated border border-white/10 text-muted hover:text-white hover:bg-white/10 transition-colors"
+                  title={order === "desc" ? "Descending" : "Ascending"}
+                >
+                  {order === "desc" ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                </button>
+
+                {/* View mode toggle */}
+                <div className="flex rounded-lg overflow-hidden border border-white/10">
+                  {(["grid", "list", "compact"] as ViewMode[]).map(v => (
+                    <button
+                      key={v}
+                      onClick={() => setViewPersisted(v)}
+                      className={cn(
+                        "p-1.5 transition-colors",
+                        view === v ? "bg-white/15 text-white" : "text-muted hover:text-white hover:bg-white/10 bg-elevated"
+                      )}
+                      title={v.charAt(0).toUpperCase() + v.slice(1)}
+                    >
+                      {v === "grid"    && <LayoutGrid    className="w-4 h-4" />}
+                      {v === "list"    && <LayoutList    className="w-4 h-4" />}
+                      {v === "compact" && <AlignJustify  className="w-4 h-4" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Edit mode toggle */}
+                <button
+                  onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()) }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors",
+                    editMode
+                      ? "bg-accent/20 border-accent text-accent"
+                      : "bg-elevated border-white/10 text-muted hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  {editMode ? "Done" : "Edit"}
+                </button>
+              </div>
+
+              {/* Batch action bar */}
+              {editMode && selectedIds.size > 0 && (
+                <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-elevated rounded-lg border border-white/10">
+                  <span className="text-sm text-white font-medium">{selectedIds.size} selected</span>
+                  <button
+                    onClick={handleBatchDelete}
+                    className="px-3 py-1 rounded-lg text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                  >
+                    Remove
+                  </button>
+                  {canMove && (
+                    <button
+                      onClick={() => { setMoveSingleId(null); setMoveDialogOpen(true) }}
+                      className="px-3 py-1 rounded-lg text-sm bg-white/10 text-white hover:bg-white/15 transition-colors"
+                    >
+                      Move to…
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setEditMode(false); setSelectedIds(new Set()) }}
+                    className="px-3 py-1 rounded-lg text-sm text-muted hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* Loading categories */}
+              {loadingCategories && (
+                <div className="flex justify-center py-24"><Loading /></div>
+              )}
+
+              {/* Empty state: no categories */}
+              {!loadingCategories && categories.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted">
+                  <Library className="w-12 h-12 opacity-40" />
+                  <p className="text-base">No collections yet</p>
+                  <button
+                    onClick={() => setShowMobileSidebar(true)}
+                    className="lg:hidden px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm transition-colors"
+                  >
+                    Create a Collection
+                  </button>
+                  <p className="hidden lg:block text-sm">Use the sidebar to create your first collection</p>
+                </div>
+              )}
+
+              {/* Items */}
+              {!loadingCategories && categories.length > 0 && (
+                <>
+                  {loadingItems ? (
+                    <div className="flex justify-center py-24"><Loading /></div>
+                  ) : items.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted">
+                      <Library className="w-12 h-12 opacity-40" />
+                      <p className="text-base">This collection is empty</p>
+                    </div>
+                  ) : (
+                    renderCollectionGrid(type, items, {
+                      view,
+                      onRemove: handleRemove,
+                      onMove:   handleMove,
+                      editMode,
+                      selectedIds,
+                      onToggleSelect: handleToggleSelect,
+                      markedAtMap,
+                    })
+                  )}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-8">
+                      <PaginationButtons
+                        totalPages={totalPages}
+                        currentPage={page}
+                        onPageChange={p => setPage(p)}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Move dialog */}
+      <MoveToDialog
+        open={moveDialogOpen}
+        setOpen={setMoveDialogOpen}
+        categories={categories}
+        currentCategoryId={activeCategory === "all" ? null : (activeCategory as number)}
+        onMove={handleMoveConfirm}
+      />
+    </div>
+  )
+}
+
+// ─── Page export (Suspense wrapper required for useSearchParams) ──────────────
+export default function CollectionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center py-24">
+        <Loading />
+      </div>
+    }>
+      <CollectionContent />
+    </Suspense>
+  )
+}

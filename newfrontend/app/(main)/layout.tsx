@@ -43,9 +43,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
             backgroundAttachment: "fixed",
-          }}
+            "--header-h": `${headerHeight}px`,
+          } as React.CSSProperties}
         >
-          <div className="min-h-screen overflow-x-hidden bg-background/80 text-white flex flex-col">
+          <div className="min-h-screen overflow-x-clip bg-background/80 text-white flex flex-col">
             <div
               ref={headerRef}
               className={cn(

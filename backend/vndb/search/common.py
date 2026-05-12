@@ -3,7 +3,12 @@ import re
 def process_resolution(resolution_value):
     if not resolution_value:
         return None
-    return re.sub(r'\s', '', str(resolution_value))
+    s = re.sub(r'\s', '', str(resolution_value))
+    # Normalize "[WIDTH,HEIGHT]" or "WIDTH,HEIGHT" → "WIDTHxHEIGHT"
+    m = re.match(r'^\[?(\d+),(\d+)\]?$', s)
+    if m:
+        return f"{m.group(1)}x{m.group(2)}"
+    return s
 
 def process_released(released_value):
     if not released_value:

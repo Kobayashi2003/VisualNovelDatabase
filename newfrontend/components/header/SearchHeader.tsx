@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { SlidersHorizontal } from "lucide-react"
+import { Languages, SlidersHorizontal } from "lucide-react"
 import { useSearchContext } from "@/context/SearchContext"
 import { SearchBar } from "@/components/input/SearchBar"
 import { SubmitButton } from "@/components/button/SubmitButton"
@@ -15,7 +15,7 @@ interface SearchHeaderProps {
 }
 
 export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
-  const { searchFrom, searchType, sortBy, setSearchFrom, setSearchType, setSortBy } = useSearchContext()
+  const { searchFrom, searchType, sortBy, showOriginal, setSearchFrom, setSearchType, setSortBy, setShowOriginal } = useSearchContext()
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
@@ -59,8 +59,34 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
     handleSubmit(undefined, { from, type, sortByVal: sort, order, filters })
   }
 
+  const handlePanelSave = (from: string, type: string, sort: string, order: string, filters: Record<string, string>) => {
+    setSearchFrom(from)
+    setSearchType(type)
+    setSortBy(sort)
+    setSortOrder(order)
+    setFiltersParams(filters)
+    setFiltersType(type)
+  }
+
   return (
     <div className={cn("flex flex-row items-center gap-1", className)}>
+      {/* Original name toggle */}
+      <button
+        onClick={() => setShowOriginal(!showOriginal)}
+        disabled={hidden}
+        className={cn(
+          "p-2 rounded-full transition-all duration-200",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+          showOriginal
+            ? "text-accent bg-accent/10 hover:bg-accent/20"
+            : "text-muted hover:text-white hover:bg-white/10"
+        )}
+        title={showOriginal ? "Showing original names" : "Show original names"}
+        aria-label="Toggle original names"
+      >
+        <Languages className="w-4 h-4" />
+      </button>
+
       {/* Search bar */}
       <form onSubmit={handleSubmit} className="flex-1 min-w-0 lg:flex-none lg:w-56 xl:w-72">
         <SearchBar
@@ -98,6 +124,7 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
         initialOrder={sortOrder}
         initialFilters={filtersParams}
         onApply={handlePanelApply}
+        onSave={handlePanelSave}
       />
     </div>
   )

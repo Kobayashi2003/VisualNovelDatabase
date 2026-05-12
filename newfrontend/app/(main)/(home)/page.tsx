@@ -8,6 +8,7 @@ import { ArrowBigLeftIcon, ArrowBigRightIcon } from "lucide-react"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { api } from "@/lib/api"
 import { VN_Small } from "@/lib/types"
+import { useUserContext } from "@/context/UserContext"
 
 import { YearSelector } from "@/components/selector/YearSelector"
 import { MonthSelector } from "@/components/selector/MonthSelector"
@@ -25,6 +26,7 @@ import { VNsCardsGrid } from "@/components/card/CardsGrid"
 function HomeContent() {
   const searchParams = useSearchParams()
   const { updateKey, updateMultipleKeys } = useUrlParams()
+  const { user, isLoading: authLoading } = useUserContext()
 
   const itemsPerPage = 24
   const currentPage = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1
@@ -157,7 +159,7 @@ function HomeContent() {
             exit={{ filter: "blur(20px)", opacity: 0 }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
           >
-            <VNsCardsGrid vns={vns} layout={layout} cardType={cardType} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
+            <VNsCardsGrid vns={vns} layout={layout} cardType={cardType} sexualLevel={sexualLevel} violenceLevel={violenceLevel} isGuest={!authLoading && !user} />
           </motion.div>
         )}
       </AnimatePresence>

@@ -7,9 +7,10 @@ interface TextCardProps {
   link?: string
   layout?: "single" | "grid"
   className?: string
+  tooltip?: string
 }
 
-export function TextCard({ title, msgs, link, layout = "grid", className }: TextCardProps) {
+export function TextCard({ title, msgs, link, layout = "grid", className, tooltip }: TextCardProps) {
   const card = (
     <div className={cn(
       "bg-surface hover:bg-elevated",
@@ -18,15 +19,13 @@ export function TextCard({ title, msgs, link, layout = "grid", className }: Text
       layout === "grid" ? "p-3" : "p-3 flex flex-row gap-4 items-center",
       link ? "cursor-pointer hover:border-white/20" : "cursor-default",
       className
-    )}>
+    )} title={tooltip}>
       <p className={cn("font-semibold text-sm text-white", layout === "grid" ? "truncate" : "flex-1 truncate")}>{title}</p>
-      {msgs && (
-        <div className={cn(layout === "grid" ? "mt-1" : "flex flex-row gap-2")}>
-          {msgs.map((msg, i) => (
-            <p key={i} className="text-xs text-muted truncate">{msg}</p>
-          ))}
-        </div>
-      )}
+      <div className={cn(layout === "grid" ? "mt-1 min-h-4" : "flex flex-row gap-2")}>
+        {msgs?.map((msg, i) => (
+          <p key={i} className="text-xs text-muted truncate">{msg}</p>
+        ))}
+      </div>
     </div>
   )
 

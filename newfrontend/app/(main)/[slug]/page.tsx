@@ -21,6 +21,13 @@ import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { NotFound } from "@/components/status/NotFound"
+import { VNDetailPage } from "@/components/vn/VNDetailPage"
+import { CharacterDetailPage } from "@/components/character/CharacterDetailPage"
+import { StaffDetailPage } from "@/components/staff/StaffDetailPage"
+import { ProducerDetailPage } from "@/components/producer/ProducerDetailPage"
+import { TraitDetailPage } from "@/components/trait/TraitDetailPage"
+import { TagDetailPage } from "@/components/tag/TagDetailPage"
+import { ReleaseDetailPage } from "@/components/release/ReleaseDetailPage"
 import {
   VNsCardsGrid, ReleasesCardsGrid, CharactersCardsGrid,
   ProducersCardsGrid, StaffCardsGrid, TagsCardsGrid, TraitsCardsGrid
@@ -155,8 +162,39 @@ function SearchResultsContent({ slug }: { slug: string }) {
   )
 }
 
-// ─── Detail placeholder ──────────────────────────────────────────────────────
+// ─── Detail page router ───────────────────────────────────────────────────────
 function DetailContent({ slug }: { slug: string }) {
+  const type = slug[0]
+  const numericId = parseInt(slug.slice(1), 10)
+
+  if (type === "v") {
+    return <VNDetailPage id={numericId} />
+  }
+
+  if (type === "c") {
+    return <CharacterDetailPage id={numericId} />
+  }
+
+  if (type === "s") {
+    return <StaffDetailPage id={numericId} />
+  }
+
+  if (type === "p") {
+    return <ProducerDetailPage id={numericId} />
+  }
+
+  if (type === "i") {
+    return <TraitDetailPage id={numericId} />
+  }
+
+  if (type === "g") {
+    return <TagDetailPage id={numericId} />
+  }
+
+  if (type === "r") {
+    return <ReleaseDetailPage id={numericId} />
+  }
+
   return (
     <main className="container mx-auto flex-1 p-4 pb-8">
       <div className="flex items-center justify-center h-64 text-muted">

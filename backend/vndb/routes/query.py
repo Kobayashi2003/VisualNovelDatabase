@@ -25,7 +25,7 @@ def handle_query(query):
 
     params = request.args.to_dict()
 
-    params['from'] = 'local'
+    # params['from'] = 'local'
 
     if len(query) == 1:
         # Handle search for a specific type

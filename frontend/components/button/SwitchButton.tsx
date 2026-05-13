@@ -1,13 +1,14 @@
-import { IconButton } from "@/components/button/IconButton"
+import { cn } from "@/lib/utils"
 
-interface Option {
+interface SwitchButtonOption {
   value: string
-  icon: React.ReactNode
+  icon?: React.ReactNode
+  label?: string
   tooltip?: string
 }
 
 interface SwitchButtonProps {
-  options: Option[]
+  options: SwitchButtonOption[]
   selected: string
   onSelect: (value: string) => void
   disabled?: boolean
@@ -16,16 +17,30 @@ interface SwitchButtonProps {
 
 export function SwitchButton({ options, selected, onSelect, disabled, className }: SwitchButtonProps) {
   return (
-    <IconButton 
-      variant="outline"
-      icon={options.find(option => option.value === selected)?.icon}
-      tooltip={options.find(option => option.value === selected)?.tooltip}
-      onClick={() => {
-        const nextIndex = (options.findIndex(option => option.value === selected) + 1) % options.length
-        onSelect(options[nextIndex].value)
-      }}
-      disabled={disabled}
-      className={className}
-    />
+    <div className={cn(
+      "flex flex-row items-center",
+      "rounded-full border border-white/10",
+      "overflow-hidden",
+      disabled && "opacity-40 cursor-not-allowed",
+      className
+    )}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => !disabled && onSelect(option.value)}
+          title={option.tooltip}
+          className={cn(
+            "px-3 py-1.5 text-sm transition-all duration-200",
+            "flex items-center gap-1",
+            selected === option.value
+              ? "bg-white/20 text-white"
+              : "text-muted hover:text-white hover:bg-white/10"
+          )}
+        >
+          {option.icon}
+          {option.label && <span>{option.label}</span>}
+        </button>
+      ))}
+    </div>
   )
 }

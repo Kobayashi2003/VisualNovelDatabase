@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 import { SwitchButton } from "@/components/button/SwitchButton"
-import { LayoutGrid, AlignJustify } from "lucide-react"
+import { LayoutGrid, Rows } from "lucide-react"
 
 interface GridLayoutSwitchProps {
   layout: "single" | "grid"
@@ -11,19 +11,17 @@ interface GridLayoutSwitchProps {
 
 export function GridLayoutSwitch({ layout, setLayout, disabled, className }: GridLayoutSwitchProps) {
   const options = [
-    { value: "single", icon: <AlignJustify className="w-4 h-4" />, tooltip: "Single Row" },
-    { value: "grid", icon: <LayoutGrid className="w-4 h-4" />, tooltip: "Grid Layout" },
+    { value: "grid", icon: <LayoutGrid className="w-4 h-4" />, tooltip: "Grid layout" },
+    { value: "single", icon: <Rows className="w-4 h-4" />, tooltip: "List layout" },
   ]
 
-  const buttonBgColor = "bg-[#0F2942]/80 hover:bg-[#0F2942]"
-
   return (
-    <SwitchButton 
+    <SwitchButton
       options={options}
       selected={layout}
-      onSelect={(value) => setLayout(value as "single" | "grid")}
+      onSelect={(v) => setLayout(v as "single" | "grid")}
       disabled={disabled}
-      className={cn(buttonBgColor, className)}
+      className={className}
     />
   )
-} 
+}

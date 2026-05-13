@@ -1,50 +1,40 @@
+import { BaseDialog } from "./BaseDialog"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 
 interface ConfirmDialogProps {
   open: boolean
   setOpen: (open: boolean) => void
   title: string
   description: string
-  confirmText: string
-  cancelText: string
+  confirmText?: string
+  cancelText?: string
   onConfirm: () => void
   onCancel: () => void
   className?: string
 }
 
-export function ConfirmDialog({ open, setOpen, title, description, confirmText, cancelText, onConfirm, onCancel, className }: ConfirmDialogProps) {
+export function ConfirmDialog({
+  open, setOpen, title, description,
+  confirmText = "Confirm", cancelText = "Cancel",
+  onConfirm, onCancel, className
+}: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className={cn(
-        "bg-[#0F2942]/80 border-white/10",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:slide-out-to-bottom-1/2 data-[state=open]:slide-in-from-bottom-1/2",
-        className
-      )}>
-        <DialogHeader>
-          <DialogTitle className="text-white">{title}</DialogTitle>
-          <DialogDescription className="text-white/60">{description}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={onCancel}
-            className="text-white/60 hover:text-white"
-          >
-            {cancelText}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={onConfirm}
-            className="text-white hover:text-white"
-          >
-            {confirmText}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <BaseDialog open={open} setOpen={setOpen} title={title} className={className}>
+      <p className="text-sm text-muted mb-6">{description}</p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 rounded-full text-sm font-medium text-muted hover:text-white border border-white/20 hover:border-white/40 transition-all"
+        >
+          {cancelText}
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 rounded-full text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all"
+        >
+          {confirmText}
+        </button>
+      </div>
+    </BaseDialog>
   )
 }

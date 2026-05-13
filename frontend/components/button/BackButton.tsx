@@ -1,21 +1,25 @@
-import { IconButton } from "@/components/button/IconButton"
-import { ArrowBigLeft } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { ChevronLeft } from "lucide-react"
 
 interface BackButtonProps {
-  handleBack?: () => void
-  disabled?: boolean
+  handleBack: () => void
   className?: string
 }
 
-export function BackButton({ handleBack, disabled, className }: BackButtonProps) {
+export function BackButton({ handleBack, className }: BackButtonProps) {
   return (
-    <IconButton
-      icon={<ArrowBigLeft className="w-4 h-4" />}
-      variant="ghost"
-      tooltip="Back"
+    <button
       onClick={handleBack}
-      disabled={disabled}
-      className={className}
-    />
+      className={cn(
+        "p-2 rounded-full",
+        "text-muted hover:text-white",
+        "hover:bg-white/10",
+        "transition-all duration-200",
+        className
+      )}
+      aria-label="Go back"
+    >
+      <ChevronLeft className="w-5 h-5" />
+    </button>
   )
 }

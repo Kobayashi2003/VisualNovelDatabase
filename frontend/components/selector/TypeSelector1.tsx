@@ -1,30 +1,43 @@
-import { PopoverButton } from "@/components/button/PopoverButton"
+import { cn } from "@/lib/utils"
+
+const TYPE_OPTIONS = [
+  { value: "v", label: "VN" },
+  { value: "r", label: "Release" },
+  { value: "c", label: "Char" },
+  { value: "p", label: "Producer" },
+  { value: "s", label: "Staff" },
+  { value: "g", label: "Tag" },
+  { value: "i", label: "Trait" },
+]
 
 interface TypeSelector1Props {
   selected: string
-  onSelect: (value: string) => void
+  onSelect: (type: string) => void
   disabled?: boolean
   className?: string
 }
 
-const typeOptions = [
-  { value: "v", label: "Visual Novels", letter: "V" },
-  { value: "r", label: "Releases", letter: "R" },
-  { value: "c", label: "Characters", letter: "C" },
-  { value: "p", label: "Producers", letter: "P" },
-  { value: "s", label: "Staff", letter: "S" },
-  { value: "g", label: "Tags", letter: "G" },
-  { value: "i", label: "Traits", letter: "I" },
-]
-
 export function TypeSelector1({ selected, onSelect, disabled, className }: TypeSelector1Props) {
   return (
-    <PopoverButton
-      options={typeOptions}
-      selected={selected}
-      onSelect={onSelect}
-      disabled={disabled}
-      className={className}
-    />
+    <div className={cn(
+      "flex flex-row items-center rounded-full border border-white/10 overflow-hidden",
+      disabled && "opacity-40 cursor-not-allowed",
+      className
+    )}>
+      {TYPE_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => !disabled && onSelect(option.value)}
+          className={cn(
+            "px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+            selected === option.value
+              ? "bg-accent text-white"
+              : "text-muted hover:text-white hover:bg-white/10"
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   )
 }

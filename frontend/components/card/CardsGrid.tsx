@@ -1,13 +1,18 @@
-import { motion } from "motion/react"
+"use client"
+
 import { cn } from "@/lib/utils"
+import { formatRelativeDate } from "@/lib/utils"
+import { X, MoreHorizontal } from "lucide-react"
 import { ImageCard } from "./ImageCard"
 import { ImageCard2 } from "./ImageCard2"
 import { TextCard } from "./TextCard"
-
+import { CompactRow } from "./CompactRow"
 import { ENUMS } from "@/lib/enums"
+import { useSearchContext } from "@/context/SearchContext"
 
 import {
-  VN_Small, Release_Small, Character_Small, Producer_Small, Staff_Small, Tag_Small, Trait_Small
+  VN_Small, Release_Small, Character_Small, Producer_Small,
+  Staff_Small, Tag_Small, Trait_Small
 } from "@/lib/types"
 
 type ImageProps = {
@@ -19,22 +24,6 @@ type ImageProps = {
   violence: number
 }
 
-type GridItem = {
-  id: string
-  title: string
-  msgs: string[]
-  image?: ImageProps
-  link: string
-}
-
-interface BaseCardsGridProps {
-  items: GridItem[]
-  cardType?: "image" | "text"
-  layout?: "single" | "grid"
-  sexualLevel?: "safe" | "suggestive" | "explicit"
-  violenceLevel?: "tame" | "violent" | "brutal"
-}
-
 interface GenImageCardProps {
   image?: ImageProps
   title: string
@@ -44,25 +33,277 @@ interface GenImageCardProps {
   violenceLevel?: "tame" | "violent" | "brutal"
   layout?: "single" | "grid"
   className?: string
+  isGuest?: boolean
+  tooltip?: string
 }
 
-interface GenTextCardProps {
-  title: string
-  msgs: string[]
-  link?: string
-  layout?: "single" | "grid"
-  className?: string
+const BLUR = "blur-lg hover:blur-none"
+
+function getBlurClass(
+  image: ImageProps | undefined,
+  sexualLevel: string,
+  violenceLevel: string
+): string {
+  if (!image) return ""
+  const { sexual, violence } = image
+  const isSexual = (sexualLevel === "safe" && sexual > 0.5) || (sexualLevel === "suggestive" && sexual > 1.5)
+  const isViolent = (violenceLevel === "tame" && violence > 0.5) || (violenceLevel === "violent" && violence > 1.5)
+  if (isSexual || isViolent) return BLUR
+  return ""
 }
 
-interface VNsCardsGridProps {
+export function GenImageCard({
+  image, title, msgs, link,
+  sexualLevel = "safe", violenceLevel = "tame",
+  layout = "grid", className, isGuest, tooltip
+}: GenImageCardProps) {
+  const blurClass = getBlurClass(image, sexualLevel, violenceLevel)
+  const imgUrl = image?.thumbnail || image?.url || ""
+
+  // Guests cannot view or navigate to non-safe+tame images
+  const isRestricted = !!(isGuest && getBlurClass(image, "safe", "tame") !== "")
+  const effectiveUrl = isRestricted ? "" : imgUrl
+  const effectiveLink = isRestricted ? undefined : link
+
+  return layout === "grid" ? (
+    <ImageCard
+      url={effectiveUrl}
+      title={title}
+      msgs={msgs}
+      link={effectiveLink}
+      restricted={isRestricted}
+      className={cn(className, !isRestricted && blurClass, "transition-all duration-300")}
+      tooltip={tooltip}
+    />
+  ) : (
+    <ImageCard2
+      url={effectiveUrl}
+      title={title}
+      msgs={msgs}
+      link={effectiveLink}
+      restricted={isRestricted}
+      className={cn(className, !isRestricted && blurClass, "transition-all duration-300")}
+      tooltip={tooltip}
+    />
+  )
+}
+
+const gridClass = (layout: "single" | "grid") =>
+  layout === "grid"
+    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3"
+    : "flex flex-col gap-2"
+
+// ─── Shared collection props ─────────────────────────────────────────────────
+export interface CollectionCardProps {
+  view?: "grid" | "list" | "compact"
+  onRemove?: (id: string) => void
+  onMove?: (id: string) => void
+  editMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
+  markedAtMap?: Record<string, string>
+}
+
+// ─── Collection card wrapper (hover actions, checkbox, date badge) ───────────
+function CollectionWrapper({
+  id, children,
+  onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: CollectionCardProps & { id: string; children: React.ReactNode }) {
+  const selected = selectedIds?.has(id)
+  const markedAt = markedAtMap?.[id]
+  const isActive = !!(onRemove || onMove || editMode)
+  if (!isActive) return <>{children}</>
+
+  return (
+    <div className={cn("relative group", selected && "ring-2 ring-accent rounded-lg overflow-hidden")}>
+      {children}
+
+      {editMode && (
+        <div className="absolute top-1.5 left-1.5 z-10">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect?.(id)}
+            onClick={e => e.stopPropagation()}
+            className="w-4 h-4 accent-accent cursor-pointer"
+          />
+        </div>
+      )}
+
+      {!editMode && (onRemove || onMove) && (
+        <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          {onMove && (
+            <button
+              onClick={e => { e.preventDefault(); onMove(id) }}
+              className="p-1 rounded-full bg-black/70 text-white hover:bg-black/90 transition-colors"
+              title="Move to..."
+            >
+              <MoreHorizontal className="w-3 h-3" />
+            </button>
+          )}
+          {onRemove && (
+            <button
+              onClick={e => { e.preventDefault(); onRemove(id) }}
+              className="p-1 rounded-full bg-black/70 text-white hover:bg-red-500/80 transition-colors"
+              title="Remove"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {markedAt && !editMode && (
+        <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 text-xs text-white/80 bg-linear-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-b">
+          Added {formatRelativeDate(markedAt)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── VNs ────────────────────────────────────────────────────────────────────
+interface VNsCardsGridProps extends CollectionCardProps {
   vns: VN_Small[]
   cardType?: "image" | "text"
   layout?: "single" | "grid"
   sexualLevel?: "safe" | "suggestive" | "explicit"
   violenceLevel?: "tame" | "violent" | "brutal"
+  isGuest?: boolean
 }
 
-interface CharacterCardsGridProps {
+export function VNsCardsGrid({
+  vns, cardType = "image", layout = "grid",
+  sexualLevel = "safe", violenceLevel = "tame",
+  isGuest,
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: VNsCardsGridProps) {
+  const { showOriginal } = useSearchContext()
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
+
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {vns.map((vn, idx) => {
+          const origScript = vn.titles.find(t => t.main)?.title
+          const displayTitle = showOriginal && origScript ? origScript : vn.title
+          const developer = showOriginal && vn.developers?.[0]?.original ? vn.developers[0].original : (vn.developers?.[0]?.name || "")
+          const year = vn.released ? vn.released.substring(0, 4) : ""
+          const subtitle = [developer, year].filter(Boolean).join(" · ")
+          return (
+            <CompactRow
+              key={vn.id}
+              index={idx + 1}
+              title={displayTitle}
+              subtitle={subtitle}
+              thumbnail={vn.image?.thumbnail || vn.image?.url}
+              markedAt={markedAtMap?.[vn.id]}
+              onRemove={onRemove ? () => onRemove(vn.id) : undefined}
+              onMove={onMove ? () => onMove(vn.id) : undefined}
+              selected={selectedIds?.has(vn.id)}
+              editMode={editMode}
+              onToggleSelect={onToggleSelect ? () => onToggleSelect(vn.id) : undefined}
+              link={`/${vn.id}`}
+            />
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className={gridClass(effectiveLayout)}>
+      {vns.map((vn) => {
+        const origScript = vn.titles.find(t => t.main)?.title
+        const displayTitle = showOriginal && origScript ? origScript : vn.title
+        const developer = showOriginal && vn.developers?.[0]?.original ? vn.developers[0].original : (vn.developers?.[0]?.name || "")
+        const released = vn.released || ""
+        const msgs = [developer, released].filter(Boolean)
+        return (
+          <CollectionWrapper
+            key={vn.id} id={vn.id}
+            onRemove={onRemove} onMove={onMove}
+            editMode={editMode} selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
+          >
+            {cardType === "text" ? (
+              <TextCard title={displayTitle} msgs={msgs} link={`/${vn.id}`} layout={effectiveLayout} />
+            ) : (
+              <GenImageCard
+                image={vn.image} title={displayTitle} msgs={msgs} link={`/${vn.id}`}
+                sexualLevel={sexualLevel} violenceLevel={violenceLevel} layout={effectiveLayout}
+                isGuest={isGuest}
+              />
+            )}
+          </CollectionWrapper>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Releases ───────────────────────────────────────────────────────────────
+interface ReleasesCardsGridProps extends CollectionCardProps {
+  releases: Release_Small[]
+  layout?: "single" | "grid"
+}
+
+export function ReleasesCardsGrid({
+  releases, layout = "grid",
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: ReleasesCardsGridProps) {
+  const { showOriginal } = useSearchContext()
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
+
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {releases.map((r, idx) => {
+          const mainLangEntry = r.languages?.find(l => l.main)
+          const origTitle = mainLangEntry?.title
+          const displayTitle = showOriginal && origTitle ? origTitle : r.title
+          const langs = r.languages?.map(l => l.lang).join(", ") || ""
+          return (
+            <CompactRow
+              key={r.id} index={idx + 1} title={displayTitle}
+              subtitle={[r.released, langs].filter(Boolean).join(" · ")}
+              markedAt={markedAtMap?.[r.id]}
+              onRemove={onRemove ? () => onRemove(r.id) : undefined}
+              onMove={onMove ? () => onMove(r.id) : undefined}
+              selected={selectedIds?.has(r.id)} editMode={editMode}
+              onToggleSelect={onToggleSelect ? () => onToggleSelect(r.id) : undefined}
+              link={`/${r.id}`}
+            />
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className={gridClass(effectiveLayout)}>
+      {releases.map((r) => {
+        const mainLangEntry = r.languages?.find(l => l.main)
+        const origTitle = mainLangEntry?.title
+        const displayTitle = showOriginal && origTitle ? origTitle : r.title
+        const langs = r.languages?.map(l => l.lang).join(", ") || ""
+        return (
+          <CollectionWrapper
+            key={r.id} id={r.id}
+            onRemove={onRemove} onMove={onMove}
+            editMode={editMode} selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
+          >
+            <TextCard title={displayTitle} msgs={[r.released, langs].filter(Boolean)} link={`/${r.id}`} layout={effectiveLayout} />
+          </CollectionWrapper>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Characters ─────────────────────────────────────────────────────────────
+interface CharactersCardsGridProps extends CollectionCardProps {
   characters: Character_Small[]
   cardType?: "image" | "text"
   layout?: "single" | "grid"
@@ -70,262 +311,260 @@ interface CharacterCardsGridProps {
   violenceLevel?: "tame" | "violent" | "brutal"
 }
 
-interface ReleaseCardsGridProps {
-  releases: Release_Small[]
-  layout?: "single" | "grid"
+export function CharactersCardsGrid({
+  characters, cardType = "image", layout = "grid",
+  sexualLevel = "safe", violenceLevel = "tame",
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: CharactersCardsGridProps) {
+  const { showOriginal } = useSearchContext()
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
+
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {characters.map((c, idx) => {
+          const role = c.vns?.[0]?.role ? (ENUMS.CHARACTER_ROLE as Record<string, string>)[c.vns[0].role] || c.vns[0].role : ""
+          const subtitle = !showOriginal ? [c.original, role].filter(Boolean).join(" · ") : role
+          return (
+            <CompactRow
+              key={c.id} index={idx + 1} title={showOriginal && c.original ? c.original : c.name}
+              subtitle={subtitle}
+              thumbnail={c.image?.url}
+              markedAt={markedAtMap?.[c.id]}
+              onRemove={onRemove ? () => onRemove(c.id) : undefined}
+              onMove={onMove ? () => onMove(c.id) : undefined}
+              selected={selectedIds?.has(c.id)} editMode={editMode}
+              onToggleSelect={onToggleSelect ? () => onToggleSelect(c.id) : undefined}
+              link={`/${c.id}`}
+            />
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className={gridClass(effectiveLayout)}>
+      {characters.map((c) => {
+        const role = c.vns?.[0]?.role ? (ENUMS.CHARACTER_ROLE as Record<string, string>)[c.vns[0].role] || c.vns[0].role : ""
+        const displayName = showOriginal && c.original ? c.original : c.name
+        const msgs = (!showOriginal && c.original ? [c.original, role] : [role]).filter(Boolean) as string[]
+        return (
+          <CollectionWrapper
+            key={c.id} id={c.id}
+            onRemove={onRemove} onMove={onMove}
+            editMode={editMode} selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
+          >
+            {cardType === "text" ? (
+              <TextCard title={displayName} msgs={msgs} link={`/${c.id}`} layout={effectiveLayout} />
+            ) : (
+              <GenImageCard
+                image={c.image} title={displayName} msgs={msgs} link={`/${c.id}`}
+                sexualLevel={sexualLevel} violenceLevel={violenceLevel} layout={effectiveLayout}
+              />
+            )}
+          </CollectionWrapper>
+        )
+      })}
+    </div>
+  )
 }
 
-interface ProducerCardsGridProps {
+// ─── Producers ──────────────────────────────────────────────────────────────
+interface ProducersCardsGridProps extends CollectionCardProps {
   producers: Producer_Small[]
   layout?: "single" | "grid"
 }
 
-interface StaffCardsGridProps {
+export function ProducersCardsGrid({
+  producers, layout = "grid",
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: ProducersCardsGridProps) {
+  const { showOriginal } = useSearchContext()
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
+
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {producers.map((p, idx) => (
+          <CompactRow
+            key={p.id} index={idx + 1}
+            title={showOriginal && p.original ? p.original : p.name}
+            subtitle={!showOriginal ? p.original : undefined}
+            markedAt={markedAtMap?.[p.id]}
+            onRemove={onRemove ? () => onRemove(p.id) : undefined}
+            onMove={onMove ? () => onMove(p.id) : undefined}
+            selected={selectedIds?.has(p.id)} editMode={editMode}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(p.id) : undefined}
+            link={`/${p.id}`}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className={gridClass(effectiveLayout)}>
+      {producers.map((p) => {
+        const displayName = showOriginal && p.original ? p.original : p.name
+        return (
+          <CollectionWrapper
+            key={p.id} id={p.id}
+            onRemove={onRemove} onMove={onMove}
+            editMode={editMode} selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
+          >
+            <TextCard title={displayName} msgs={!showOriginal && p.original ? [p.original] : []} link={`/${p.id}`} layout={effectiveLayout} />
+          </CollectionWrapper>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Staff ──────────────────────────────────────────────────────────────────
+interface StaffCardsGridProps extends CollectionCardProps {
   staff: Staff_Small[]
   layout?: "single" | "grid"
 }
 
-interface TagCardsGridProps {
+export function StaffCardsGrid({
+  staff, layout = "grid",
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: StaffCardsGridProps) {
+  const { showOriginal } = useSearchContext()
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
+
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {staff.map((s, idx) => (
+          <CompactRow
+            key={s.id} index={idx + 1}
+            title={showOriginal && s.original ? s.original : s.name}
+            subtitle={!showOriginal ? s.original : undefined}
+            markedAt={markedAtMap?.[s.id]}
+            onRemove={onRemove ? () => onRemove(s.id) : undefined}
+            onMove={onMove ? () => onMove(s.id) : undefined}
+            selected={selectedIds?.has(s.id)} editMode={editMode}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(s.id) : undefined}
+            link={`/${s.id}`}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className={gridClass(effectiveLayout)}>
+      {staff.map((s) => {
+        const displayName = showOriginal && s.original ? s.original : s.name
+        return (
+          <CollectionWrapper
+            key={s.id} id={s.id}
+            onRemove={onRemove} onMove={onMove}
+            editMode={editMode} selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
+          >
+            <TextCard title={displayName} msgs={!showOriginal && s.original ? [s.original] : []} link={`/${s.id}`} layout={effectiveLayout} />
+          </CollectionWrapper>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Tags ───────────────────────────────────────────────────────────────────
+interface TagsCardsGridProps extends CollectionCardProps {
   tags: Tag_Small[]
   layout?: "single" | "grid"
 }
 
-interface TraitCardsGridProps {
+export function TagsCardsGrid({
+  tags, layout = "grid",
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: TagsCardsGridProps) {
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
+
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {tags.map((t, idx) => (
+          <CompactRow
+            key={t.id} index={idx + 1} title={t.name}
+            subtitle={t.category}
+            markedAt={markedAtMap?.[t.id]}
+            onRemove={onRemove ? () => onRemove(t.id) : undefined}
+            onMove={onMove ? () => onMove(t.id) : undefined}
+            selected={selectedIds?.has(t.id)} editMode={editMode}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(t.id) : undefined}
+            link={`/${t.id}`}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className={gridClass(effectiveLayout)}>
+      {tags.map((t) => (
+        <CollectionWrapper
+          key={t.id} id={t.id}
+          onRemove={onRemove} onMove={onMove}
+          editMode={editMode} selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
+        >
+          <TextCard title={t.name} msgs={[t.category]} link={`/${t.id}`} layout={effectiveLayout} />
+        </CollectionWrapper>
+      ))}
+    </div>
+  )
+}
+
+// ─── Traits ─────────────────────────────────────────────────────────────────
+interface TraitsCardsGridProps extends CollectionCardProps {
   traits: Trait_Small[]
   layout?: "single" | "grid"
 }
 
-export function GenImageCard({ image, title, msgs, link, sexualLevel = "safe", violenceLevel = "tame", layout = "grid", className }: GenImageCardProps) {
+export function TraitsCardsGrid({
+  traits, layout = "grid",
+  view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
+}: TraitsCardsGridProps) {
+  const effectiveLayout: "single" | "grid" = view === "list" ? "single" : view === "grid" ? "grid" : layout
 
-  const sexual = image?.sexual || 0
-  const violence = image?.violence || 0
-
-  const alwaysShowImage = true
-  const alwaysAllowClick = true
-  const blurEffect = "blur-lg"
-  const blurHoverEffect = "hover:blur-xs"
-
-  const mildYellowFilter = sexual > 1 && violence > 1 ?
-    `${blurEffect} ${blurHoverEffect} bg-yellow-800/30 hover:bg-yellow-800/50` :
-    `${blurEffect} ${blurHoverEffect} bg-yellow-400/30 hover:bg-yellow-400/50`
-  const moderateYellowFilter = sexual > 1 && violence > 1 ?
-    `${blurEffect} ${blurHoverEffect} bg-yellow-800/30 hover:bg-yellow-800/50` :
-    `${blurEffect} ${blurHoverEffect} bg-yellow-400/30 hover:bg-yellow-400/50`
-  const moderateRedFilter = sexual > 1 && violence > 1 ?
-    `${blurEffect} ${blurHoverEffect} bg-red-800/30 hover:bg-red-800/50` :
-    `${blurEffect} ${blurHoverEffect} bg-red-400/30 hover:bg-red-400/50`
-  const severeRedFilter = sexual > 1 && violence > 1 ?
-    `${blurEffect} ${blurHoverEffect} bg-red-800/30 hover:bg-red-800/50` :
-    `${blurEffect} ${blurHoverEffect} bg-red-400/30 hover:bg-red-400/50`
-
-  const clickable = alwaysAllowClick ? "cursor-pointer" : "cursor-not-allowed pointer-events-none"
-
-  if ((sexualLevel === "safe" && sexual > 0.5) || (violenceLevel === "tame" && violence > 0.5)) {
-    if (sexual <= 1 && violence <= 1) {
-      const warningFilter = sexual > 1 && violence > 1 ? mildYellowFilter : moderateYellowFilter
-      return layout === "grid" ? (
-        <ImageCard
-          url={alwaysShowImage ? image?.thumbnail || image?.url || "" : ""}
-          title={title} msgs={msgs}
-          link={alwaysAllowClick ? link : undefined}
-          className={cn(className, clickable, warningFilter, "transition-all duration-300 ease-in-out")}
-        />
-      ) : (
-        <ImageCard2
-          url={alwaysShowImage ? image?.thumbnail || image?.url || "" : ""}
-          title={title} msgs={msgs}
-          link={alwaysAllowClick ? link : undefined}
-          className={cn(className, clickable, warningFilter, "transition-all duration-300 ease-in-out")}
-        />
-      )
-    }
-    const cautionFilter = sexual > 1 && violence > 1 ? moderateRedFilter : severeRedFilter
-    return layout === "grid" ? (
-      <ImageCard
-        url={alwaysShowImage ? image?.thumbnail || image?.url || "" : ""}
-        title={title} msgs={msgs}
-        link={alwaysAllowClick ? link : undefined}
-        className={cn(className, clickable, cautionFilter, "transition-all duration-300 ease-in-out")}
-      />
-    ) : (
-      <ImageCard2
-        url={alwaysShowImage ? image?.thumbnail || image?.url || "" : ""}
-        title={title} msgs={msgs}
-        link={alwaysAllowClick ? link : undefined}
-        className={cn(className, clickable, cautionFilter, "transition-all duration-300 ease-in-out")}
-      />
+  if (view === "compact") {
+    return (
+      <div className="flex flex-col">
+        {traits.map((t, idx) => (
+          <CompactRow
+            key={t.id} index={idx + 1} title={t.name}
+            subtitle={t.group_name}
+            markedAt={markedAtMap?.[t.id]}
+            onRemove={onRemove ? () => onRemove(t.id) : undefined}
+            onMove={onMove ? () => onMove(t.id) : undefined}
+            selected={selectedIds?.has(t.id)} editMode={editMode}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(t.id) : undefined}
+            link={`/${t.id}`}
+          />
+        ))}
+      </div>
     )
   }
-  if ((sexualLevel === "suggestive" && sexual > 1) || (violenceLevel === "violent" && violence > 1)) {
-    const cautionFilter = sexual > 1 && violence > 1 ? moderateRedFilter : severeRedFilter
-    return layout === "grid" ? (
-      <ImageCard
-        url={alwaysShowImage ? image?.thumbnail || image?.url || "" : ""}
-        title={title} msgs={msgs}
-        link={alwaysAllowClick ? link : undefined}
-        className={cn(className, clickable, cautionFilter, "transition-all duration-300 ease-in-out")}
-      />
-    ) : (
-      <ImageCard2
-        url={alwaysShowImage ? image?.thumbnail || image?.url || "" : ""}
-        title={title} msgs={msgs}
-        link={alwaysAllowClick ? link : undefined}
-        className={cn(className, clickable, cautionFilter, "transition-all duration-300 ease-in-out")}
-      />
-    )
-  }
-  return layout === "grid" ? (
-    <ImageCard
-      url={image?.thumbnail || image?.url || ""}
-      title={title} msgs={msgs}
-      link={link}
-      className={cn(className)}
-    />
-  ) : (
-    <ImageCard2
-      url={image?.thumbnail || image?.url || ""}
-      title={title} msgs={msgs}
-      link={link}
-      className={cn(className)}
-    />
-  )
-}
 
-export function GenTextCard({ title, msgs, link, layout = "grid", className }: GenTextCardProps) {
-  return <TextCard title={title} msgs={msgs} link={link} className={cn(className)} />
-}
-
-const gridClassName = (layout: "single" | "grid", cardType: "image" | "text") => {
-  if (layout === "single") {
-    return cardType === "image" ?
-      "grid grid-cols-1 gap-4":
-      "grid grid-cols-1 gap-4"
-  }
-
-  return cardType === "image" ?
-    "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4" :
-    "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
-}
-
-function BaseCardsGrid({ items, cardType = "text", layout = "grid", sexualLevel = "safe", violenceLevel = "tame" }: BaseCardsGridProps) {
   return (
-    <motion.div
-      key={`grid-${layout}-${cardType}-${items.map(item => item.id).join("-")}`}
-      initial={{ filter: "blur(20px)", opacity: 0, scale: 0.95 }}
-      animate={{ filter: "blur(0px)", opacity: 1, scale: 1 }}
-      exit={{ filter: "blur(20px)", opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
-      className={gridClassName(layout, cardType)}
-    >
-      {items.filter((item) => {
-        // const sexualSave = item.image?.sexual ? item.image.sexual < 0.5 : true;
-        // const violenceSave = item.image?.violence ? item.image.violence < 0.5 : true;
-        // return sexualSave && violenceSave;
-        return true;
-      }).map((item, index) => (
-        <motion.div
-          key={`card-${index}`}
-          initial={{ opacity: 0, y: 20, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -20, scale: 0.98 }}
-          transition={{ duration: 0.3, delay: 0.1, ease: "easeInOut" }}
+    <div className={gridClass(effectiveLayout)}>
+      {traits.map((t) => (
+        <CollectionWrapper
+          key={t.id} id={t.id}
+          onRemove={onRemove} onMove={onMove}
+          editMode={editMode} selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
         >
-          {cardType === "image" ? (
-            <GenImageCard
-              image={item.image}
-              title={item.title}
-              msgs={item.msgs}
-              link={item.link}
-              sexualLevel={sexualLevel}
-              violenceLevel={violenceLevel}
-              layout={layout}
-            />
-          ) : (
-            <GenTextCard
-              title={item.title}
-              msgs={item.msgs}
-              link={item.link}
-              layout={layout}
-            />
-          )}
-        </motion.div>
+          <TextCard title={t.name} msgs={[t.group_name || ""].filter(Boolean)} link={`/${t.id}`} layout={effectiveLayout} />
+        </CollectionWrapper>
       ))}
-    </motion.div>
+    </div>
   )
-}
-
-export function VNsCardsGrid({ vns, ...props }: VNsCardsGridProps) {
-  const items: GridItem[] = vns.map(vn => ({
-    id: vn.id,
-    title: vn.title,
-    msgs: [
-      vn.titles.find(title => title.main && title.official)?.title || vn.title,
-      `Released: ${vn.released}`,
-      vn.developers.length > 0 ? `Developers: ${vn.developers.map(dev => dev.original || dev.name).join(" & ")}` : ""
-    ],
-    image: vn.image,
-    link: `/v/${vn.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
-}
-
-export function CharactersCardsGrid({ characters, ...props }: CharacterCardsGridProps) {
-  const items: GridItem[] = characters.map(char => ({
-    id: char.id,
-    title: char.name,
-    msgs: [char.original ?? char.name],
-    image: char.image,
-    link: `/c/${char.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
-}
-
-export function ReleasesCardsGrid({ releases, ...props }: ReleaseCardsGridProps) {
-  const items: GridItem[] = releases.map(release => ({
-    id: release.id,
-    title: release.title,
-    msgs: [`Released: ${release.released}`],
-    link: `/r/${release.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
-}
-
-export function ProducersCardsGrid({ producers, ...props }: ProducerCardsGridProps) {
-  const items: GridItem[] = producers.map(producer => ({
-    id: producer.id,
-    title: producer.name,
-    msgs: [producer.original ?? producer.name],
-    link: `/p/${producer.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
-}
-
-export function StaffCardsGrid({ staff, ...props }: StaffCardsGridProps) {
-  const items: GridItem[] = staff.map(s => ({
-    id: s.id,
-    title: s.name,
-    msgs: [s.original ?? s.name],
-    link: `/s/${s.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
-}
-
-export function TagsCardsGrid({ tags, ...props }: TagCardsGridProps) {
-  const items: GridItem[] = tags.map(tag => ({
-    id: tag.id,
-    title: tag.name,
-    msgs: [ENUMS.CATEGORY[tag.category as keyof typeof ENUMS.CATEGORY]],
-    link: `/g/${tag.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
-}
-
-export function TraitsCardsGrid({ traits, ...props }: TraitCardsGridProps) {
-  const items: GridItem[] = traits.map(trait => ({
-    id: trait.id,
-    title: trait.name,
-    msgs: [trait.group_name ?? ""],
-    link: `/i/${trait.id.slice(1)}`
-  }))
-  return <BaseCardsGrid items={items} {...props} />
 }

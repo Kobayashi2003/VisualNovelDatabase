@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils"
-import { IconButton } from "@/components/button/IconButton"
 
 interface LetterButtonProps {
   letter: string
@@ -9,18 +8,20 @@ interface LetterButtonProps {
 }
 
 export function LetterButton({ letter, onClick, disabled, className }: LetterButtonProps) {
-
-  const buttonBgColor = "bg-[#0F2942]/80 hover:bg-[#0F2942]"
-
-  const icon = <span className="font-bold font-serif italic">{letter}</span>
-
   return (
-    <IconButton
-      icon={icon}
-      variant="outline"
+    <button
       onClick={onClick}
       disabled={disabled}
-      className={cn(buttonBgColor, className)}
-    />
+      className={cn(
+        "w-8 h-8 rounded-full",
+        "bg-accent text-white font-bold text-sm",
+        "hover:bg-accent-hover hover:scale-105",
+        "transition-all duration-200",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
+        className
+      )}
+    >
+      {letter}
+    </button>
   )
 }

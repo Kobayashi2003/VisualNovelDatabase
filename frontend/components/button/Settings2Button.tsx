@@ -1,25 +1,28 @@
-import { cn } from "@/lib/utils";
-import { IconButton } from "@/components/button/IconButton";
-import { Settings2 } from "lucide-react";
+import { cn } from "@/lib/utils"
+import { Settings2 } from "lucide-react"
 
 interface Settings2ButtonProps {
-  onClick?: () => void
+  onClick: () => void
   disabled?: boolean
   className?: string
 }
 
 export function Settings2Button({ onClick, disabled, className }: Settings2ButtonProps) {
-
-  const buttonBgColor = "bg-[#0F2942]/80 hover:bg-[#0F2942]"
-
   return (
-    <IconButton
-      icon={<Settings2 className="w-4 h-4" />}
-      tooltip="Settings"
-      variant="outline"
+    <button
       onClick={onClick}
       disabled={disabled}
-      className={cn( buttonBgColor, className )}
-    />
+      className={cn(
+        "p-2 rounded-full",
+        "text-muted hover:text-white",
+        "hover:bg-white/10",
+        "transition-all duration-200",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
+        className
+      )}
+      aria-label="Sort settings"
+    >
+      <Settings2 className="w-4 h-4" />
+    </button>
   )
 }

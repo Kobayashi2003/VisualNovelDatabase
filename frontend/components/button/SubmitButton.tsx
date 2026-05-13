@@ -1,25 +1,28 @@
-import { cn } from "@/lib/utils";
-import { IconButton } from "@/components/button/IconButton";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils"
+import { Search } from "lucide-react"
 
 interface SubmitButtonProps {
-  handleSubmit?: () => void
+  handleSubmit: () => void
   disabled?: boolean
   className?: string
 }
 
 export function SubmitButton({ handleSubmit, disabled, className }: SubmitButtonProps) {
-
-  const buttonBgColor = "bg-[#0F2942]/80 hover:bg-[#0F2942]"
-  const icon = disabled ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />
-
   return (
-    <IconButton
-      icon={icon}
-      variant="outline"
+    <button
       onClick={handleSubmit}
       disabled={disabled}
-      className={cn( buttonBgColor, className )}
-    />
+      className={cn(
+        "p-2 rounded-full",
+        "text-muted hover:text-white",
+        "hover:bg-white/10",
+        "transition-all duration-200",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
+        className
+      )}
+      aria-label="Search"
+    >
+      <Search className="w-4 h-4" />
+    </button>
   )
 }

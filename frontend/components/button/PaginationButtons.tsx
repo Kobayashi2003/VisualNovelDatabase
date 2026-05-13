@@ -1,142 +1,73 @@
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface PaginationButtonsProps {
   totalPages: number
   currentPage: number
   onPageChange: (page: number) => void
-  disabled?: boolean
   className?: string
 }
 
-function getPageButtons(currentPage: number, totalPages: number, size: "long" | "medium" | "short") {
-  switch (size) {
-    case "long":
-      const minPageLong = (currentPage - currentPage % 10)
-      const maxPageLong = ((currentPage - currentPage % 10) / 10 + 1) * 10 + 1
-      return Array.from({ length: maxPageLong - minPageLong + 1 }, (_, i) => minPageLong + i).filter(page => page > 0 && page <= totalPages)
-    case "medium":
-      if (totalPages < 7) {
-        return Array.from({ length: totalPages }, (_, i) => i + 1)
-      } else {
-        return [1, ...Array.from({ length: 5 }, (_, i) => currentPage - 2 + i).filter(page => page > 1 && page < totalPages), totalPages]
-      }
-    case "short":
-      if (totalPages < 5) {
-        return Array.from({ length: totalPages }, (_, i) => i + 1)
-      } else {
-        return [1, ...Array.from({ length: 3 }, (_, i) => currentPage - 1 + i).filter(page => page > 1 && page < totalPages), totalPages]
-      }
-  }
-}
+export function PaginationButtons({ totalPages, currentPage, onPageChange, className }: PaginationButtonsProps) {
+  if (totalPages <= 1) return null
 
-function addIndicators(pageButtons: number[]) {
-  for (let i = 0; i < pageButtons.length - 1; i++) {
-    if (pageButtons[i] + 1 !== pageButtons[i + 1]) {
-      pageButtons.splice(++i, 0, 0)
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = []
+    const delta = 2
+
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
     }
+
+    pages.push(1)
+    if (currentPage > delta + 2) pages.push("...")
+
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      pages.push(i)
+    }
+
+    if (currentPage < totalPages - delta - 1) pages.push("...")
+    pages.push(totalPages)
+
+    return pages
   }
-  return pageButtons
-}
-
-export function PaginationButtons({ currentPage, totalPages, onPageChange, disabled, className }: PaginationButtonsProps) {
-
-  const containerStyle = "flex justify-center items-center gap-1 bg-transparent select-none"
-  const buttonStyle = "bg-[#0F2942]/80 hover:bg-[#0F2942] border-white/10 hover:border-white/50 text-white hover:text-white/50"
 
   return (
-    <div className={cn(containerStyle, className)}>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => onPageChange(1)}
-        disabled={disabled || currentPage === 1}
-        className={cn(buttonStyle)}
-      >
-        <ChevronsLeft className="w-4 h-4" />
-      </Button>
-
-      <Button
-        variant="outline"
-        size="icon"
+    <div className={cn("flex flex-wrap items-center justify-center gap-1", className)}>
+      <button
         onClick={() => onPageChange(currentPage - 1)}
-        disabled={disabled || currentPage === 1}
-        className={cn(buttonStyle)}
+        disabled={currentPage === 1}
+        className="p-2 rounded-full text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
       >
         <ChevronLeft className="w-4 h-4" />
-      </Button>
+      </button>
 
-      {getPageButtons(currentPage, totalPages, "long").map((page) => (
-        <Button
-          key={`long-${page}`}
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(page)}
-          disabled={disabled || currentPage === page}
-          className={cn(buttonStyle, "hidden lg:block")}
-        >
-          {page}
-        </Button>
-      ))}
-
-      {addIndicators(getPageButtons(currentPage, totalPages, "medium")).map((page, index) => (
-        page === 0 ? (
-          <div key={`med-ellipsis-${index}`} className="hidden md:block lg:hidden">
-            ...
-          </div>
+      {getPageNumbers().map((page, i) =>
+        page === "..." ? (
+          <span key={`ellipsis-${i}`} className="px-2 text-muted">…</span>
         ) : (
-          <Button
-            key={`med-${page}`}
-            variant="outline"
-            size="icon"
+          <button
+            key={page}
             onClick={() => onPageChange(page)}
-            disabled={disabled || currentPage === page}
-            className={cn(buttonStyle, "hidden md:block lg:hidden")}
+            className={cn(
+              "w-8 h-8 rounded-full text-sm font-medium transition-all",
+              page === currentPage
+                ? "bg-accent text-white"
+                : "text-muted hover:text-white hover:bg-white/10"
+            )}
           >
             {page}
-          </Button>
+          </button>
         )
-      ))}
+      )}
 
-      {addIndicators(getPageButtons(currentPage, totalPages, "short")).map((page, index) => (
-        page === 0 ? (
-          <div key={`short-ellipsis-${index}`} className="block md:hidden">
-            ...
-          </div>
-        ) : (
-          <Button
-            key={`short-${page}`}
-            variant="outline"
-            size="icon"
-            onClick={() => onPageChange(page)}
-            disabled={disabled || currentPage === page}
-            className={cn(buttonStyle, "block md:hidden")}
-          >
-            {page}
-          </Button>
-        )
-      ))}
-
-      <Button
-        variant="outline"
-        size="icon"
+      <button
         onClick={() => onPageChange(currentPage + 1)}
-        disabled={disabled || currentPage === totalPages}
-        className={cn(buttonStyle)}
+        disabled={currentPage === totalPages}
+        className="p-2 rounded-full text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
       >
         <ChevronRight className="w-4 h-4" />
-      </Button>
-
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => onPageChange(totalPages)}
-        disabled={disabled || currentPage === totalPages}
-        className={cn(buttonStyle)}
-      >
-        <ChevronsRight className="w-4 h-4" />
-      </Button>
+      </button>
     </div>
   )
 }

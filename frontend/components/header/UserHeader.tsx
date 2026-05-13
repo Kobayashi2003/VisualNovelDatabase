@@ -2,16 +2,13 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useUserContext } from "@/context/UserContext"
-
 import { cn } from "@/lib/utils"
-
+import { useUserContext } from "@/context/UserContext"
 import { GhostButton } from "@/components/button/GhostButton"
 import { LetterButton } from "@/components/button/LetterButton"
 import { LoginButton } from "@/components/button/LoginButton"
 import { RegisterButton } from "@/components/button/RegisterButton"
 import { LogoutButton } from "@/components/button/LogoutButton"
-
 import { LoginDialog } from "@/components/dialog/LoginDialog"
 import { RegisterDialog } from "@/components/dialog/RegisterDialog"
 import { ConfirmDialog } from "@/components/dialog/ConfirmDialog"
@@ -22,7 +19,6 @@ interface UserHeaderProps {
 }
 
 export function UserHeader({ hidden = false, className }: UserHeaderProps) {
-
   const router = useRouter()
   const { user, isLoading, login, register, logout } = useUserContext()
 
@@ -31,10 +27,7 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 
   return (
-    <div className={cn(
-      "flex flex-row justify-between items-center gap-1",
-      className
-    )}>
+    <div className={cn("flex flex-row items-center gap-1", className)}>
       {isLoading ? (
         <>
           <GhostButton />
@@ -42,15 +35,14 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
         </>
       ) : user ? (
         <>
-          {/* TODO: User Icon */}
           <LetterButton
             letter={user.username.charAt(0).toUpperCase()}
             onClick={() => router.push("/u/c")}
-            disabled={isLoading || hidden}
+            disabled={hidden}
           />
           <LogoutButton
-            handleLogout={() => setLogoutDialogOpen(!logoutDialogOpen)}
-            disabled={isLoading || hidden}
+            handleLogout={() => setLogoutDialogOpen(true)}
+            disabled={hidden}
           />
           <ConfirmDialog
             open={logoutDialogOpen}
@@ -59,31 +51,31 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
             description="Are you sure you want to logout?"
             confirmText="Logout"
             cancelText="Cancel"
-            onConfirm={() => logout()}
+            onConfirm={() => { logout(); setLogoutDialogOpen(false) }}
             onCancel={() => setLogoutDialogOpen(false)}
           />
         </>
       ) : (
         <>
           <LoginButton
-            handleLogin={() => setLoginDialogOpen(!loginDialogOpen)}
-            disabled={isLoading || hidden}
+            handleLogin={() => setLoginDialogOpen(true)}
+            disabled={hidden}
           />
           <RegisterButton
-            handleRegister={() => setRegisterDialogOpen(!registerDialogOpen)}
-            disabled={isLoading || hidden}
+            handleRegister={() => setRegisterDialogOpen(true)}
+            disabled={hidden}
           />
           <LoginDialog
             open={loginDialogOpen}
             setOpen={setLoginDialogOpen}
             handleLogin={login}
-            disabled={isLoading || hidden}
+            disabled={hidden}
           />
           <RegisterDialog
             open={registerDialogOpen}
             setOpen={setRegisterDialogOpen}
             handleRegister={register}
-            disabled={isLoading || hidden}
+            disabled={hidden}
           />
         </>
       )}

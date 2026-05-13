@@ -1,24 +1,22 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { ImageOff, RotateCw, RefreshCw } from "lucide-react"
+import { ImageOff, RotateCw, Lock } from "lucide-react"
 
-interface ImageCardProps {
+interface ImageCard2Props {
   title: string
   url: string
   msgs?: string[]
   link?: string
   className?: string
+  restricted?: boolean
+  tooltip?: string
 }
 
-
-export function ImageCard2({ title, url, msgs, link, className }: ImageCardProps) {
-
-  const router = useRouter()
+export function ImageCard2({ title, url, msgs, link, className, restricted, tooltip }: ImageCard2Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [imgUrl, setImgUrl] = useState(url)
@@ -43,84 +41,59 @@ export function ImageCard2({ title, url, msgs, link, className }: ImageCardProps
     setImgUrl(`${url}?${Date.now()}`)
   }
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (link) {
-      router.push(link)
-    }
-  }
-
-  // Card container styles
-  const containerStyle = cn(
-    "bg-[#0F2942]/80 hover:bg-[#0F2942]",
-    "rounded-lg",
-    "p-2",
-    "border border-white/10",
-    "flex flex-row",
-    "hover:scale-105 transition-transform duration-300",
-    link ? "cursor-pointer" : "cursor-default",
-    className
-  )
-
-  // Image area styles
-  const imageWrapperStyle = "relative h-full aspect-square min-w-[100px] w-[100px] md:min-w-[120px] md:w-[120px]"
-  const imageContentStyle = cn(
-    "object-contain transition-opacity duration-300",
-    loading || error ? "opacity-0" : "opacity-100"
-  )
-  const iconWrapperStyle = "absolute inset-0 flex items-center justify-center"
-  const iconStyle = "h-12 w-12"
-
-  // Text area styles
-  const textWrapperStyle = "flex-1 p-2 pl-4 flex flex-col justify-center"
-  const titleTextStyle = "font-semibold text-xs sm:text-sm md:text-base mb-1"
-  const msgTextStyle = "text-xs md:text-sm text-gray-400"
-
-  return (
-    <div
-      className={cn(containerStyle)}
-      onClick={handleCardClick}
-    >
-      <div className={cn(imageWrapperStyle)}>
-        {imgUrl ? (<>
-          <Link href={link || ""}>
-            <Image
-              ref={imgRef}
-              src={imgUrl}
-              alt={title}
-              fill
-              loading="lazy"
-              onLoad={() => { setLoading(false); setError(false) }}
-              onError={() => { setLoading(false); setError(true) }}
-              className={cn(imageContentStyle)}
-            />
-            {loading && (
-              <div className={cn(iconWrapperStyle)}>
-                <RotateCw className={cn(iconStyle, "text-gray-500 animate-spin")} />
+  const card = (
+    <div className={cn(
+      "bg-surface hover:bg-elevated",
+      "rounded-lg p-3 border border-white/5",
+      "flex flex-row gap-3",
+      "hover:bg-elevated transition-all duration-300",
+      link ? "cursor-pointer" : "cursor-default",
+      className
+    )} title={tooltip}>
+      <div className="relative w-24 h-32 shrink-0 rounded overflow-hidden">
+        {restricted ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-elevated gap-1">
+            <Lock className="w-5 h-5 text-muted/50" />
+            <span className="text-xs text-muted/50 text-center px-1 leading-tight">Login to view</span>
+          </div>
+        ) : (
+          <>
+            {imgUrl && (
+              <Image
+                ref={imgRef}
+                src={imgUrl}
+                alt={title}
+                fill
+                loading="lazy"
+                onLoad={() => { setLoading(false); setError(false) }}
+                onError={() => { setLoading(false); setError(true) }}
+                className={cn("object-cover transition-opacity duration-300", loading || error ? "opacity-0" : "opacity-100")}
+              />
+            )}
+            {(loading || !imgUrl) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-elevated">
+                <div className="w-6 h-6 rounded-full bg-white/10 animate-pulse" />
               </div>
             )}
-          </Link>
-          {error && (
-            <div onClick={handleRetry} className={cn(iconWrapperStyle)}>
-              <RefreshCw className={cn(iconStyle, "text-red-400")} />
-            </div>
-          )}
-        </>) : (
-          <Link href={link || ""}>
-            <div className={cn(iconWrapperStyle)}>
-              <ImageOff className={cn(iconStyle)} />
-            </div>
-          </Link>
+            {error && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-elevated gap-1">
+                <ImageOff className="w-6 h-6 text-muted" />
+                <button onClick={handleRetry} className="p-1 rounded-full hover:bg-white/10">
+                  <RotateCw className="w-3 h-3 text-muted" />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
-      <Link href={link || ""}>
-        <div className={cn(textWrapperStyle)}>
-          <h2 className={cn(titleTextStyle)}>{title}</h2>
-          {msgs?.filter(Boolean).map((msg, index) => (
-            <p key={index} className={cn(msgTextStyle)}>{msg}</p>
-          ))}
-        </div>
-      </Link>
+      <div className="flex-1 min-w-0 py-1">
+        <p className="font-semibold text-sm text-white line-clamp-2">{title}</p>
+        {msgs?.map((msg, i) => (
+          <p key={i} className="text-xs text-muted mt-1 truncate">{msg}</p>
+        ))}
+      </div>
     </div>
   )
+
+  return link ? <Link href={link}>{card}</Link> : card
 }

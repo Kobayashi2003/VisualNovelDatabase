@@ -1,5 +1,23 @@
-import { cn } from "@/lib/utils";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+"use client"
+
+import { cn } from "@/lib/utils"
+import { ChevronDown } from "lucide-react"
+
+const MONTHS = [
+  { value: "00", label: "ALL" },
+  { value: "01", label: "Jan" },
+  { value: "02", label: "Feb" },
+  { value: "03", label: "Mar" },
+  { value: "04", label: "Apr" },
+  { value: "05", label: "May" },
+  { value: "06", label: "Jun" },
+  { value: "07", label: "Jul" },
+  { value: "08", label: "Aug" },
+  { value: "09", label: "Sep" },
+  { value: "10", label: "Oct" },
+  { value: "11", label: "Nov" },
+  { value: "12", label: "Dec" },
+]
 
 interface MonthSelectorProps {
   selectedMonth: string
@@ -9,37 +27,29 @@ interface MonthSelectorProps {
 }
 
 export function MonthSelector({ selectedMonth, setSelectedMonth, disabled, className }: MonthSelectorProps) {
-
-  const monthsSelectable = [
-    { value: "00", label: "ALL" },
-    { value: "01", label: "JAN" },
-    { value: "02", label: "FEB" },
-    { value: "03", label: "MAR" },
-    { value: "04", label: "APR" },
-    { value: "05", label: "MAY" },
-    { value: "06", label: "JUN" },
-    { value: "07", label: "JUL" },
-    { value: "08", label: "AUG" },
-    { value: "09", label: "SEP" },
-    { value: "10", label: "OCT" },
-    { value: "11", label: "NOV" },
-    { value: "12", label: "DEC" }
-  ]
-
   return (
-    <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={disabled}>
-      <SelectTrigger className={cn(
-        "bg-[#0F2942]/80 border-white/10 hover:border-white/20 text-white font-bold",
-        className
-      )}>
-        <SelectValue placeholder="Month" />
-      </SelectTrigger>
-      <SelectContent className="bg-[#0F2942]/80 border-white/10 hover:border-white/20 text-white font-bold">
-        {monthsSelectable.map((month) => (
-          <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+    <div className={cn("relative", className)}>
+      <select
+        value={selectedMonth}
+        onChange={(e) => setSelectedMonth(e.target.value)}
+        disabled={disabled}
+        className={cn(
+          "appearance-none pl-3 pr-8 py-1.5 rounded-full text-sm font-bold",
+          "bg-elevated border border-white/10",
+          "text-white",
+          "focus:outline-none focus:border-white/30",
+          "hover:border-white/20",
+          "cursor-pointer",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+        )}
+      >
+        {MONTHS.map((month) => (
+          <option key={month.value} value={month.value} className="bg-elevated">
+            {month.label}
+          </option>
         ))}
-      </SelectContent>
-    </Select>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+    </div>
   )
 }
-

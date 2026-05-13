@@ -1,0 +1,112 @@
+"use client"
+
+import Image from "next/image"
+import Link from "next/link"
+import { X, MoreHorizontal } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { formatRelativeDate } from "@/lib/utils"
+
+interface CompactRowProps {
+  index: number
+  title: string
+  subtitle?: string
+  thumbnail?: string           // undefined = no thumbnail column; empty string = placeholder
+  badges?: string[]
+  markedAt?: string
+  onRemove?: () => void
+  onMove?: () => void
+  selected?: boolean
+  editMode?: boolean
+  onToggleSelect?: () => void
+  link?: string
+  className?: string
+}
+
+export function CompactRow({
+  index, title, subtitle, thumbnail, badges, markedAt,
+  onRemove, onMove, selected, editMode, onToggleSelect, link, className
+}: CompactRowProps) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 px-2 py-1.5 rounded-lg group transition-colors",
+        selected ? "bg-accent/15" : "hover:bg-white/5",
+        className
+      )}
+    >
+      <div className="w-6 shrink-0 flex items-center justify-center">
+        {editMode ? (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            onClick={e => e.stopPropagation()}
+            className="w-4 h-4 accent-accent cursor-pointer"
+          />
+        ) : (
+          <span className="text-sm text-muted text-right select-none w-full">{index}</span>
+        )}
+      </div>
+
+      {thumbnail !== undefined && (
+        <div className="w-10 h-14 shrink-0 rounded overflow-hidden bg-white/5">
+          {thumbnail ? (
+            <Image src={thumbnail} alt={title} width={40} height={56} className="w-full h-full object-cover" unoptimized />
+          ) : (
+            <div className="w-full h-full bg-white/10" />
+          )}
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0">
+        {link ? (
+          <Link href={link} className="text-sm font-medium text-white hover:underline line-clamp-1">
+            {title}
+          </Link>
+        ) : (
+          <div className="text-sm font-medium text-white line-clamp-1">{title}</div>
+        )}
+        {subtitle && (
+          <div className="text-xs text-muted line-clamp-1 mt-0.5">{subtitle}</div>
+        )}
+      </div>
+
+      {badges && badges.length > 0 && (
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
+          {badges.map((b, i) => (
+            <span key={i} className="text-xs text-muted bg-white/5 px-1.5 py-0.5 rounded">{b}</span>
+          ))}
+        </div>
+      )}
+
+      {markedAt && (
+        <div className="hidden lg:block text-xs text-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-28 text-right">
+          {formatRelativeDate(markedAt)}
+        </div>
+      )}
+
+      {(onRemove || onMove) && (
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {onMove && (
+            <button
+              onClick={onMove}
+              className="p-1 rounded text-muted hover:text-white hover:bg-white/10 transition-colors"
+              title="Move to..."
+            >
+              <MoreHorizontal className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              className="p-1 rounded text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              title="Remove"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

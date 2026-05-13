@@ -1,10 +1,15 @@
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"
 
 interface GhostButtonProps {
   className?: string
 }
 
 export function GhostButton({ className }: GhostButtonProps) {
-  return <Button variant="ghost" size="icon" className={cn("bg-[#0F2942] border-white/10 animate-pulse", className)} />
+  return (
+    <div className={cn(
+      "h-8 w-20 rounded-full",
+      "bg-white/5 animate-pulse",
+      className
+    )} />
+  )
 }

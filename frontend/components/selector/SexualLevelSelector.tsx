@@ -1,83 +1,42 @@
-import { cn } from "@/lib/utils";
-import { LevelSelectorButton, LevelSelectorSelect } from "@/components/selector/LevelSelector";
+import { cn } from "@/lib/utils"
 
-const sexualLevelButtonOptions = [
-  {
-    key: "sexual-level-button-safe",
-    value: "safe",
-    label: "Safe",
-    selectedClassName: "text-[#88ccff]",
-    unselectedClassName: "text-white/80 hover:text-[#88ccff]/70",
-    className: "font-bold",
-  },
-  {
-    key: "sexual-level-button-suggestive",
-    value: "suggestive",
-    label: "Suggestive",
-    selectedClassName: "text-[#ffcc66]",
-    unselectedClassName: "text-white/80 hover:text-[#ffcc66]/70",
-    className: "font-bold",
-  },
-  {
-    key: "sexual-level-button-explicit",
-    value: "explicit",
-    label: "Explicit",
-    selectedClassName: "text-[#ff6666]",
-    unselectedClassName: "text-white/80 hover:text-[#ff6666]/70",
-    className: "font-bold",
-  }
-]
-
-const sexualLevelSelectOptions = [
-  {
-    key: "sexual-level-select-safe",
-    value: "safe",
-    label: "🟢Safe",
-  },
-  {
-    key: "sexual-level-select-suggestive",
-    value: "suggestive",
-    label: "🟡Suggestive",
-  },
-  {
-    key: "sexual-level-select-explicit",
-    value: "explicit",
-    label: "🔴Explicit",
-  }
+const LEVELS = [
+  { value: "safe", label: "Safe", short: "Safe" },
+  { value: "suggestive", label: "Suggestive", short: "Sugg" },
+  { value: "explicit", label: "Explicit", short: "Expl" },
 ]
 
 interface SexualLevelSelectorProps {
   sexualLevel: string
-  setSexualLevel: (value: string) => void
-  disabled?: boolean
+  setSexualLevel: (level: string) => void
   className?: string
 }
 
-export function SexualLevelSelector({ sexualLevel, setSexualLevel, disabled, className }: SexualLevelSelectorProps) {
+export function SexualLevelSelector({ sexualLevel, setSexualLevel, className }: SexualLevelSelectorProps) {
   return (
-    <>
-      <LevelSelectorButton
-        levelOptions={sexualLevelButtonOptions}
-        selectedLevel={sexualLevel}
-        setSelectedLevel={setSexualLevel}
-        disabled={disabled}
-        className={cn(
-          "hidden lg:flex",
-          "font-serif italic",
-          "border-b border-white/50",
-          className
-        )}
-      />
-      <LevelSelectorSelect
-        levelOptions={sexualLevelSelectOptions}
-        selectedLevel={sexualLevel}
-        setSelectedLevel={setSexualLevel}
-        disabled={disabled}
-        className={cn(
-          "lg:hidden",
-          className
-        )}
-      />
-    </>
+    <div className={cn(
+      "flex flex-row items-center rounded-full border border-white/10 overflow-hidden",
+      className
+    )}>
+      {LEVELS.map((level) => (
+        <button
+          key={level.value}
+          onClick={() => setSexualLevel(level.value)}
+          className={cn(
+            "flex-1 px-2.5 py-1.5 text-xs font-medium text-center transition-all duration-200",
+            sexualLevel === level.value
+              ? level.value === "explicit"
+                ? "bg-red-500/80 text-white"
+                : level.value === "suggestive"
+                ? "bg-yellow-500/80 text-white"
+                : "bg-white/20 text-white"
+              : "text-muted hover:text-white hover:bg-white/10"
+          )}
+        >
+          <span className="sm:hidden">{level.short}</span>
+          <span className="hidden sm:inline">{level.label}</span>
+        </button>
+      ))}
+    </div>
   )
 }

@@ -1,23 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { useSearchContext } from "@/context/SearchContext"
-
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Languages, RefreshCw, SlidersHorizontal } from "lucide-react"
+import { useSearchContext } from "@/context/SearchContext"
 import { SearchBar } from "@/components/input/SearchBar"
-import { FromSwitch } from "@/components/selector/FromSwitch"
-import { TypeSelector1 } from "@/components/selector/TypeSelector1"
-import { OrderSwitch } from "@/components/selector/OrderSwitch"
-import { FilterButton } from "@/components/button/FilterButton"
-import { Settings2Button } from "@/components/button/Settings2Button"
 import { SubmitButton } from "@/components/button/SubmitButton"
-import { MenuButton } from "@/components/button/MenuButton"
-import { FiltersDialog } from "@/components/dialog/FiltersDialog"
-import { SortByDialog } from "@/components/dialog/SortByDialog"
-import { TypeDialog } from "@/components/dialog/TypeDialog"
-import { FromDialog } from "@/components/dialog/FromDialog"
-
+import { SearchPanel } from "@/components/panel/SearchPanel"
 
 interface SearchHeaderProps {
   hidden?: boolean
@@ -25,87 +15,92 @@ interface SearchHeaderProps {
 }
 
 export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
-
-  const pathname = usePathname()
-  const isSearching = (
-    pathname.match(/^\/[vrcpsgi](\?|$)/) !== null
-  )
-
-  const { searchFrom, searchType, sortBy,
-    setSearchFrom, setSearchType, setSortBy } = useSearchContext()
-
+  const { searchFrom, searchType, sortBy, showOriginal, setSearchFrom, setSearchType, setSortBy, setShowOriginal } = useSearchContext()
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
 
+  const [loading, setLoading] = useState(false)
   const [sortOrder, setSortOrder] = useState("desc")
   const [searchQuery, setSearchQuery] = useState("")
   const [filtersParams, setFiltersParams] = useState<Record<string, string>>({})
-  const [filtersDialogOpen, setFiltersDialogOpen] = useState(false)
-  const [sortByDialogOpen, setSortByDialogOpen] = useState(false)
-  const [typeDialogOpen, setTypeDialogOpen] = useState(false)
-  const [fromDialogOpen, setFromDialogOpen] = useState(false)
+  const [filtersType, setFiltersType] = useState<string>(searchType) // tracks which type filtersParams belongs to
+  const [panelOpen, setPanelOpen] = useState(false)
 
-  const handleSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+  // Accept optional overrides to avoid async state issues when applying from panel
+  const handleSubmit = (
+    e?: React.FormEvent,
+    overrides?: { from?: string; type?: string; sortByVal?: string; order?: string; filters?: Record<string, string> }
+  ) => {
     if (e) e.preventDefault()
+    const from = overrides?.from ?? searchFrom
+    const type = overrides?.type ?? searchType
+    const sort = overrides?.sortByVal ?? sortBy
+    const order = overrides?.order ?? sortOrder
+    // Only use stored filters if they belong to the current type; otherwise discard them
+    const filters = overrides?.filters ?? (filtersType === type ? filtersParams : {})
+
     setLoading(true)
-    const searchParams = new URLSearchParams(filtersParams)
-    if (searchFrom === "local") searchParams.set("from", "local")
-    if (searchFrom === "remote") searchParams.set("from", "remote")
-    if (searchQuery !== "") searchParams.set("search", searchQuery)
-    if (sortBy !== "") searchParams.set("sort", sortBy)
-    if (sortOrder !== "") searchParams.set("reverse", (sortOrder === "desc") ? "True" : "False")
-    router.push(`/${searchType}?${searchParams.toString()}`)
+    const params = new URLSearchParams(filters)
+    if (from === "local") params.set("from", "local")
+    if (from === "remote") params.set("from", "remote")
+    if (searchQuery) params.set("search", searchQuery)
+    if (sort) params.set("sort", sort)
+    params.set("reverse", order === "desc" ? "True" : "False")
+    router.push(`/${type}?${params.toString()}`)
     setLoading(false)
   }
 
-  useEffect(() => {
-    if (isSearching) {
-      handleSubmit()
-    }
-  }, [sortOrder])
+  const handlePanelApply = (from: string, type: string, sort: string, order: string, filters: Record<string, string>) => {
+    setSearchFrom(from)
+    setSearchType(type)
+    setSortBy(sort)
+    setSortOrder(order)
+    setFiltersParams(filters)
+    setFiltersType(type)
+    handleSubmit(undefined, { from, type, sortByVal: sort, order, filters })
+  }
+
+  const handlePanelSave = (from: string, type: string, sort: string, order: string, filters: Record<string, string>) => {
+    setSearchFrom(from)
+    setSearchType(type)
+    setSortBy(sort)
+    setSortOrder(order)
+    setFiltersParams(filters)
+    setFiltersType(type)
+  }
 
   return (
-    <div className={cn("flex flex-row justify-center items-center gap-1", className)}>
-      <FromSwitch
-        selected={searchFrom}
-        setSelected={setSearchFrom}
-        disabled={loading || hidden}
-        className="max-md:hidden"
-      />
-      <TypeSelector1
-        selected={searchType}
-        onSelect={setSearchType}
-        disabled={loading || hidden}
-        className="max-md:hidden"
-      />
-      <FilterButton
-        onClick={() => setFiltersDialogOpen(true)}
-        disabled={loading || hidden}
-        className="max-md:hidden"
-      />
-      <MenuButton
-        options={[
-          {
-            name: "Select Type",
-            onClick: () => setTypeDialogOpen(true),
-          },
-          {
-            name: "Select From",
-            onClick: () => setFromDialogOpen(true),
-          },
-          {
-            name: "Sort By",
-            onClick: () => setSortByDialogOpen(true),
-          },
-          {
-            name: "Filters",
-            onClick: () => setFiltersDialogOpen(true),
-          },
-        ]}
-        disabled={loading || hidden}
-        className="md:hidden"
-      />
-      <form onSubmit={handleSubmit}>
+    <div className={cn("flex flex-row items-center gap-1", className)}>
+      <button
+        onClick={() => router.refresh()}
+        disabled={hidden}
+        className={cn(
+          "p-2 rounded-full transition-all duration-200",
+          "text-muted hover:text-white hover:bg-white/10",
+          "disabled:opacity-40 disabled:cursor-not-allowed"
+        )}
+        title="Refresh"
+        aria-label="Refresh"
+      >
+        <RefreshCw className="w-4 h-4" />
+      </button>
+
+      <button
+        onClick={() => setShowOriginal(!showOriginal)}
+        disabled={hidden}
+        className={cn(
+          "p-2 rounded-full transition-all duration-200",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+          showOriginal
+            ? "text-accent bg-accent/10 hover:bg-accent/20"
+            : "text-muted hover:text-white hover:bg-white/10"
+        )}
+        title={showOriginal ? "Showing original names" : "Show original names"}
+        aria-label="Toggle original names"
+      >
+        <Languages className="w-4 h-4" />
+      </button>
+
+      <form onSubmit={handleSubmit} className="flex-1 min-w-0 lg:flex-none lg:w-56 xl:w-72">
         <SearchBar
           input={searchQuery}
           setInput={setSearchQuery}
@@ -113,46 +108,34 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
           disabled={loading || hidden}
         />
       </form>
-      <SubmitButton
-        handleSubmit={handleSubmit}
-        disabled={loading || hidden}
-      />
-      <OrderSwitch
-        order={sortOrder}
-        setOrder={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-        disabled={loading || hidden}
-      />
-      <Settings2Button
-        onClick={() => setSortByDialogOpen(true)}
-        disabled={loading || hidden}
-        className="max-md:hidden"
-      />
 
-      <FiltersDialog
-        open={filtersDialogOpen}
-        setOpen={setFiltersDialogOpen}
-        type={searchType}
-        setFilters={setFiltersParams}
-      />
-      <SortByDialog
-        open={sortByDialogOpen}
-        setOpen={setSortByDialogOpen}
-        type={searchType}
-        from={searchFrom}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-      />
-      <TypeDialog
-        open={typeDialogOpen}
-        setOpen={setTypeDialogOpen}
-        type={searchType}
-        setType={setSearchType}
-      />
-      <FromDialog
-        open={fromDialogOpen}
-        setOpen={setFromDialogOpen}
-        from={searchFrom}
-        setFrom={setSearchFrom}
+      <SubmitButton handleSubmit={handleSubmit} disabled={loading || hidden} />
+
+      <button
+        onClick={() => setPanelOpen(true)}
+        disabled={loading || hidden}
+        className={cn(
+          "p-2 rounded-full",
+          "text-muted hover:text-white",
+          "hover:bg-white/10",
+          "transition-all duration-200",
+          "disabled:opacity-40 disabled:cursor-not-allowed"
+        )}
+        aria-label="Search options"
+      >
+        <SlidersHorizontal className="w-4 h-4" />
+      </button>
+
+      <SearchPanel
+        open={panelOpen}
+        setOpen={setPanelOpen}
+        initialFrom={searchFrom}
+        initialType={searchType}
+        initialSortBy={sortBy}
+        initialOrder={sortOrder}
+        initialFilters={filtersParams}
+        onApply={handlePanelApply}
+        onSave={handlePanelSave}
       />
     </div>
   )

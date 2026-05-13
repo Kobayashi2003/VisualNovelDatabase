@@ -13,7 +13,6 @@ export interface PaginatedResponse<T> {
   count: number
 }
 
-
 export interface VNDBQueryParams extends PaginationParams {
   from?: 'local' | 'remote'
   size?: 'small' | 'large'
@@ -24,7 +23,6 @@ export interface MarksQueryParams extends PaginationParams {
   type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
   category_id: number
 }
-
 
 export interface VN {
   id: string
@@ -149,6 +147,7 @@ export interface VN {
     id: string
     title: string
     released?: string
+    official?: boolean
     languages?: Array<{
       lang: string
       title?: string
@@ -291,7 +290,7 @@ export interface Producer {
   extlinks: Array<{
     url: string
     label: string
-    name:  string
+    name: string
     id: string
   }>
 }
@@ -346,8 +345,8 @@ export interface User {
   id: number
   is_admin: boolean
   username: string
-  created_at: string // ISO 8601 date string
-  updated_at: string // ISO 8601 date string
+  created_at: string
+  updated_at: string
 }
 
 export interface Category {
@@ -356,13 +355,13 @@ export interface Category {
   category_name: string
   marks: Mark[]
   type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
-  created_at: string // ISO 8601 date string
-  updated_at: string // ISO 8601 date string
+  created_at: string
+  updated_at: string
 }
 
 export interface Mark {
   id: number
-  marked_at: string // ISO 8601 date string
+  marked_at: string
 }
 
 export interface VN_Small {
@@ -457,3 +456,5 @@ export interface Trait_Small {
   group_id?: string
   group_name?: string
 }
+
+export type MarkedItem<T> = T & { marked_at: string }

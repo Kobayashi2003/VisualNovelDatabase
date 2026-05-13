@@ -3,41 +3,31 @@ import { cn } from "@/lib/utils"
 
 interface TextCardProps {
   title: string
-  msgs: string[]
+  msgs?: string[]
   link?: string
+  layout?: "single" | "grid"
   className?: string
+  tooltip?: string
 }
 
-export function TextCard({ title, msgs, link, className }: TextCardProps) {
-
-  const containerStyle = cn(
-    "bg-[#0F2942]/80 hover:bg-[#0F2942]",
-    "rounded-lg",
-    "p-2",
-    "border border-white/10",
-    "hover:scale-105 transition-transform duration-300",
-    link ? "cursor-pointer" : "cursor-default",
-    className
-  )
-
-  const textWrapperStyle = "w-full p-2"
-  const titleTextStyle = cn(
-    "truncate font-semibold text-xs sm:text-sm md:text-base",
-    "border-b border-white/10 mb-1"
-  )
-  const msgTextStyle = "truncate text-xs md:text-sm text-gray-400"
-
-
-  return (
-    <Link href={link || ""}>
-      <div className={cn(containerStyle)}>
-        <div className={cn(textWrapperStyle)}>
-          <h2 className={cn(titleTextStyle)}>{title}</h2>
-          {msgs?.filter(Boolean).map((msg, index) => (
-            <p key={index} className={cn(msgTextStyle)}>{msg}</p>
-          ))}
-        </div>
+export function TextCard({ title, msgs, link, layout = "grid", className, tooltip }: TextCardProps) {
+  const card = (
+    <div className={cn(
+      "bg-surface hover:bg-elevated",
+      "rounded-lg border border-white/5",
+      "transition-all duration-200",
+      layout === "grid" ? "p-3" : "p-3 flex flex-row gap-4 items-center",
+      link ? "cursor-pointer hover:border-white/20" : "cursor-default",
+      className
+    )} title={tooltip}>
+      <p className={cn("font-semibold text-sm text-white", layout === "grid" ? "truncate" : "flex-1 truncate")}>{title}</p>
+      <div className={cn(layout === "grid" ? "mt-1 min-h-4" : "flex flex-row gap-2")}>
+        {msgs?.map((msg, i) => (
+          <p key={i} className="text-xs text-muted truncate">{msg}</p>
+        ))}
       </div>
-    </Link>
+    </div>
   )
+
+  return link ? <Link href={link}>{card}</Link> : card
 }

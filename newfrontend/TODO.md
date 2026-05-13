@@ -1,1 +1,0 @@
-1. VN页面中的characters与vn存在spolier的联系，同时，还有性别信息

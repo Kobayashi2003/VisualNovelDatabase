@@ -1,81 +1,66 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import { cn } from "@/lib/utils"
+import { MoreHorizontal } from "lucide-react"
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Menu } from "lucide-react";
-
-interface Option {
+interface MenuOption {
   name: string
   onClick: () => void
-  disabled?: boolean
-  className?: string
 }
 
 interface MenuButtonProps {
-  options: Option[]
+  options: MenuOption[]
   disabled?: boolean
   className?: string
 }
 
 export function MenuButton({ options, disabled, className }: MenuButtonProps) {
-
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   return (
-    <Popover open={open && !disabled} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={disabled}
-          className={cn(
-            "select-none",
-            "bg-[#0F2942]/80 hover:bg-[#0F2942]",
-            "font-bold font-serif italic",
-            "text-base md:text-lg",
-            "text-white hover:text-white/80",
-            "border-white/10 hover:border-white/20",
-            "transition-all duration-300",
-            className
-          )}
-        >
-          <Menu className="w-4 h-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className={cn(
-        "select-none",
-        "p-1",
-        "min-w-0 w-fit",
-        "bg-[#0F2942]/80 hover:bg-[#0F2942]",
-        "border-white/10 hover:border-white/20",
-        "transition-all duration-300",
-      )} align="start">
-        {options.map((option) => (
-          <Button
-            key={option.name}
-            variant="ghost"
-            disabled={option.disabled}
-            className={cn(
-              "w-full",
-              "text-white hover:text-white",
-              "font-normal hover:font-bold",
-              "text-xs sm:text-sm md:text-base",
-              "w-full justify-center",
-              "hover:bg-white/10",
-              option.className
-            )}
-            onClick={() => {
-              option.onClick()
-              setOpen(false)
-            }}
-          >
-            {option.name}
-          </Button>
-        ))}
-      </PopoverContent>
-    </Popover>
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        disabled={disabled}
+        className={cn(
+          "p-2 rounded-full",
+          "text-muted hover:text-white",
+          "hover:bg-white/10",
+          "transition-all duration-200",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+          className
+        )}
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className={cn(
+          "absolute right-0 top-full mt-1 z-50",
+          "min-w-40 py-1 rounded-lg",
+          "bg-elevated border border-white/10",
+          "shadow-lg shadow-black/50"
+        )}>
+          {options.map((option) => (
+            <button
+              key={option.name}
+              onClick={() => { option.onClick(); setOpen(false) }}
+              className="w-full px-4 py-2 text-sm text-left text-muted hover:text-white hover:bg-white/10 transition-colors"
+            >
+              {option.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

@@ -1,7 +1,1 @@
-- Group by
-- 将原本NaviBar的导航功能放入到userButton中
-- VNsRow.tsx
-- SexRow.tsx
-- electron:build is not working
-- 将u/c中的覆盖网格中的删除更能更换为批量操作
-- 需要一个Description的解析器
+1. VN页面中的characters与vn存在spolier的联系，同时，还有性别信息

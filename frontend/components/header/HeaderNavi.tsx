@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 import { BackButton } from "@/components/button/BackButton"
 
 interface HeaderNaviProps {
@@ -14,15 +15,12 @@ export function HeaderNavi({ className }: HeaderNaviProps) {
   const isHomePage = pathname === "/"
 
   return (
-    <div className={`flex flex-row justify-between items-center gap-1 ${className} select-none`}>
+    <div className={cn("flex flex-row items-center gap-1 select-none", className)}>
       {!isHomePage && (
         <BackButton handleBack={() => router.back()} />
       )}
-      <Link
-        href="/"
-        className="hover:opacity-80 transition-opacity"
-      >
-        <h1 className="font-serif font-black italic text-xl text-white">VNDB</h1>
+      <Link href="/" className="hover:opacity-80 transition-opacity">
+        <h1 className="font-serif font-black italic text-xl text-white tracking-tight">VNDB</h1>
       </Link>
     </div>
   )

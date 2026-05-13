@@ -1,83 +1,42 @@
-import { cn } from "@/lib/utils";
-import { LevelSelectorButton, LevelSelectorSelect } from "@/components/selector/LevelSelector";
+import { cn } from "@/lib/utils"
 
-const violenceLevelButtonOptions = [
-  {
-    key: "violence-level-button-tame",
-    value: "tame",
-    label: "Tame",
-    selectedClassName: "text-[#88ccff]",
-    unselectedClassName: "text-white/80 hover:text-[#88ccff]/70",
-    className: "font-bold",
-  },
-  {
-    key: "violence-level-button-violent",
-    value: "violent",
-    label: "Violent",
-    selectedClassName: "text-[#ffcc66]",
-    unselectedClassName: "text-white/80 hover:text-[#ffcc66]/70",
-    className: "font-bold",
-  },
-  {
-    key: "violence-level-button-brutal",
-    value: "brutal",
-    label: "Brutal",
-    selectedClassName: "text-[#ff6666]",
-    unselectedClassName: "text-white/80 hover:text-[#ff6666]/70",
-    className: "font-bold",
-  }
-]
-
-const violenceLevelSelectOptions = [
-  {
-    key: "violence-level-select-tame",
-    value: "tame",
-    label: "🟢Tame",
-  },
-  {
-    key: "violence-level-select-violent",
-    value: "violent",
-    label: "🟡Violent",
-  },
-  {
-    key: "violence-level-select-brutal",
-    value: "brutal",
-    label: "🔴Brutal",
-  }
+const LEVELS = [
+  { value: "tame", label: "Tame", short: "Tame" },
+  { value: "violent", label: "Violent", short: "Viol" },
+  { value: "brutal", label: "Brutal", short: "Brut" },
 ]
 
 interface ViolenceLevelSelectorProps {
   violenceLevel: string
-  setViolenceLevel: (value: string) => void
-  disabled?: boolean
+  setViolenceLevel: (level: string) => void
   className?: string
 }
 
-export function ViolenceLevelSelector({ violenceLevel, setViolenceLevel, disabled, className }: ViolenceLevelSelectorProps) {
+export function ViolenceLevelSelector({ violenceLevel, setViolenceLevel, className }: ViolenceLevelSelectorProps) {
   return (
-    <>
-      <LevelSelectorButton
-        levelOptions={violenceLevelButtonOptions}
-        selectedLevel={violenceLevel}
-        setSelectedLevel={setViolenceLevel}
-        disabled={disabled}
-        className={cn(
-          "hidden lg:flex",
-          "font-serif italic",
-          "border-b border-white/50",
-          className
-        )}
-      />
-      <LevelSelectorSelect
-        levelOptions={violenceLevelSelectOptions}
-        selectedLevel={violenceLevel}
-        setSelectedLevel={setViolenceLevel}
-        disabled={disabled}
-        className={cn(
-          "lg:hidden",
-          className
-        )}
-      />
-    </>
+    <div className={cn(
+      "flex flex-row items-center rounded-full border border-white/10 overflow-hidden",
+      className
+    )}>
+      {LEVELS.map((level) => (
+        <button
+          key={level.value}
+          onClick={() => setViolenceLevel(level.value)}
+          className={cn(
+            "flex-1 px-2.5 py-1.5 text-xs font-medium text-center transition-all duration-200",
+            violenceLevel === level.value
+              ? level.value === "brutal"
+                ? "bg-red-800/80 text-white"
+                : level.value === "violent"
+                ? "bg-orange-500/80 text-white"
+                : "bg-white/20 text-white"
+              : "text-muted hover:text-white hover:bg-white/10"
+          )}
+        >
+          <span className="sm:hidden">{level.short}</span>
+          <span className="hidden sm:inline">{level.label}</span>
+        </button>
+      ))}
+    </div>
   )
 }

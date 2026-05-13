@@ -1,5 +1,7 @@
-import { cn } from "@/lib/utils";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+"use client"
+
+import { cn } from "@/lib/utils"
+import { ChevronDown } from "lucide-react"
 
 interface YearSelectorProps {
   selectedYear: string
@@ -9,30 +11,38 @@ interface YearSelectorProps {
 }
 
 export function YearSelector({ selectedYear, setSelectedYear, disabled, className }: YearSelectorProps) {
-
   const currentYear = new Date().getFullYear()
-
-  const yearsSelectable = [
+  const years = [
     { value: "00", label: "ALL" },
-    ...Array.from({ length: currentYear - 1985 + 2 }, (_, i) => ({
-      value: (1985 + i).toString(),
-      label: (1985 + i).toString()
-    }))
+    ...Array.from({ length: currentYear - 1985 + 2 }, (_, i) => {
+      const y = (1985 + i).toString()
+      return { value: y, label: y }
+    })
   ]
 
   return (
-    <Select value={selectedYear} onValueChange={setSelectedYear} disabled={disabled}>
-      <SelectTrigger className={cn(
-        "bg-[#0F2942]/80 border-white/10 hover:border-white/20 text-white font-bold",
-        className
-      )}>
-        <SelectValue placeholder="Year" />
-      </SelectTrigger>
-      <SelectContent className="bg-[#0F2942]/80 border-white/10 hover:border-white/20 text-white font-bold">
-        {yearsSelectable.map((year) => (
-          <SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>
+    <div className={cn("relative", className)}>
+      <select
+        value={selectedYear}
+        onChange={(e) => setSelectedYear(e.target.value)}
+        disabled={disabled}
+        className={cn(
+          "appearance-none pl-3 pr-8 py-1.5 rounded-full text-sm font-bold",
+          "bg-elevated border border-white/10",
+          "text-white",
+          "focus:outline-none focus:border-white/30",
+          "hover:border-white/20",
+          "cursor-pointer",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+        )}
+      >
+        {years.map((year) => (
+          <option key={year.value} value={year.value} className="bg-elevated">
+            {year.label}
+          </option>
         ))}
-      </SelectContent>
-    </Select>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+    </div>
   )
 }

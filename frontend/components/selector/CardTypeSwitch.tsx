@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 import { SwitchButton } from "@/components/button/SwitchButton"
-import { Image, Text } from "lucide-react"
+import { ImageIcon, TextIcon } from "lucide-react"
 
 interface CardTypeSwitchProps {
   cardType: "image" | "text"
@@ -10,21 +10,18 @@ interface CardTypeSwitchProps {
 }
 
 export function CardTypeSwitch({ cardType, setCardType, disabled, className }: CardTypeSwitchProps) {
-
   const options = [
-    { value: "image", icon: <Image className="w-4 h-4" />, tooltip: "Image" },
-    { value: "text", icon: <Text className="w-4 h-4" />, tooltip: "Text" },
+    { value: "image", icon: <ImageIcon className="w-4 h-4" />, tooltip: "Image cards" },
+    { value: "text", icon: <TextIcon className="w-4 h-4" />, tooltip: "Text cards" },
   ]
 
-  const buttonBgColor = "bg-[#0F2942]/80 hover:bg-[#0F2942]"
-
   return (
-    <SwitchButton 
+    <SwitchButton
       options={options}
       selected={cardType}
-      onSelect={(value) => setCardType(value as "image" | "text")}
+      onSelect={(v) => setCardType(v as "image" | "text")}
       disabled={disabled}
-      className={cn( buttonBgColor, className )}
+      className={className}
     />
   )
 }

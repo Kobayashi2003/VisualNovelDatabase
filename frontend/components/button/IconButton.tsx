@@ -1,65 +1,53 @@
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useState } from "react"
 
 interface IconButtonProps {
   icon: React.ReactNode
-  variant?: "default" | "outline" | "ghost" | "link" | "destructive" | "secondary" | null
-  tooltip?: string
-  tooltipPosition?: "top" | "bottom" | "left" | "right"
   onClick?: () => void
   disabled?: boolean
+  tooltip?: string
+  tooltipPosition?: "top" | "bottom" | "left" | "right"
   className?: string
 }
 
-export function IconButton({ icon, variant, tooltip, tooltipPosition, onClick, disabled, className }: IconButtonProps) {
+export function IconButton({ icon, onClick, disabled, tooltip, tooltipPosition = "top", className }: IconButtonProps) {
+  const [showTooltip, setShowTooltip] = useState(false)
 
-  const buttonBgColor = "bg-transparent hover:bg-white/10"
-  const buttonFont = "font-bold"
-  const buttonTextSize = "text-base md:text-lg"
-  const buttonTextColor = "text-white hover:text-white/80"
-  const buttonBorderColor = "border-white/10 hover:border-white/20"
-  const buttonAnimation = "transition-all duration-300"
-
-  const tooltipBgColor = "bg-black/50"
-  const tooltipTextColor = "text-white/80"
-  const tooltipFontSize = "text-xs sm:text-sm md:text-base"
+  const tooltipClasses = {
+    top: "bottom-full left-1/2 -translate-x-1/2 mb-1",
+    bottom: "top-full left-1/2 -translate-x-1/2 mt-1",
+    left: "right-full top-1/2 -translate-y-1/2 mr-1",
+    right: "left-full top-1/2 -translate-y-1/2 ml-1",
+  }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={variant}
-            size="icon"
-            onClick={onClick}
-            disabled={disabled}
-            className={cn(
-              "select-none",
-              buttonBgColor,
-              buttonFont,
-              buttonTextSize,
-              buttonTextColor,
-              buttonBorderColor,
-              buttonAnimation,
-              className
-            )}
-          >
-            {icon}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent
-          side={tooltipPosition}
-          className={cn(
-            tooltipBgColor,
-            tooltipTextColor,
-            tooltipFontSize,
-            !tooltip && "hidden"
-          )}
-        >
-          <p>{tooltip}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="relative inline-flex">
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className={cn(
+          "p-2 rounded-full",
+          "text-muted hover:text-white",
+          "hover:bg-white/10",
+          "transition-all duration-200",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+          className
+        )}
+      >
+        {icon}
+      </button>
+      {tooltip && showTooltip && (
+        <div className={cn(
+          "absolute z-50 whitespace-nowrap",
+          "px-2 py-1 text-xs rounded",
+          "bg-elevated text-white border border-white/10",
+          tooltipClasses[tooltipPosition]
+        )}>
+          {tooltip}
+        </div>
+      )}
+    </div>
   )
 }

@@ -1,75 +1,72 @@
 "use client"
 
 import { useState } from "react"
-
-import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { BaseDialog } from "./BaseDialog"
 import { Loader2, ArrowRight } from "lucide-react"
 
 interface RegisterDialogProps {
   open: boolean
   setOpen: (open: boolean) => void
-  handleRegister: (username: string, password: string) => void
+  handleRegister: (username: string, password: string) => Promise<void>
   disabled?: boolean
   className?: string
 }
 
 export function RegisterDialog({ open, setOpen, handleRegister, disabled, className }: RegisterDialogProps) {
-
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  const fields = [
-    {
-      id: "username", value: username, setValue: setUsername, label: "Username",
-      type: "text", placeholder: "Enter your username", required: true
-    },
-    {
-      id: "password", value: password, setValue: setPassword, label: "Password",
-      type: "password", placeholder: "Enter your password", required: true
-    },
-    {
-      id: "confirmPassword", value: confirmPassword, setValue: setConfirmPassword, label: "Confirm Password",
-      type: "password", placeholder: "Confirm your password", required: true
-    },
-  ]
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password !== confirmPassword) return
-    handleRegister(username, password)
+    setLoading(true)
+    setError("")
+    try {
+      await handleRegister(username, password)
+      setOpen(false)
+    } catch {
+      setError("Registration failed. Username may already exist.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className={cn(
-        "bg-[#0F2942]/80 border-white/10",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:slide-out-to-bottom-1/2 data-[state=open]:slide-in-from-bottom-1/2",
-        className
-      )}>
-        <DialogHeader>
-          <DialogTitle className="text-xl text-white">Register</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {fields.map((field) => (
-            <div key={field.id} className="space-y-2">
-              <Label htmlFor={field.id} className="text-white">{field.label}</Label>
-              <Input id={field.id} type={field.type} placeholder={field.placeholder}
-                value={field.value} onChange={(e) => field.setValue(e.target.value)} required={field.required}
-                className="bg-[#0A1929] border-white/10 hover:border-white/20 text-white placeholder:text-white/50 selection:bg-blue-500 selection:text-white" />
-            </div>
-          ))}
-          <Button type="submit" disabled={disabled} className="w-full bg-[#1A3A5A] hover:bg-[#254B75] text-white font-bold transition-all duration-300">
-            {disabled ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <BaseDialog open={open} setOpen={setOpen} title="Sign up" className={className}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-muted">Username</label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Choose a username"
+            required
+            className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-muted">Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Choose a password"
+            required
+            className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
+          />
+        </div>
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <button
+          type="submit"
+          disabled={disabled || loading}
+          className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white font-bold text-sm transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+          {loading ? "Creating account..." : "Sign up"}
+        </button>
+      </form>
+    </BaseDialog>
   )
 }

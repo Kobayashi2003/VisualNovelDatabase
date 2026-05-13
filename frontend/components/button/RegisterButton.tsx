@@ -1,6 +1,4 @@
-import { cn } from "@/lib/utils";
-import { IconButton } from "@/components/button/IconButton";
-import { UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils"
 
 interface RegisterButtonProps {
   handleRegister: () => void
@@ -9,16 +7,20 @@ interface RegisterButtonProps {
 }
 
 export function RegisterButton({ handleRegister, disabled, className }: RegisterButtonProps) {
-  
-  const buttonBgColor = "bg-[#0F2942]/80 hover:bg-[#0F2942]"
-
   return (
-    <IconButton
-      icon={<UserPlus className="w-4 h-4" />}
-      tooltip="Register"
+    <button
       onClick={handleRegister}
       disabled={disabled}
-      className={cn( buttonBgColor, className )}
-    />
+      className={cn(
+        "px-4 py-1.5 rounded-full",
+        "text-sm font-bold text-white",
+        "bg-accent hover:bg-accent-hover",
+        "transition-all duration-200",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
+        className
+      )}
+    >
+      Sign up
+    </button>
   )
 }

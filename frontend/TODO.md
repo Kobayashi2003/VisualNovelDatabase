@@ -1,1 +1,2 @@
-1. VN页面中的characters与vn存在spolier的联系，同时，还有性别信息
+1. u/c中move的图标改一下
+2. u/c中加入拖拽移动

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { X, MoreHorizontal } from "lucide-react"
+import { X, FolderInput, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatRelativeDate } from "@/lib/utils"
 
@@ -26,23 +26,28 @@ export function CompactRow({
   index, title, subtitle, thumbnail, badges, markedAt,
   onRemove, onMove, selected, editMode, onToggleSelect, link, className
 }: CompactRowProps) {
+  const rowClick = editMode ? (e: React.MouseEvent) => { e.preventDefault(); onToggleSelect?.() } : undefined
+
   return (
     <div
+      onClick={rowClick}
       className={cn(
         "flex items-center gap-3 px-2 py-1.5 rounded-lg group transition-colors",
         selected ? "bg-accent/15" : "hover:bg-white/5",
+        editMode && "cursor-pointer",
         className
       )}
     >
       <div className="w-6 shrink-0 flex items-center justify-center">
         {editMode ? (
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggleSelect}
-            onClick={e => e.stopPropagation()}
-            className="w-4 h-4 accent-accent cursor-pointer"
-          />
+          <div className={cn(
+            "w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors",
+            selected
+              ? "bg-accent border-accent"
+              : "border-white/40 group-hover:border-white/70"
+          )}>
+            {selected && <Check className="w-3 h-3 text-black" strokeWidth={3} />}
+          </div>
         ) : (
           <span className="text-sm text-muted text-right select-none w-full">{index}</span>
         )}
@@ -59,7 +64,7 @@ export function CompactRow({
       )}
 
       <div className="flex-1 min-w-0">
-        {link ? (
+        {link && !editMode ? (
           <Link href={link} className="text-sm font-medium text-white hover:underline line-clamp-1">
             {title}
           </Link>
@@ -85,7 +90,7 @@ export function CompactRow({
         </div>
       )}
 
-      {(onRemove || onMove) && (
+      {!editMode && (onRemove || onMove) && (
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           {onMove && (
             <button
@@ -93,7 +98,7 @@ export function CompactRow({
               className="p-1 rounded text-muted hover:text-white hover:bg-white/10 transition-colors"
               title="Move to..."
             >
-              <MoreHorizontal className="w-3.5 h-3.5" />
+              <FolderInput className="w-3.5 h-3.5" />
             </button>
           )}
           {onRemove && (

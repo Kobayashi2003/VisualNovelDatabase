@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { formatRelativeDate } from "@/lib/utils"
-import { X, MoreHorizontal } from "lucide-react"
+import { X, FolderInput, Check } from "lucide-react"
 import { ImageCard } from "./ImageCard"
 import { ImageCard2 } from "./ImageCard2"
 import { TextCard } from "./TextCard"
@@ -119,15 +119,26 @@ function CollectionWrapper({
       {children}
 
       {editMode && (
-        <div className="absolute top-1.5 left-1.5 z-10">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={() => onToggleSelect?.(id)}
-            onClick={e => e.stopPropagation()}
-            className="w-4 h-4 accent-accent cursor-pointer"
+        <>
+          {/* Click-capture overlay: clicking the card toggles selection instead of navigating */}
+          <button
+            type="button"
+            onClick={() => onToggleSelect?.(id)}
+            aria-label={selected ? "Deselect" : "Select"}
+            className="absolute inset-0 z-10 cursor-pointer rounded-lg"
           />
-        </div>
+          {/* Custom checkbox indicator */}
+          <div className="absolute top-1.5 left-1.5 z-20 pointer-events-none">
+            <div className={cn(
+              "w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors",
+              selected
+                ? "bg-accent border-accent shadow-md"
+                : "bg-black/50 border-white/70 backdrop-blur-sm"
+            )}>
+              {selected && <Check className="w-3 h-3 text-black" strokeWidth={3} />}
+            </div>
+          </div>
+        </>
       )}
 
       {!editMode && (onRemove || onMove) && (
@@ -138,7 +149,7 @@ function CollectionWrapper({
               className="p-1 rounded-full bg-black/70 text-white hover:bg-black/90 transition-colors"
               title="Move to..."
             >
-              <MoreHorizontal className="w-3 h-3" />
+              <FolderInput className="w-3 h-3" />
             </button>
           )}
           {onRemove && (

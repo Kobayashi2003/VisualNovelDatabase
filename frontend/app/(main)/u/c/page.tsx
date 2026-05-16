@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from "rea
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   LayoutGrid, LayoutList, AlignJustify, ArrowDown, ArrowUp,
-  Pencil, Menu, Lock, Library, X, ChevronDown
+  Pencil, Menu, Lock, Library, X, ChevronDown, Search,
+  CheckSquare, Square, FolderInput, Trash2
 } from "lucide-react"
 
 import { useUrlParams } from "@/hooks/useUrlParams"
@@ -127,6 +128,38 @@ function CollectionContent() {
   const [view, setView]                     = useState<ViewMode>("grid")
 
   const abortRef = useRef<AbortController | null>(null)
+
+  // ── Search input: local state + IME-safe debounced commit to URL ───────────
+  const [searchInput, setSearchInput]   = useState(q)
+  const [isComposing, setIsComposing]   = useState(false)
+  const lastCommittedRef                = useRef(q)
+
+  // External URL change → sync local input (e.g. browser back, link change)
+  useEffect(() => {
+    if (q !== lastCommittedRef.current) {
+      setSearchInput(q)
+      lastCommittedRef.current = q
+    }
+  }, [q])
+
+  // Local input change → debounced URL update (skip while composing IME).
+  // Using state for isComposing (not ref) ensures this effect re-runs when
+  // composition ends, so the final IME-committed text actually triggers a search.
+  useEffect(() => {
+    if (isComposing) return
+    if (searchInput === lastCommittedRef.current) return
+    const t = setTimeout(() => {
+      lastCommittedRef.current = searchInput
+      updateMultipleKeys({ q: searchInput })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [searchInput, isComposing, updateMultipleKeys])
+
+  const clearSearch = useCallback(() => {
+    setSearchInput("")
+    lastCommittedRef.current = ""
+    updateMultipleKeys({ q: "" })
+  }, [updateMultipleKeys])
 
   // Restore view from localStorage
   useEffect(() => {
@@ -330,6 +363,28 @@ function CollectionContent() {
     })
   }
 
+  const currentPageIds = useMemo(
+    () => items.map(it => (it as { id: string }).id),
+    [items]
+  )
+  const allCurrentSelected = currentPageIds.length > 0 && currentPageIds.every(id => selectedIds.has(id))
+
+  const handleToggleSelectAll = () => {
+    if (allCurrentSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (const id of currentPageIds) next.delete(id)
+        return next
+      })
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (const id of currentPageIds) next.add(id)
+        return next
+      })
+    }
+  }
+
   const handleTypeChange = (newType: string) => {
     setItems([])   // clear immediately to avoid stale type mismatch render
     const params = new URLSearchParams()
@@ -467,16 +522,22 @@ function CollectionContent() {
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {/* Search */}
                 <div className="flex-1 min-w-40 lg:w-64 lg:flex-none relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/60" />
                   <input
                     type="text"
-                    value={q}
-                    onChange={e => updateMultipleKeys({ q: e.target.value })}
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={e => {
+                      setIsComposing(false)
+                      setSearchInput(e.currentTarget.value)
+                    }}
                     placeholder="Search in collection…"
-                    className="w-full bg-elevated border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-muted/50 outline-none focus:border-white/30 transition-colors"
+                    className="w-full bg-elevated border border-white/10 rounded-lg pl-8 pr-7 py-1.5 text-sm text-white placeholder:text-muted/50 outline-none focus:border-white/30 transition-colors"
                   />
-                  {q && (
+                  {searchInput && (
                     <button
-                      onClick={() => updateMultipleKeys({ q: "" })}
+                      onClick={clearSearch}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-white"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -541,32 +602,6 @@ function CollectionContent() {
                 </button>
               </div>
 
-              {/* Batch action bar */}
-              {editMode && selectedIds.size > 0 && (
-                <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-elevated rounded-lg border border-white/10">
-                  <span className="text-sm text-white font-medium">{selectedIds.size} selected</span>
-                  <button
-                    onClick={handleBatchDelete}
-                    className="px-3 py-1 rounded-lg text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
-                  >
-                    Remove
-                  </button>
-                  {canMove && (
-                    <button
-                      onClick={() => { setMoveSingleId(null); setMoveDialogOpen(true) }}
-                      className="px-3 py-1 rounded-lg text-sm bg-white/10 text-white hover:bg-white/15 transition-colors"
-                    >
-                      Move to…
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setEditMode(false); setSelectedIds(new Set()) }}
-                    className="px-3 py-1 rounded-lg text-sm text-muted hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
 
               {/* Loading categories */}
               {loadingCategories && (
@@ -626,6 +661,75 @@ function CollectionContent() {
           )}
         </div>
       </div>
+
+      {/* Floating batch action bar (Spotify-style) */}
+      {user && editMode && (
+        <div className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-3 pointer-events-none">
+          <div
+            className={cn(
+              "pointer-events-auto flex items-center gap-1 p-1.5",
+              "rounded-full bg-elevated/95 backdrop-blur-xl",
+              "border border-white/15 shadow-2xl shadow-black/60",
+              "transition-all duration-200 ease-out",
+              "animate-slide-up-fade"
+            )}
+          >
+            {/* Select all on current page */}
+            <button
+              onClick={handleToggleSelectAll}
+              disabled={currentPageIds.length === 0}
+              className="flex items-center justify-center p-2 rounded-full text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title={allCurrentSelected ? "Deselect all on page" : "Select all on page"}
+            >
+              {allCurrentSelected
+                ? <CheckSquare className="w-4 h-4 text-accent" />
+                : <Square className="w-4 h-4" />}
+            </button>
+
+            {/* Count */}
+            <span className="text-sm font-medium text-white px-2 min-w-[5.5rem] text-center select-none tabular-nums">
+              {selectedIds.size} selected
+            </span>
+
+            <div className="w-px h-6 bg-white/15 mx-0.5" />
+
+            {/* Move */}
+            {canMove && (
+              <button
+                onClick={() => { setMoveSingleId(null); setMoveDialogOpen(true) }}
+                disabled={selectedIds.size === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Move to another collection"
+              >
+                <FolderInput className="w-4 h-4" />
+                <span className="hidden sm:inline">Move</span>
+              </button>
+            )}
+
+            {/* Remove */}
+            <button
+              onClick={handleBatchDelete}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-red-400 hover:bg-red-500/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Remove from collection"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Remove</span>
+            </button>
+
+            <div className="w-px h-6 bg-white/15 mx-0.5" />
+
+            {/* Close edit mode */}
+            <button
+              onClick={() => { setEditMode(false); setSelectedIds(new Set()) }}
+              className="flex items-center justify-center p-2 rounded-full text-muted hover:text-white hover:bg-white/10 transition-colors"
+              title="Exit edit mode"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Move dialog */}
       <MoveToDialog

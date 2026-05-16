@@ -15,6 +15,10 @@ class Config:
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ['VNDB_DB_URL']
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
 
     # Cache configuration
     CACHE_TYPE = 'redis'

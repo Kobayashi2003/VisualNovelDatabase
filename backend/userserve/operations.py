@@ -351,6 +351,52 @@ def get_marks_from_category_without_pagination(user_id: int, category_id: int, c
     return {'results': category.marks, 'more': False, 'count': len(category.marks)}
 
 @save_db_operation
+def get_marks_for_user(user_id: int, category_type: str, category_id: int | None,
+                       page: int = 1, limit: int = 24, sort: str = 'marked_at',
+                       reverse: bool = True, count: bool = True) -> Dict | None:
+    """
+    Paginate marks for a user.
+
+    `category_id` is None  → aggregate across all categories of `category_type`,
+                             deduping by mark id and keeping the latest marked_at.
+    `category_id` is int   → paginate within that single category.
+    """
+    if sort not in ('id', 'marked_at'):
+        raise ValueError(f"Invalid sort field: {sort}")
+
+    if category_id is not None:
+        category = get_category(user_id, category_id, category_type)
+        if not category:
+            raise CategoryNotFoundError
+        marks = list(category.marks)
+    else:
+        category_class = CATEGORY_MODEL.get(category_type)
+        if not category_class:
+            raise InvalidCategoryTypeError
+        categories = category_class.query.filter_by(user_id=user_id).all()
+        latest_by_id: Dict[int, Dict] = {}
+        for cat in categories:
+            for mark in cat.marks:
+                existing = latest_by_id.get(mark['id'])
+                if existing is None or mark['marked_at'] > existing['marked_at']:
+                    latest_by_id[mark['id']] = mark
+        marks = list(latest_by_id.values())
+
+    sorted_marks = sorted(marks, key=itemgetter(sort), reverse=reverse)
+    total = len(sorted_marks)
+    page = max(1, page or 1)
+    limit = max(1, limit or 24)
+    start = (page - 1) * limit
+    end = start + limit
+    paginated = sorted_marks[start:end]
+    results = [{"id": mark['id'], "marked_at": mark['marked_at']} for mark in paginated]
+    more = end < total
+
+    if count:
+        return {'results': results, 'more': more, 'count': total}
+    return {'results': results, 'more': more}
+
+@save_db_operation
 def get_categories_for_user(user_id: int, category_type: str) -> List[CategoryType] | None:
     category_class = CATEGORY_MODEL.get(category_type)
     if not category_class:

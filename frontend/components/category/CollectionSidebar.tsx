@@ -170,7 +170,13 @@ export function CollectionSidebar({
   const [creating, setCreating] = useState(false)
 
   const activeTypeInfo = COLLECTION_TYPES.find(c => c.type === activeType)
-  const allCount = categories.reduce((sum, c) => sum + c.marks.length, 0)
+  // Dedupe by mark id so the "All" count matches the data grid (an item present
+  // in two categories is one item in the collection, not two).
+  const allCount = (() => {
+    const ids = new Set<number>()
+    for (const c of categories) for (const m of c.marks) ids.add(m.id)
+    return ids.size
+  })()
 
   return (
     <div className={cn("flex flex-col bg-surface border-r border-white/10 overflow-hidden", className)}>

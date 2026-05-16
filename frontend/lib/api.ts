@@ -274,5 +274,28 @@ export const api = {
       fetchUserserve<Category>(`${typeRoute(type)}/c${categoryId}/m`, "DELETE", { mark_ids: markIds }, abortSignal),
     moveMarks: (type: string, fromCategoryId: number, toCategoryId: number, markIds: number[], abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>(`${typeRoute(type)}/c/m`, "PUT", { category_from_id: fromCategoryId, category_to_id: toCategoryId, mark_ids: markIds }, abortSignal),
+    getMarksPage: (
+      type: string,
+      cid: number | "all",
+      params: {
+        page?: number; limit?: number;
+        sort?: "marked_at" | "id"; order?: "asc" | "desc"; count?: boolean
+      } = {},
+      abortSignal?: AbortSignal,
+    ) => {
+      const query = new URLSearchParams()
+      query.set("cid", String(cid))
+      if (params.page  !== undefined) query.set("page",  String(params.page))
+      if (params.limit !== undefined) query.set("limit", String(params.limit))
+      if (params.sort  !== undefined) query.set("sort",  params.sort)
+      if (params.order !== undefined) query.set("order", params.order)
+      if (params.count !== undefined) query.set("count", String(params.count))
+      return fetchUserserve<{ results: Mark[]; count?: number; more: boolean }>(
+        `${typeRoute(type)}/c/m?${query.toString()}`,
+        "GET",
+        undefined,
+        abortSignal,
+      )
+    },
   }
 }

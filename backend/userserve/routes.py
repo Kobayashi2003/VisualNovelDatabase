@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token 
+from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 
 api_bp = Blueprint('api', __name__, url_prefix='/')
 
@@ -27,7 +27,8 @@ from .operations import (
     add_mark_to_category, remove_mark_from_category,
     add_marks_to_category, remove_marks_from_category,
     move_marks_to_category, get_marks_from_category,
-    get_marks_from_category_without_pagination, 
+    get_marks_from_category_without_pagination,
+    get_marks_for_user,
 )
 
 
@@ -41,7 +42,7 @@ def login():
         access_token = create_access_token(identity=user.id)
         return jsonify({
             'access_token':access_token,
-            'username': username 
+            'username': username
         }), 200
     return jsonify(error="Invalid username or password"), 401
 
@@ -174,7 +175,7 @@ def contains_mark_route(type, category_id, mark_id):
 
 @api_bp.route('/<string:type>/c<int:category_id>/m', methods=['POST'])
 @jwt_required()
-def add_mark_route(type, category_id):
+def add_mark_to_category_route(type, category_id):
     user_id = get_jwt_identity()
     data = request.json
     if 'mark_ids' in data:
@@ -187,7 +188,7 @@ def add_mark_route(type, category_id):
 
 @api_bp.route('/<string:type>/c<int:category_id>/m', methods=['DELETE'])
 @jwt_required()
-def remove_mark_route(type, category_id):
+def remove_mark_from_category_route(type, category_id):
     user_id = get_jwt_identity()
     data = request.json
     if 'mark_ids' in data:
@@ -200,10 +201,37 @@ def remove_mark_route(type, category_id):
 
 @api_bp.route('/<string:type>/c<int:category_id>/m', methods=['GET'])
 @jwt_required()
-def get_marks_route(type, category_id):
+def get_marks_from_category_route(type, category_id):
     user_id = get_jwt_identity()
     marks = get_marks_from_category_without_pagination(user_id, category_id, type)
     return jsonify(marks), 200
+
+@api_bp.route('/<string:type>/c/m', methods=['GET'])
+@jwt_required()
+def get_marks_route(type):
+    user_id = get_jwt_identity()
+    args = request.args
+    cid_raw = args.get('cid', 'all')
+    sort = args.get('sort', 'marked_at')
+    order = args.get('order', 'desc').lower()
+    try:
+        page = max(1, int(args.get('page', 1)))
+        limit = max(1, min(int(args.get('limit', 24)), 100))
+        category_id = None if cid_raw == 'all' else int(cid_raw)
+    except (TypeError, ValueError):
+        return jsonify(error="Invalid pagination or cid"), 400
+    if sort not in ('id', 'marked_at'):
+        return jsonify(error="Invalid sort field"), 400
+
+    reverse = order != 'asc'
+    count = args.get('count', 'true').lower() == 'true'
+    result = get_marks_for_user(
+        user_id, type, category_id,
+        page=page, limit=limit, sort=sort, reverse=reverse, count=count,
+    )
+    if result is None:
+        return jsonify(error="Not found"), 404
+    return jsonify(result), 200
 
 @api_bp.route('/<string:type>/c/m', methods=['PUT'])
 @jwt_required()

@@ -145,15 +145,22 @@ function CollectionContent() {
   // Local input change → debounced URL update (skip while composing IME).
   // Using state for isComposing (not ref) ensures this effect re-runs when
   // composition ends, so the final IME-committed text actually triggers a search.
+  // When entering a search while date_added is selected, auto-switch sort —
+  // userserve has no title index, so date_added + search has no honest answer.
   useEffect(() => {
     if (isComposing) return
     if (searchInput === lastCommittedRef.current) return
     const t = setTimeout(() => {
       lastCommittedRef.current = searchInput
-      updateMultipleKeys({ q: searchInput })
+      const updates: Record<string, string> = { q: searchInput }
+      if (searchInput && sort === "date_added") {
+        const fallback = (SORT_OPTIONS[type] ?? SORT_OPTIONS.vn)[1]?.value
+        if (fallback) updates.sort = fallback
+      }
+      updateMultipleKeys(updates)
     }, 300)
     return () => clearTimeout(t)
-  }, [searchInput, isComposing, updateMultipleKeys])
+  }, [searchInput, isComposing, sort, type, updateMultipleKeys])
 
   const clearSearch = useCallback(() => {
     setSearchInput("")
@@ -171,16 +178,19 @@ function CollectionContent() {
   useEffect(() => { setPage(1) }, [q, sort, order, type, cidRaw])
 
   // ── allMarks: flat sorted list of marks for current type+category ──────────
+  // For "All", dedupe by id keeping the latest marked_at to match the userserve
+  // endpoint's aggregation semantic — otherwise the date-added badge on a card
+  // and the page-order from userserve can disagree.
   const allMarks = useMemo<Mark[]>(() => {
     if (activeCategory === "all") {
-      const seen = new Set<number>()
-      const merged: Mark[] = []
+      const byId = new Map<number, Mark>()
       for (const cat of categories) {
         for (const m of cat.marks) {
-          if (!seen.has(m.id)) { seen.add(m.id); merged.push(m) }
+          const cur = byId.get(m.id)
+          if (!cur || m.marked_at > cur.marked_at) byId.set(m.id, m)
         }
       }
-      return merged.sort((a, b) =>
+      return Array.from(byId.values()).sort((a, b) =>
         order === "asc"
           ? new Date(a.marked_at).getTime() - new Date(b.marked_at).getTime()
           : new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime()
@@ -250,18 +260,29 @@ function CollectionContent() {
     const run = async () => {
       try {
         if (sort === "date_added" && !q) {
-          // Client-side pagination: allMarks is already sorted by marked_at
-          const pageIds = allMarks.slice((page - 1) * LIMIT, page * LIMIT).map(m => m.id)
-          const data = await fetchByIdsForType(type, pageIds, {}, ctrl.signal)
-          // Reorder to match mark order
+          // Userserve owns marked_at — let it sort+paginate, then hydrate the page from vndb.
+          const cidParam: number | "all" = activeCategory === "all" ? "all" : (activeCategory as number)
+          const marksPage = await api.category.getMarksPage(
+            type, cidParam,
+            { sort: "marked_at", order: order === "asc" ? "asc" : "desc", page, limit: LIMIT },
+            ctrl.signal,
+          )
+          const pageIds = marksPage.results.map(m => m.id)
+          if (pageIds.length === 0) {
+            setItems([])
+            setTotalCount(marksPage.count ?? 0)
+            setHasMore(marksPage.more)
+            return
+          }
+          const data = await fetchByIdsForType(type, pageIds, { limit: LIMIT }, ctrl.signal)
           const idMap = new Map(data.results.map((item: { id: string }) => [
             parseInt(item.id.replace(/^[a-z]+/, "")),
             item
           ]))
           const ordered = pageIds.map(id => idMap.get(id)).filter(Boolean)
           setItems(ordered)
-          setTotalCount(allMarks.length)
-          setHasMore(page * LIMIT < allMarks.length)
+          setTotalCount(marksPage.count ?? ordered.length)
+          setHasMore(marksPage.more)
         } else {
           const allIds = allMarks.map(m => m.id)
           const params: Record<string, unknown> = {
@@ -287,7 +308,7 @@ function CollectionContent() {
     }
     run()
     return () => ctrl.abort()
-  }, [allMarks, sort, order, page, q, type, user])
+  }, [allMarks, sort, order, page, q, type, user, activeCategory])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleRemove = async (itemId: string) => {
@@ -552,9 +573,14 @@ function CollectionContent() {
                     onChange={e => updateMultipleKeys({ sort: e.target.value })}
                     className="appearance-none bg-elevated border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-sm text-white outline-none focus:border-white/30 cursor-pointer transition-colors"
                   >
-                    {sortOptions.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
+                    {sortOptions.map(o => {
+                      const disabled = !!q && o.value === "date_added"
+                      return (
+                        <option key={o.value} value={o.value} disabled={disabled}>
+                          {o.label}{disabled ? " (clear search)" : ""}
+                        </option>
+                      )
+                    })}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
                 </div>
@@ -687,7 +713,7 @@ function CollectionContent() {
             </button>
 
             {/* Count */}
-            <span className="text-sm font-medium text-white px-2 min-w-[5.5rem] text-center select-none tabular-nums">
+            <span className="text-sm font-medium text-white px-2 min-w-22 text-center select-none tabular-nums">
               {selectedIds.size} selected
             </span>
 

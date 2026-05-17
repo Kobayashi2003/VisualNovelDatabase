@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils"
-import { SwitchButton } from "@/components/button/SwitchButton"
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { ArrowUp, ArrowDown } from "lucide-react"
 
 interface OrderSwitchProps {
   order: string

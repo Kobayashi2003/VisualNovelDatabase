@@ -248,6 +248,7 @@ def clear_category(user_id: int, category_id: int, category_type: str) -> Catego
     db.session.commit()
     return category
 
+
 @save_db_operation
 def contains_mark(user_id: int, category_type: str, category_id: int, mark_id: int) -> bool:
     category = get_category(user_id, category_id, category_type)

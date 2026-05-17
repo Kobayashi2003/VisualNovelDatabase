@@ -133,7 +133,6 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
         initialType={searchType}
         initialSortBy={sortBy}
         initialOrder={sortOrder}
-        initialFilters={filtersParams}
         onApply={handlePanelApply}
         onSave={handlePanelSave}
       />

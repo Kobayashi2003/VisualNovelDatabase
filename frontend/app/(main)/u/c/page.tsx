@@ -98,7 +98,7 @@ function CollectionContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  const { updateKey, updateMultipleKeys } = useUrlParams()
+  const { updateMultipleKeys } = useUrlParams()
   const { user, isLoading: authLoading } = useUserContext()
 
   // URL params
@@ -117,7 +117,6 @@ function CollectionContent() {
   const [categories, setCategories]         = useState<Category[]>([])
   const [items, setItems]                   = useState<unknown[]>([])
   const [totalCount, setTotalCount]         = useState(0)
-  const [hasMore, setHasMore]               = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [loadingItems, setLoadingItems]     = useState(false)
   const [editMode, setEditMode]             = useState(false)
@@ -248,7 +247,6 @@ function CollectionContent() {
     if (!user || allMarks.length === 0) {
       setItems([])
       setTotalCount(0)
-      setHasMore(false)
       setLoadingItems(false)
       return
     }
@@ -262,16 +260,15 @@ function CollectionContent() {
         if (sort === "date_added" && !q) {
           // Userserve owns marked_at — let it sort+paginate, then hydrate the page from vndb.
           const cidParam: number | "all" = activeCategory === "all" ? "all" : (activeCategory as number)
-          const marksPage = await api.category.getMarksPage(
-            type, cidParam,
-            { sort: "marked_at", order: order === "asc" ? "asc" : "desc", page, limit: LIMIT },
+          const marksPage = await api.category.getMarks(
+            type,
+            { cid: cidParam, sort: "marked_at", reverse: order !== "asc", page, limit: LIMIT },
             ctrl.signal,
           )
           const pageIds = marksPage.results.map(m => m.id)
           if (pageIds.length === 0) {
             setItems([])
             setTotalCount(marksPage.count ?? 0)
-            setHasMore(marksPage.more)
             return
           }
           const data = await fetchByIdsForType(type, pageIds, { limit: LIMIT }, ctrl.signal)
@@ -282,7 +279,6 @@ function CollectionContent() {
           const ordered = pageIds.map(id => idMap.get(id)).filter(Boolean)
           setItems(ordered)
           setTotalCount(marksPage.count ?? ordered.length)
-          setHasMore(marksPage.more)
         } else {
           const allIds = allMarks.map(m => m.id)
           const params: Record<string, unknown> = {
@@ -295,7 +291,6 @@ function CollectionContent() {
           const data = await fetchByIdsForType(type, allIds, params, ctrl.signal)
           setItems(data.results)
           setTotalCount(data.count)
-          setHasMore(data.more)
         }
       } catch (e: unknown) {
         if (e instanceof Error && e.name !== "AbortError") {
@@ -379,7 +374,8 @@ function CollectionContent() {
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }

@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { cn } from "@/lib/utils"
 import { ENUMS } from "@/lib/enums"
 import { useSearchContext } from "@/context/SearchContext"
 import type { VN } from "@/lib/types"

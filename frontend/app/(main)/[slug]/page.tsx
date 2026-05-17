@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, Suspense } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 
-import { cn } from "@/lib/utils"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useSearchContext } from "@/context/SearchContext"
 import { api } from "@/lib/api"

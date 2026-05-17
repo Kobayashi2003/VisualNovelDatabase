@@ -22,8 +22,8 @@ def hello_world():
 
 from .operations import (
     get_user, create_user, update_user, delete_user, change_password, get_user_by_username,
-    get_category, create_category, update_category, delete_category, clear_category, search_categories,
-    get_categories_by_mark, contains_mark, is_marked, are_marked,
+    get_category, create_category, update_category, delete_category, clear_category,
+    search_categories, get_categories_by_mark, contains_mark, is_marked, are_marked,
     add_mark_to_category, remove_mark_from_category,
     add_marks_to_category, remove_marks_from_category,
     move_marks_to_category, get_marks_from_category,
@@ -114,7 +114,7 @@ def change_password_route():
 
 @api_bp.route('/<string:type>/c', methods=['GET'])
 @jwt_required()
-def get_categories_route(type):
+def get_categories_for_user_route(type):
     user_id = get_jwt_identity()
     categories = search_categories(user_id, type, '')
     categories = [dict(c) for c in categories]
@@ -166,6 +166,7 @@ def clear_category_route(type, category_id):
         return jsonify(message="Category cleared"), 200
     return jsonify(error="Category not found"), 404
 
+
 @api_bp.route('/<string:type>/c<int:category_id>/m<int:mark_id>', methods=['GET'])
 @jwt_required()
 def contains_mark_route(type, category_id, mark_id):
@@ -208,12 +209,11 @@ def get_marks_from_category_route(type, category_id):
 
 @api_bp.route('/<string:type>/c/m', methods=['GET'])
 @jwt_required()
-def get_marks_route(type):
+def get_marks_for_user_route(type):
     user_id = get_jwt_identity()
     args = request.args
     cid_raw = args.get('cid', 'all')
     sort = args.get('sort', 'marked_at')
-    order = args.get('order', 'desc').lower()
     try:
         page = max(1, int(args.get('page', 1)))
         limit = max(1, min(int(args.get('limit', 24)), 100))
@@ -223,7 +223,7 @@ def get_marks_route(type):
     if sort not in ('id', 'marked_at'):
         return jsonify(error="Invalid sort field"), 400
 
-    reverse = order != 'asc'
+    reverse = args.get('reverse', 'true').lower() == 'true'
     count = args.get('count', 'true').lower() == 'true'
     result = get_marks_for_user(
         user_id, type, category_id,
@@ -235,7 +235,7 @@ def get_marks_route(type):
 
 @api_bp.route('/<string:type>/c/m', methods=['PUT'])
 @jwt_required()
-def move_marks_route(type):
+def move_marks_to_category_route(type):
     user_id = get_jwt_identity()
     data = request.json
     category_from_id = data['category_from_id']

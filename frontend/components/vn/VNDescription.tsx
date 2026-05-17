@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { cn } from "@/lib/utils"
 
 // ─── VNDB bbcode parser ────────────────────────────────────────────────────────
 type Node =

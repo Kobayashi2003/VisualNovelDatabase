@@ -18,10 +18,8 @@ interface VNReleasesProps {
 
 export function VNReleases({ releases, olang }: VNReleasesProps) {
   const LANGUAGE = ENUMS.LANGUAGE as Record<string, string>
-  const PLATFORM = ENUMS.PLATFORM as Record<string, string>
   const RTYPE = ENUMS.RTYPE as Record<string, string>
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
-  const PLAT_ICON = ICON.PLATFORM as Record<string, string>
   const { showOriginal } = useSearchContext()
 
   // Group by primary language
@@ -89,7 +87,7 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
                   className={cn(
                     "flex items-start gap-3 px-3 py-2.5",
                     i % 2 === 0 ? "bg-surface" : "bg-background/40",
-                    (r.official === false || r.languages?.find(l => l.main)?.mtl) && "opacity-60"
+                    r.languages?.find(l => l.main)?.mtl && "opacity-60"
                   )}
                 >
                   <span className="text-xs text-muted w-24 shrink-0 pt-0.5 font-mono">
@@ -104,16 +102,6 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
                   )}>
                     {RTYPE[rtype ?? ""] ?? rtype ?? "?"}
                   </span>
-
-                  {r.platforms && r.platforms.length > 0 && (
-                    <div className="flex gap-1 shrink-0 flex-wrap pt-0.5">
-                      {r.platforms.map(p => (
-                        PLAT_ICON[p]
-                          ? <span key={p} className={PLAT_ICON[p]} title={PLATFORM[p] ?? p} />
-                          : <span key={p} title={PLATFORM[p] ?? p} className="text-xs text-muted">{p}</span>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="flex-1 min-w-0">
                     {(() => {

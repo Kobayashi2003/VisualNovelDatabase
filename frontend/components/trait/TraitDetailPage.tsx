@@ -1,10 +1,9 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { useUserContext } from "@/context/UserContext"
-import type { Trait, Character_Small, Category } from "@/lib/types"
+import { CollectionButton } from "@/components/category/CollectionButton"
+import type { Trait, Character_Small } from "@/lib/types"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -34,64 +33,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-// ─── Collection button ────────────────────────────────────────────────────────
-function CollectionButton({ traitId }: { traitId: string }) {
-  const { user } = useUserContext()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [open, setOpen] = useState(false)
-  const [markedCatIds, setMarkedCatIds] = useState<Set<number>>(new Set())
-  const markId = parseInt(traitId.replace(/^i/, ""), 10)
-
-  const refresh = useCallback(async () => {
-    const cats = await api.category.get("trait")
-    setCategories(cats)
-    const marked = new Set<number>()
-    for (const c of cats) {
-      if (c.marks.some(m => m.id === markId)) marked.add(c.id)
-    }
-    setMarkedCatIds(marked)
-  }, [markId])
-
-  useEffect(() => { if (user) refresh() }, [user, refresh])
-
-  if (!user) return null
-  const isAnyMarked = markedCatIds.size > 0
-
-  const toggle = async (catId: number) => {
-    if (markedCatIds.has(catId)) {
-      await api.category.removeMark("trait", catId, markId)
-    } else {
-      await api.category.addMark("trait", catId, markId)
-    }
-    await refresh()
-  }
-
-  return (
-    <div className="relative mt-3">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={cn(
-          "w-full py-2 rounded-lg text-sm font-semibold transition-colors",
-          isAnyMarked ? "bg-accent text-black hover:bg-accent/80" : "bg-white/10 text-white hover:bg-white/20"
-        )}
-      >
-        {isAnyMarked ? "In Collection ✓" : "Add to Collection"}
-      </button>
-      {open && categories.length > 0 && (
-        <div className="absolute z-20 top-full mt-1 w-full bg-elevated border border-white/10 rounded-lg shadow-lg overflow-hidden">
-          {categories.map(cat => (
-            <button key={cat.id} onClick={() => toggle(cat.id)}
-              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/10 transition-colors">
-              <span className="text-white/90">{cat.category_name}</span>
-              {markedCatIds.has(cat.id) && <span className="text-accent text-xs">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Sidebar info panel ───────────────────────────────────────────────────────
 function TraitInfoPanel({ trait }: { trait: Trait }) {
   return (
@@ -113,7 +54,7 @@ function TraitInfoPanel({ trait }: { trait: Trait }) {
           </InfoRow>
         )}
       </div>
-      <CollectionButton traitId={trait.id} />
+      <CollectionButton type="trait" id={trait.id} />
     </div>
   )
 }

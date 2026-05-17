@@ -212,7 +212,6 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
   }
 
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
-  const mainLang = release.languages.find(l => l.main)
 
   return (
     <div className="flex flex-col gap-3">

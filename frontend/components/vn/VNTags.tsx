@@ -3,7 +3,6 @@
 import { useState } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { ENUMS } from "@/lib/enums"
 import type { VN } from "@/lib/types"
 
 type VNTag = VN["tags"][number]

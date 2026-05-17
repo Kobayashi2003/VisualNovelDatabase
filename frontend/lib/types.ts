@@ -3,6 +3,7 @@ export interface PaginationParams {
   limit?: number
   sort?: string
   reverse?: boolean
+  count?: boolean
 }
 
 export interface PaginatedResponse<T> {
@@ -16,12 +17,11 @@ export interface PaginatedResponse<T> {
 export interface VNDBQueryParams extends PaginationParams {
   from?: 'local' | 'remote'
   size?: 'small' | 'large'
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface MarksQueryParams extends PaginationParams {
-  type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
-  category_id: number
+  cid?: number | 'all'
 }
 
 export interface VN {
@@ -147,20 +147,18 @@ export interface VN {
     id: string
     title: string
     released?: string
-    official?: boolean
-    languages?: Array<{
+    languages: Array<{
       lang: string
       title?: string
       latin?: string
       mtl: boolean
       main: boolean
     }>
-    platforms?: string[]
     vns: Array<{
       id: string
       rtype: string
     }>
-    producers?: Array<{
+    producers: Array<{
       id: string
       developer: boolean
       publisher: boolean

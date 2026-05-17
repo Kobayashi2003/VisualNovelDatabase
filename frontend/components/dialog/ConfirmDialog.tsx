@@ -1,5 +1,4 @@
 import { BaseDialog } from "./BaseDialog"
-import { cn } from "@/lib/utils"
 
 interface ConfirmDialogProps {
   open: boolean

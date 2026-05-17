@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { cn } from "@/lib/utils"
 import { BaseDialog } from "./BaseDialog"
 import { Loader2, ArrowRight } from "lucide-react"
 

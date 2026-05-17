@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { X, ArrowUp, ArrowDown, SlidersHorizontal } from "lucide-react"
@@ -43,7 +43,6 @@ interface SearchPanelProps {
   initialType: string
   initialSortBy: string
   initialOrder: string
-  initialFilters: Record<string, string>
   onApply: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>) => void
   onSave?: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>) => void
 }
@@ -51,7 +50,7 @@ interface SearchPanelProps {
 export function SearchPanel({
   open, setOpen,
   initialFrom,
-  initialType, initialSortBy, initialOrder, initialFilters,
+  initialType, initialSortBy, initialOrder,
   onApply, onSave,
 }: SearchPanelProps) {
   const [mounted, setMounted] = useState(false)

@@ -440,6 +440,14 @@ def create_cup_comparison_filter(value: str) -> BinaryExpression:
 
     return operators[operator](Character.cup, cup_size)
 
+def create_gender_match_filter(value: str, spoil: bool = False) -> BinaryExpression:
+    index = 1 if spoil else 0
+    return and_(
+        Character.gender.isnot(None),
+        Character.gender[index].cast(String) == value
+    )
+
+
 def create_sex_match_filter(value: str, spoil: bool = False) -> BinaryExpression:
     """
     Create a filter for matching character sex values.
@@ -826,10 +834,10 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
         filters.append(create_sex_match_filter(sex_spoil, spoil=True))
 
     if gender := params.get('gender'):
-        filters.append(create_sex_match_filter(gender))
+        filters.append(create_gender_match_filter(gender))
 
     if gender_spoil := params.get('gender_spoil'):
-        filters.append(create_sex_match_filter(gender_spoil, spoil=True))
+        filters.append(create_gender_match_filter(gender_spoil, spoil=True))
 
     if height := params.get('height'):
         filters.append(create_comparison_filter(Character.height, height, int))

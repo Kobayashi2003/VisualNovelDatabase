@@ -96,6 +96,7 @@ class Character(db.Model):
     age = Column(Integer)
     birthday = Column(String)
     sex = Column(ARRAY(String))
+    gender = Column(ARRAY(String))
     image = Column(JSONB)
     vns = Column(ARRAY(JSONB))
     traits = Column(ARRAY(JSONB))

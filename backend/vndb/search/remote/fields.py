@@ -141,7 +141,7 @@ class VNDBFields:
     class Character(FieldGroup):
         _prefix = ""
         _fields = ['ID', 'NAME', 'ORIGINAL', 'ALIASES', 'DESCRIPTION', 'BLOOD_TYPE', 'HEIGHT',
-                   'WEIGHT', 'BUST', 'WAIST', 'HIPS', 'CUP', 'AGE', 'BIRTHDAY', 'SEX']
+                   'WEIGHT', 'BUST', 'WAIST', 'HIPS', 'CUP', 'AGE', 'BIRTHDAY', 'SEX', 'GENDER']
 
         class IMAGE(FieldGroup):
             _prefix = "image."

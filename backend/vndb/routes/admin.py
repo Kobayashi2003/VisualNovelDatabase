@@ -1,6 +1,6 @@
 import threading
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request
 
 from vndb.routes import query as query_module
 from vndb.utils.backfill import backfill_column
@@ -49,14 +49,16 @@ def trigger_backfill():
         return jsonify(error='resource_type and field are required'), 400
 
     def _run():
-        try:
-            updated, total = backfill_column(resource_type, field)
-            _backfill_status['last'] = {'updated': updated, 'total': total, 'error': None}
-        except Exception as exc:
-            _backfill_status['last'] = {'updated': 0, 'total': 0, 'error': str(exc)}
-        finally:
-            _backfill_status['running'] = False
+        with app.app_context():
+            try:
+                updated, total = backfill_column(resource_type, field)
+                _backfill_status['last'] = {'updated': updated, 'total': total, 'error': None}
+            except Exception as exc:
+                _backfill_status['last'] = {'updated': 0, 'total': 0, 'error': str(exc)}
+            finally:
+                _backfill_status['running'] = False
 
+    app = current_app._get_current_object()
     _backfill_status['running'] = True
     _backfill_status['last'] = None
     threading.Thread(target=_run, daemon=True).start()

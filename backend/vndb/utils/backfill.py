@@ -10,11 +10,9 @@ from vndb.database import update as db_update, get as db_get
 from vndb.database.models import MODEL_MAP
 from vndb.search.local.search import search as local_search
 from vndb.search.remote.search import (
-    unpaginated_search,
     search_vn, search_character, search_release,
     search_producer, search_staff, search_tag, search_trait,
 )
-from vndb.search.remote.fields import get_remote_fields
 from vndb.search.remote.filters import VNDBFilters, build_filters
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -111,17 +109,10 @@ def _build_db_write(
     return {column: _set_nested(current_jsonb, json_tail.split("."), value)}
 
 
-def _id_filter_batches(resource_type: str, batch_size: int) -> tuple[list[list], int]:
-    """Return all active records as batched VNDB ID filters and their total count."""
-    result = unpaginated_search(local_search, resource_type=resource_type, params={}, response_size='small', limit=100, count=False)
-    ids = [r['id'] for r in result['results']]
-    filter_set = getattr(VNDBFilters, resource_type.upper())
-    batches = [ids[i:i+batch_size] for i in range(0, len(ids), batch_size)]
-    return [
-        build_filters(filter_set, {"id": b[0]}) if len(b) == 1
-        else build_filters(filter_set, {"or": [{"id": id_} for id_ in b]})
-        for b in batches
-    ], len(ids)
+def _id_filter(filter_set: Any, ids: list[str]) -> Any:
+    if len(ids) == 1:
+        return build_filters(filter_set, {"id": ids[0]})
+    return build_filters(filter_set, {"or": [{"id": id_} for id_ in ids]})
 
 
 def _with_retry(fn: Callable, **kwargs) -> dict:
@@ -136,60 +127,6 @@ def _with_retry(fn: Callable, **kwargs) -> dict:
                 raise
             last_exc = e
     raise last_exc
-
-
-def _fetch_remote(
-    resource_type: str,
-    id_filters: list[list],
-    fields: list[str],
-    delay: float = _DEFAULT_DELAY,
-) -> dict[str, dict[str, Any]]:
-    """Fetch records from the VNDB API for pre-built ID filter batches. Returns {id: record}."""
-    search_fn = _SEARCH_FUNCTIONS[resource_type]
-    results: dict[str, dict[str, Any]] = {}
-
-    for i, id_filter in enumerate(id_filters):
-        if i:
-            time.sleep(delay)
-        try:
-            response = _with_retry(search_fn, filters=id_filter, fields=fields, results=_DEFAULT_BATCH_SIZE, count=False)
-            for item in response.get("results", []):
-                results[item["id"]] = item
-        except Exception as e:
-            print(f"  fetch failed: {e}")
-
-    return results
-
-
-def _apply_remote(
-    resource_type: str,
-    field: str,
-    column: str,
-    json_tail: str,
-    kind: _ColKind,
-    remote: dict[str, dict[str, Any]],
-    total: int,
-    extract: Callable[[dict], Any],
-    overwrite_null: bool,
-) -> tuple[int, int]:
-    """Write fetched remote values to the local DB. Returns (updated, total)."""
-    updated = 0
-    for id_, record in remote.items():
-        value = extract(record)
-        if value is None and not overwrite_null:
-            continue
-        try:
-            write = _build_db_write(resource_type, id_, column, json_tail, kind, value)
-        except TypeError as e:
-            print(f"  type error {resource_type}/{id_} '{field}': {e}")
-            continue
-        if TEST:
-            print(f"  [TEST] {resource_type}/{id_} {field} = {value!r}")
-            updated += 1
-        elif db_update(resource_type, id_, write) is not None:
-            updated += 1
-    print(f"[backfill] Done — {updated}/{total} updated.")
-    return updated, total
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
@@ -208,8 +145,9 @@ def backfill_column(
     Parameters
     ----------
     resource_type   One of 'vn', 'release', 'character', 'producer', 'staff', 'tag', 'trait'.
-    field           VNDBFields path string, e.g. ``VNDBFields.Staff.GENDER`` (``"gender"``) or
-                    ``VNDBFields.VN.IMAGE.SEXUAL`` (``"image.sexual"``).
+    field           A single VNDBFields path string, e.g. ``VNDBFields.Staff.GENDER``
+                    (``"gender"``) or ``VNDBFields.VN.IMAGE.SEXUAL`` (``"image.sexual"``).
+                    Must refer to exactly one field — comma-separated lists are not allowed.
                     A plain name overwrites the column directly (scalar, ARRAY, or full JSONB).
                     A dotted path (only valid on JSONB columns) triggers a partial-merge write.
     extract         ``(remote_record) -> value``. Defaults to navigating the field path in
@@ -221,15 +159,65 @@ def backfill_column(
 
     Returns (updated, total).
     """
+    if ',' in field:
+        raise ValueError(f"'field' must be a single field name, not a comma-separated list: {field!r}")
     column, json_tail, kind = _resolve_field(resource_type, field)  # validates early
 
-    id_filters, total = _id_filter_batches(resource_type, batch_size)
+    # First local page also gives the total count
+    first = local_search(resource_type=resource_type, params={}, response_size='small',
+                         page=1, limit=batch_size, count=True)
+    total = first.get('count', 0)
     if not total:
         print(f"[backfill] '{resource_type}.{field}' — no active records.")
         return 0, 0
 
-    fields = get_remote_fields(resource_type, 'large')
-    remote = _fetch_remote(resource_type, id_filters, fields, delay=delay)
+    req_fields = ['id', field]
     _path = field.split(".")
     _extract = extract if extract is not None else (lambda r: _nested_get(r, _path))
-    return _apply_remote(resource_type, field, column, json_tail, kind, remote, total, _extract, overwrite_null)
+    search_fn  = _SEARCH_FUNCTIONS[resource_type]
+    filter_set = getattr(VNDBFilters, resource_type.upper())
+    num_batches = (total + batch_size - 1) // batch_size
+
+    updated = 0
+    local_page = first
+    for batch_num in range(1, num_batches + 1):
+        ids = [r['id'] for r in local_page.get('results', [])]
+        if not ids:
+            break
+
+        if batch_num > 1:
+            time.sleep(delay)
+
+        try:
+            response = _with_retry(search_fn, filters=_id_filter(filter_set, ids),
+                                   fields=req_fields, results=batch_size, count=False)
+        except Exception as e:
+            print(f"  fetch failed (batch {batch_num}/{num_batches}): {e}")
+        else:
+            for item in response.get('results', []):
+                id_ = item['id']
+                value = _extract(item)
+                if value is None and not overwrite_null:
+                    continue
+                try:
+                    write = _build_db_write(resource_type, id_, column, json_tail, kind, value)
+                except TypeError as e:
+                    print(f"  type error {resource_type}/{id_} '{field}': {e}")
+                    continue
+                if TEST:
+                    print(f"  [TEST] {resource_type}/{id_} {field} = {value!r}")
+                    updated += 1
+                elif db_update(resource_type, id_, write) is not None:
+                    updated += 1
+
+        print(f"[backfill] {resource_type}.{field} — batch {batch_num}/{num_batches}, {updated} updated so far.")
+
+        if not local_page.get('more'):
+            break
+        local_page = local_search(
+            resource_type=resource_type, params={}, response_size='small',
+            page=batch_num + 1, limit=batch_size, count=False,
+        )
+
+    print(f"[backfill] Done — {updated}/{total} updated.")
+    return updated, total

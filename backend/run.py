@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 file_handler = RotatingFileHandler(
-    'logs/run.log', 
-    maxBytes=1024 * 1024 * 5, 
+    'logs/run.log',
+    maxBytes=1024 * 1024 * 5,
     # backupCount=5
 )
 file_handler.setLevel(logging.INFO)
@@ -43,7 +43,7 @@ def run_redis_server():
         for line in redis_process.stdout:
             logger.info(f"[REDIS] {line.strip()}")
             print(f"[REDIS] {line.strip()}")
-    
+
     threading.Thread(target=log_redis, daemon=True).start()
     return redis_process
 
@@ -109,7 +109,7 @@ def run_flask(app_name: str):
 def run_flask_waitress(app_name: str):
     print(f"Starting Waitress server for {app_name}")
     process = subprocess.Popen([
-        'python', '-c', 
+        'python', '-c',
         f"from waitress import serve;"
         f"import {app_name};"
         f"app = {app_name}.create_app();"
@@ -141,7 +141,7 @@ def terminate_processes(processes: List[subprocess.Popen]):
 def main():
 
     parser = argparse.ArgumentParser(description='Run debug servers with options')
-    parser.add_argument('--waitress', action='store_true', 
+    parser.add_argument('--waitress', action='store_true',
                         help='Use Waitress WSGI server instead of Flask development server')
     args = parser.parse_args()
 
@@ -166,7 +166,7 @@ def main():
     else:
         vndb_flask_process = run_flask('vndb')
     processes.append(vndb_flask_process)
-    
+
 
     # Start imgserve celery worker
     imgserve_celery_process = run_celery_worker('imgserve')
@@ -202,7 +202,7 @@ def main():
     else:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-        
+
     try:
         while True:
             time.sleep(1)

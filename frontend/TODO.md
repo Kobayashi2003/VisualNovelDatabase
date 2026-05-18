@@ -1,1 +1,2 @@
-1. 我发现再vn页面的relasions中，即便是原文模式，其显示的依旧并非原文的标题，修复后检查其它的页面中是否还存在类似的问题并进行修复。对于这部分的实现，不要使用alttitle，而是模仿其它的看是如何实现的。altitle会返回意想不到的结果
+1. 原文模式支持待补充：vn页面relations的title，vn页面screenshots中的release的title，release的页面的vns的title，建议整理出一个恰当的设计规范，但前提需要先完成vn的列请求
+2. release的producer需要区分为developer和publisher

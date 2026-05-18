@@ -107,7 +107,7 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
             <h1 className="text-2xl font-bold text-white leading-tight">
               {showOriginal && vn.alttitle ? vn.alttitle : vn.title}
             </h1>
-            {!showOriginal && vn.alttitle && <p className="text-muted text-sm mt-0.5">{vn.alttitle}</p>}
+            {/* {!showOriginal && vn.alttitle && <p className="text-muted text-sm mt-0.5">{vn.alttitle}</p>} */}
           </div>
 
           {vn.description && (
@@ -159,4 +159,3 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
     </div>
   )
 }
-

@@ -163,9 +163,9 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
                   <p className="text-xs font-semibold text-white truncate">
                     {showOriginal && c.original ? c.original : c.name}
                   </p>
-                  {!showOriginal && c.original && (
+                  {/* {!showOriginal && c.original && (
                     <p className="text-xs text-muted truncate">{c.original}</p>
-                  )}
+                  )} */}
 
                   {sexApparent && (
                     <div className="flex items-center gap-1 mt-0.5">

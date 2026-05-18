@@ -35,7 +35,7 @@ def array_jsonb_match(column: Any, key: str, value: Any) -> BinaryExpression:
 def array_string_match(column: Any, value: str) -> BinaryExpression:
     """
     Create a filter for matching a value in an ARRAY(String) column.
-    
+
     :param column: The SQLAlchemy column object (ARRAY(String) type)
     :param value: The value to match against
     :return: An SQLAlchemy exists clause for filtering
@@ -50,7 +50,7 @@ def array_string_match(column: Any, value: str) -> BinaryExpression:
 def process_multi_value_expression(expression: str, value_processor: Callable[[str], BinaryExpression]) -> BinaryExpression:
     """
     Process a multi-value expression with OR/AND logic and parentheses using two stacks.
-    
+
     :param expression: The input expression (e.g., "value1,value2+(value3,value4)")
     :param value_processor: A function that takes a string value and returns a SQLAlchemy filter condition
     :return: A single SQLAlchemy filter condition
@@ -63,7 +63,7 @@ def process_multi_value_expression(expression: str, value_processor: Callable[[s
             op = ops.pop()
             right = vals.pop()
             left = vals.pop()
-            
+
             if op == ',':
                 vals.append(or_(left, right))
             elif op == '+':
@@ -72,7 +72,7 @@ def process_multi_value_expression(expression: str, value_processor: Callable[[s
     ops = []
     vals = []
     current = ""
-    
+
     for char in expression:
         if char == '(':
             ops.append(char)
@@ -93,13 +93,13 @@ def process_multi_value_expression(expression: str, value_processor: Callable[[s
             ops.append(char)
         else:
             current += char
-    
+
     if current:
         vals.append(value_processor(current.strip()))
-    
+
     while ops:
         evaluate(ops, vals)
-    
+
     return vals[0] if vals else None
 
 def create_comparison_filter(field: Any, value: str, value_parser: Callable[[str], Any]) -> BinaryExpression:
@@ -107,10 +107,10 @@ def create_comparison_filter(field: Any, value: str, value_parser: Callable[[str
     match = re.match(pattern, value.strip())
     if not match:
         raise ValueError(f"Invalid comparison format: {value}")
-    
+
     operator, actual_value = match.groups()
     operator = operator or '='
-    
+
     operators = {
         '>=': lambda f, v: f >= v,
         '<=': lambda f, v: f <= v,
@@ -119,7 +119,7 @@ def create_comparison_filter(field: Any, value: str, value_parser: Callable[[str
         '=': lambda f, v: f == v,
         '!=': lambda f, v: f != v
     }
-    
+
     parsed_value = value_parser(actual_value)
     return operators[operator](field, parsed_value)
 
@@ -127,7 +127,7 @@ def create_comparison_filter(field: Any, value: str, value_parser: Callable[[str
 def parse_released(value: str) -> str:
     """
     Parse the released date string.
-    
+
     :param value: A string representing the release date in YYYY, YYYY-MM, or YYYY-MM-DD format
     :return: A normalized date string in YYYY-MM-DD format
     """
@@ -152,7 +152,7 @@ def parse_released(value: str) -> str:
 def parse_resolution(value: str) -> tuple[int, int]:
     """
     Parse the resolution string.
-    
+
     :param value: A string representing the resolution in the format "WIDTHxHEIGHT"
     :return: A tuple of (width, height)
     """
@@ -160,13 +160,13 @@ def parse_resolution(value: str) -> tuple[int, int]:
     match = re.match(pattern, value)
     if match:
         return tuple(map(int, match.groups()))
-    
+
     raise ValueError(f"Invalid resolution format: {value}. Use 'WIDTHxHEIGHT' format (e.g., '640x480').")
 
 def parse_birthday(value: str) -> tuple[int, int]:
     """
     Parse the birthday string.
-    
+
     :param value: A string representing the birthday in the format "MM-DD"
     :return: A tuple of (month, day)
     """
@@ -176,13 +176,13 @@ def parse_birthday(value: str) -> tuple[int, int]:
         month, day = map(int, match.groups())
         if 1 <= month <= 12 and 1 <= day <= 31:
             return (month, day)
-    
+
     raise ValueError(f"Invalid birthday format: {value}. Use 'MM-DD' format (e.g., '12-25').")
 
 def parse_cup(value: str) -> str:
-    cup_sizes = ['AAA', 'AA', 'A', 'B', 'C', 'D', 'E', 
-                 'F', 'G', 'H', 'I', 'J', 'K', 'L', 
-                 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 
+    cup_sizes = ['AAA', 'AA', 'A', 'B', 'C', 'D', 'E',
+                 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+                 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
                  'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
     if value.upper() in cup_sizes:
         return value.upper()
@@ -191,7 +191,7 @@ def parse_cup(value: str) -> str:
 def create_released_comparison_filter(value: str, model) -> BinaryExpression:
     """
     Create a filter for comparing released dates stored as strings.
-    
+
     :param value: The release date value to compare against in the format "OPERATOR DATE"
     :param model: The SQLAlchemy model (VN or Release) to use for the filter
     :return: An SQLAlchemy filter expression
@@ -200,12 +200,12 @@ def create_released_comparison_filter(value: str, model) -> BinaryExpression:
     match = re.match(pattern, value.strip())
     if not match:
         raise ValueError(f"Invalid release date comparison format: {value}. Use format like '>=2022-01-01'.")
-    
+
     operator, date_value = match.groups()
     operator = operator or '='
-    
+
     normalized_date = parse_released(date_value)
-    
+
     operators = {
         '>=': lambda field, date: and_(field != 'TBA', field.isnot(None), field >= date),
         '<=': lambda field, date: and_(field != 'TBA', field.isnot(None), field <= date),
@@ -214,13 +214,13 @@ def create_released_comparison_filter(value: str, model) -> BinaryExpression:
         '=': lambda field, date: and_(field != 'TBA', field.isnot(None), field == date),
         '!=': lambda field, date: and_(field != 'TBA', field.isnot(None), field != date)
     }
-    
+
     return operators[operator](model.released, normalized_date)
 
 def create_resolution_comparison_filter(value: str) -> BinaryExpression:
     """
     Create a filter for comparing resolutions stored as strings in the format "[WIDTH,HEIGHT]".
-    
+
     :param value: The resolution value to compare against in the format "OPERATORWIDTHxHEIGHT"
     :return: An SQLAlchemy filter expression
     """
@@ -268,7 +268,7 @@ def create_resolution_comparison_filter(value: str) -> BinaryExpression:
 def create_resolution_aspect_comparison_filter(value: str) -> BinaryExpression:
     """
     Create a filter for comparing resolutions and aspect ratios stored as strings in the format "[WIDTH,HEIGHT]".
-    
+
     :param value: The resolution value to compare against in the format "OPERATORWIDTHxHEIGHT"
     :return: An SQLAlchemy filter expression
     """
@@ -276,26 +276,26 @@ def create_resolution_aspect_comparison_filter(value: str) -> BinaryExpression:
     match = re.match(pattern, value.strip())
     if not match:
         raise ValueError(f"Invalid resolution comparison format: {value}. Use format like '>=640x480'.")
-    
+
     operator, resolution_value = match.groups()
     operator = operator or '='
-    
+
     width, height = parse_resolution(resolution_value)
-    
+
     # Extract numbers from the stored string
     resolution_without_brackets = func.substring(Release.resolution, 2, func.length(Release.resolution) - 2)
     extracted_width = func.cast(func.split_part(resolution_without_brackets, ',', 1), Integer)
     extracted_height = func.cast(func.split_part(resolution_without_brackets, ',', 2), Integer)
-    
+
     # Calculate aspect ratios
     given_aspect_ratio = width / height
     stored_aspect_ratio = func.cast(extracted_width, Float) / func.cast(extracted_height, Float)
-    
+
     # Define a small tolerance for floating-point comparisons
     tolerance = 0.0001
-    
+
     aspect_ratio_match = func.abs(stored_aspect_ratio - given_aspect_ratio) < tolerance
-    
+
     operators = {
         '>=': lambda w, h: and_(
             or_(
@@ -328,7 +328,7 @@ def create_resolution_aspect_comparison_filter(value: str) -> BinaryExpression:
         '=': lambda w, h: and_(extracted_width == w, extracted_height == h, aspect_ratio_match),
         '!=': lambda w, h: or_(extracted_width != w, extracted_height != h, ~aspect_ratio_match)
     }
-    
+
     return and_(
         Release.resolution.isnot(None),
         Release.resolution != '"non-standard"',
@@ -338,7 +338,7 @@ def create_resolution_aspect_comparison_filter(value: str) -> BinaryExpression:
 def create_birthday_comparison_filter(value: str) -> BinaryExpression:
     """
     Create a filter for comparing birthdays stored as strings in the format "[MM,DD]".
-    
+
     :param value: The birthday value to compare against in the format "OPERATOR MM-DD"
     :return: An SQLAlchemy filter expression
     """
@@ -347,16 +347,16 @@ def create_birthday_comparison_filter(value: str) -> BinaryExpression:
     match = re.match(pattern, value.strip())
     if not match:
         raise ValueError(f"Invalid birthday comparison format: {value}. Use format like '>=12-25'.")
-    
+
     operator, birthday_value = match.groups()
     operator = operator or '='
-    
+
     month, day = parse_birthday(birthday_value)
-    
+
     birthday_without_brackets = func.substring(Character.birthday, 2, func.length(Character.birthday) - 2)
     extracted_month = func.cast(func.split_part(birthday_without_brackets, ',', 1), Integer)
     extracted_day = func.cast(func.split_part(birthday_without_brackets, ',', 2), Integer)
-    
+
     operators = {
         '>=': lambda m, d: or_(
             extracted_month > m,
@@ -377,7 +377,7 @@ def create_birthday_comparison_filter(value: str) -> BinaryExpression:
         '=': lambda m, d: and_(extracted_month == m, extracted_day == d),
         '!=': lambda m, d: or_(extracted_month != m, extracted_day != d)
     }
-    
+
     return and_(
         Character.birthday.isnot(None),
         operators[operator](month, day)
@@ -386,7 +386,7 @@ def create_birthday_comparison_filter(value: str) -> BinaryExpression:
 def create_cup_comparison_filter(value: str) -> BinaryExpression:
     """
     Create a filter for comparing cup sizes stored as strings.
-    
+
     :param value: The cup size value to compare against in the format "OPERATOR SIZE"
     :param model: The SQLAlchemy model (Character) to use for the filter
     :return: An SQLAlchemy filter expression
@@ -395,12 +395,12 @@ def create_cup_comparison_filter(value: str) -> BinaryExpression:
     match = re.match(pattern, value.strip())
     if not match:
         raise ValueError(f"Invalid cup size comparison format: {value}. Use format like '>=B'.")
-    
+
     operator, cup_value = match.groups()
     operator = operator or '='
-    
+
     cup_size = parse_cup(cup_value)
-    
+
     if cup_size == 'AAA':
         operators = {
             '>=': lambda field, size: field.isnot(None),
@@ -437,13 +437,13 @@ def create_cup_comparison_filter(value: str) -> BinaryExpression:
             '=': lambda field, size: field == size,
             '!=': lambda field, size: field != size
         }
-    
+
     return operators[operator](Character.cup, cup_size)
 
 def create_sex_match_filter(value: str, spoil: bool = False) -> BinaryExpression:
     """
     Create a filter for matching character sex values.
-    
+
     :param value: The sex value to match
     :param spoil: Whether match spoil_sex or normal_sex
     :return: An SQLAlchemy filter expression
@@ -494,7 +494,7 @@ def get_release_additional_filters(params: dict[str, Any]) -> list[BinaryExpress
         filters.append(and_(
             Release.has_ero == False,
             ~exists(select(1).select_from(func.unnest(Release.images).alias('image')).where(or_(
-                text("(image->>'sexual')::float > 0.5"), 
+                text("(image->>'sexual')::float > 0.5"),
                 text("(image->>'violence')::float > 0.5")
             )))
         ))
@@ -568,7 +568,7 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if olang := params.get('olang'):
         filters.append(VN.olang == olang)
-    
+
     if platform := params.get('platform'):
         filters.append(array_string_match(VN.platforms, platform))
 
@@ -595,7 +595,7 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
         else:
             raise ValueError(f"Invalid value for has_description: {has_description}. Use 'true' or 'false'.")
 
-    if 'has_anime' in params: #TODO 
+    if 'has_anime' in params: #TODO
         raise ValueError("The 'has_anime' search field is not available for local searches.")
 
     if 'has_screenshot' in params:
@@ -609,7 +609,7 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if 'has_review' in params: #TODO
         raise ValueError("The 'has_review' search field is not available for local searches.")
-    
+
     if devstatus := params.get('devstatus'):
         filters.append(VN.devstatus == devstatus)
 
@@ -696,7 +696,7 @@ def get_release_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if platform := params.get('platform'):
         filters.append(array_string_match(Release.platforms, platform))
-        
+
     if released := params.get('released'):
         def process_released(released_value):
             return create_released_comparison_filter(released_value, Release)
@@ -818,10 +818,10 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if blood_type := params.get('blood_type'):
         filters.append(Character.blood_type == blood_type)
-    
+
     if sex := params.get('sex'):
         filters.append(create_sex_match_filter(sex))
-    
+
     if sex_spoil := params.get('sex_spoil'):
         filters.append(create_sex_match_filter(sex_spoil, spoil=True))
 
@@ -830,22 +830,22 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if gender_spoil := params.get('gender_spoil'):
         filters.append(create_sex_match_filter(gender_spoil, spoil=True))
-    
+
     if height := params.get('height'):
         filters.append(create_comparison_filter(Character.height, height, int))
-    
+
     if weight := params.get('weight'):
         filters.append(create_comparison_filter(Character.weight, weight, int))
-    
+
     if bust := params.get('bust'):
         filters.append(create_comparison_filter(Character.bust, bust, int))
-    
+
     if waist := params.get('waist'):
         filters.append(create_comparison_filter(Character.waist, waist, int))
-    
+
     if hips := params.get('hips'):
         filters.append(create_comparison_filter(Character.hips, hips, int))
-    
+
     if cup := params.get('cup'):
         filters.append(create_cup_comparison_filter(cup))
 
@@ -894,11 +894,11 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
                 array_jsonb_match(Character.vns, 'title', vn_value)
             )
         filters.append(process_multi_value_expression(vns, process_vn))
-    
+
     filters.extend(get_character_additional_filters(params))
 
     return filters
-    
+
 def get_producer_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     filters = []
 
@@ -914,10 +914,10 @@ def get_producer_filters(params: dict[str, Any]) -> list[BinaryExpression]:
                 array_string_match(Producer.aliases, producer_value)
             )
         filters.append(process_multi_value_expression(search, process_producer))
-    
+
     if lang := params.get('lang'):
         filters.append(Producer.lang == lang)
-    
+
     if producer_type := params.get('type'):
         filters.append(Producer.type == producer_type)
 
@@ -928,7 +928,7 @@ def get_producer_filters(params: dict[str, Any]) -> list[BinaryExpression]:
             array_jsonb_match(Producer.extlinks, 'label', extlink),
             array_jsonb_match(Producer.extlinks, 'name', extlink)
         ))
-    
+
     filters.extend(get_producer_additional_filters(params))
 
     return filters
@@ -954,7 +954,7 @@ def get_staff_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if lang := params.get('lang'):
         filters.append(Staff.lang == lang)
-    
+
     if gender := params.get('gender'):
         filters.append(Staff.gender == gender)
 
@@ -969,7 +969,7 @@ def get_staff_filters(params: dict[str, Any]) -> list[BinaryExpression]:
             array_jsonb_match(Staff.extlinks, 'label', extlink),
             array_jsonb_match(Staff.extlinks, 'name', extlink)
         ))
-    
+
     if 'ismain' in params:
         ismain = params['ismain']
         if str(ismain).lower() == 'true' or str(ismain) == '1':
@@ -978,7 +978,7 @@ def get_staff_filters(params: dict[str, Any]) -> list[BinaryExpression]:
             filters.append(Staff.ismain == False)
         else:
             raise ValueError(f"Invalid value for ismain: {ismain}. Use 'true' or 'false'.")
-    
+
     filters.extend(get_staff_additional_filters(params))
 
     return filters
@@ -1000,14 +1000,14 @@ def get_tag_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if category := params.get('category'):
         filters.append(Tag.category == category)
-    
+
     filters.extend(get_tag_additional_filters(params))
 
     return filters
 
 def get_trait_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     filters = []
-    
+
     if ids := params.get('id'):
         filters.append(process_multi_value_expression(ids, lambda id : Trait.id == formatId('trait', id)))
 
@@ -1019,7 +1019,7 @@ def get_trait_filters(params: dict[str, Any]) -> list[BinaryExpression]:
                 array_string_match(Trait.aliases, trait_value)
             )
         filters.append(process_multi_value_expression(traits, process_trait))
-    
+
     filters.extend(get_trait_additional_filters(params))
 
     return filters

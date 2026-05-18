@@ -1,1 +1,1 @@
-from .backfill import batch_query_remote, backfill_column
+from .backfill import backfill_column

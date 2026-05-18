@@ -30,7 +30,7 @@ SORTABLE_FIELDS = {
         'id', 'title', 'released', 'minage', 'created_at', 'updated_at',
     ],
     'character': [
-        'id', 'name', 'original', 'height', 'weight', 
+        'id', 'name', 'original', 'height', 'weight',
         'bust', 'waist', 'hips', 'age', 'birthday',
         'created_at', 'updated_at',
     ],

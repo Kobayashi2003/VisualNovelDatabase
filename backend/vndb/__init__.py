@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 from .config import Config
@@ -81,8 +81,9 @@ def create_app(config_class=Config, enable_scheduler=True):
         return jsonify(error="Internal server error"), 500
 
     from .routes import api_bp
+    from .routes.admin import admin_bp
     app.register_blueprint(api_bp)
-    app.add_url_rule('/test', 'test', lambda: render_template('test.html'), methods=['GET'])
+    app.register_blueprint(admin_bp)
 
     # ----------------------------------------
     # CLI Command Registration

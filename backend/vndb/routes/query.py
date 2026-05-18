@@ -16,6 +16,8 @@ RESOURCE_TYPE_MAP = {
 
 query_bp = Blueprint('query', __name__, url_prefix='/')
 
+QUERY_MODE = 'default'  # 'default' | 'local' | 'remote' | 'disabled'
+
 
 def _remote_with_local_fallback(resource_type, params, response_size,
                                 page, limit, sort, reverse, count):
@@ -43,6 +45,9 @@ def handle_query(query):
     if not resource_type:
         abort(400, description="Invalid resource type")
 
+    if QUERY_MODE == 'disabled':
+        abort(503, description="Query API is currently disabled")
+
     params = request.args.to_dict()
 
     if len(query) == 1:
@@ -56,11 +61,11 @@ def handle_query(query):
         search_from = params.pop('from', '')
         response_size = params.pop('size', 'large')
 
-        if search_from == 'remote':
+        if search_from == 'remote' or QUERY_MODE == 'remote':
             return execute_task(search_resources_task,
                 True, resource_type, params, response_size, page, limit, sort, reverse, count)
 
-        if search_from == 'local':
+        if search_from == 'local' or QUERY_MODE == 'local':
             return execute_task(get_resources_task,
                 True, resource_type, params, response_size, page, limit, sort, reverse, count)
 
@@ -77,11 +82,11 @@ def handle_query(query):
         search_from = params.pop('from', '')
         response_size = params.pop('size', 'large')
 
-        if search_from == 'remote':
+        if search_from == 'remote' or QUERY_MODE == 'remote':
             return execute_task(search_resources_task,
                 True, resource_type, {'id': query}, response_size, 1, 1, 'id', False, True)
 
-        if search_from == 'local':
+        if search_from == 'local' or QUERY_MODE == 'local':
             return execute_task(get_resources_task,
                 True, resource_type, {'id': query}, response_size, 1, 1, 'id', False, True)
 

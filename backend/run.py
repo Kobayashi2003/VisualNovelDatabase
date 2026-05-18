@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from typing import List
 
 os.makedirs('logs', exist_ok=True)
+os.environ['PYTHONUNBUFFERED'] = '1'
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

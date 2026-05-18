@@ -4,9 +4,10 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { ENUMS } from "@/lib/enums"
+import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { useSearchContext } from "@/context/SearchContext"
+import { shouldBlur } from "@/lib/blur"
 import type { VN } from "@/lib/types"
 
 type VNCharacter = VN["characters"][number]
@@ -20,17 +21,7 @@ const ROLE_TABS = [
   { value: "appears", label: "Appears" },
 ] as const
 
-function shouldBlur(
-  image: VNCharacter["image"],
-  sexualLevel: string, violenceLevel: string
-): boolean {
-  if (!image) return false
-  const isSexual = (sexualLevel === "safe" && image.sexual > 0.5) || (sexualLevel === "suggestive" && image.sexual > 1.5)
-  const isViolent = (violenceLevel === "tame" && image.violence > 0.5) || (violenceLevel === "violent" && image.violence > 1.5)
-  return isSexual || isViolent
-}
-
-const ROLE_LABEL = ENUMS.CHARACTER_ROLE as Record<string, string>
+const ROLE_LABEL = enumMap('CHARACTER_ROLE')
 
 const SEX_LABEL: Record<string, string> = {
   m: "Male",
@@ -134,7 +125,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 items-stretch">
         {visible.map(c => {
-          const blurred = shouldBlur(c.image, sexualLevel, violenceLevel)
+          const blurred = !!c.image && shouldBlur(c.image.sexual, c.image.violence, sexualLevel, violenceLevel)
           const role = getRole(c)
           const vaEntries = vaMap.get(c.id) ?? []
 

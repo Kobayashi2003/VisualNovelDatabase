@@ -12,6 +12,7 @@ import { VNDescription } from "@/components/vn/VNDescription"
 import { CharacterInfoPanel } from "./CharacterInfoPanel"
 import { CharacterTraits } from "./CharacterTraits"
 import { CharacterVNs } from "./CharacterVNs"
+import { Section } from "@/components/common/InfoPanel"
 
 interface CharacterDetailPageProps {
   id: number
@@ -172,11 +173,3 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">{title}</h2>
-      {children}
-    </div>
-  )
-}

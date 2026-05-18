@@ -183,3 +183,13 @@ export const ENUMS = {
     tech: "Technical",
   }
 } as const
+
+type EnumGroup = keyof typeof ENUMS
+
+export function enumMap<G extends EnumGroup>(group: G): Record<string | number, string> {
+  return ENUMS[group] as Record<string | number, string>
+}
+
+export function enumLabel<G extends EnumGroup>(group: G, key: string | number): string {
+  return enumMap(group)[key] ?? String(key)
+}

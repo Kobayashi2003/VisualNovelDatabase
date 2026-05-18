@@ -8,29 +8,11 @@ import { Eye, EyeOff, ExternalLink, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { CollectionButton } from "@/components/category/CollectionButton"
-import { ENUMS } from "@/lib/enums"
+import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
+import { shouldBlur } from "@/lib/blur"
+import { InfoRow } from "@/components/common/InfoPanel"
 import type { VN } from "@/lib/types"
-
-// ─── blur helper (mirrors CardsGrid logic) ────────────────────────────────────
-function shouldBlur(
-  sexual: number, violence: number,
-  sexualLevel: string, violenceLevel: string
-): boolean {
-  const isSexual = (sexualLevel === "safe" && sexual > 0.5) || (sexualLevel === "suggestive" && sexual > 1.5)
-  const isViolent = (violenceLevel === "tame" && violence > 0.5) || (violenceLevel === "violent" && violence > 1.5)
-  return isSexual || isViolent
-}
-
-// ─── small info row ───────────────────────────────────────────────────────────
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-2 py-1.5 border-b border-white/5 last:border-0">
-      <span className="text-xs text-muted w-24 shrink-0 pt-0.5">{label}</span>
-      <div className="flex-1 text-xs text-white/90 flex flex-wrap gap-1">{children}</div>
-    </div>
-  )
-}
 
 function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -57,11 +39,11 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
 
   useEffect(() => { setCoverMounted(true) }, [])
 
-  const DEVSTATUS = ENUMS.DEVSTATUS as Record<number, string>
-  const PLATFORM = ENUMS.PLATFORM as Record<string, string>
-  const LANGUAGE = ENUMS.LANGUAGE as Record<string, string>
-  const LENGTH = ENUMS.LENGTH as Record<number, string>
-  const RELATION = ENUMS.RELATION as Record<string, string>
+  const DEVSTATUS = enumMap('DEVSTATUS')
+  const PLATFORM = enumMap('PLATFORM')
+  const LANGUAGE = enumMap('LANGUAGE')
+  const LENGTH = enumMap('LENGTH')
+  const RELATION = enumMap('RELATION')
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
   const PLAT_ICON = ICON.PLATFORM as Record<string, string>
   const { showOriginal } = useSearchContext()

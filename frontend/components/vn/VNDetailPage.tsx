@@ -15,6 +15,7 @@ import { VNScreenshots } from "./VNScreenshots"
 import { VNStaff } from "./VNStaff"
 import { VNCharacters } from "./VNCharacters"
 import { VNReleases } from "./VNReleases"
+import { Section } from "@/components/common/InfoPanel"
 
 interface VNDetailPageProps {
   id: number
@@ -158,11 +159,3 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">{title}</h2>
-      {children}
-    </div>
-  )
-}

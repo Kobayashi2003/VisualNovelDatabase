@@ -7,7 +7,7 @@ import { createPortal } from "react-dom"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
-import { ENUMS } from "@/lib/enums"
+import { enumMap, enumLabel } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import type { Release } from "@/lib/types"
 import { Loading } from "@/components/status/Loading"
@@ -15,36 +15,12 @@ import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { useSearchContext } from "@/context/SearchContext"
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-2 py-1.5 border-b border-white/5 last:border-0">
-      <span className="text-xs text-muted w-24 shrink-0 pt-0.5">{label}</span>
-      <div className="flex-1 text-xs text-white/90 flex flex-wrap gap-1">{children}</div>
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">{title}</h2>
-      {children}
-    </div>
-  )
-}
+import { shouldBlur } from "@/lib/blur"
+import { InfoRow, Section } from "@/components/common/InfoPanel"
 
 // ─── Image gallery ────────────────────────────────────────────────────────────
 
 type ReleaseImage = Release["images"][number]
-
-function shouldBlur(img: ReleaseImage, sexualLevel: string, violenceLevel: string): boolean {
-  const isSexual = (sexualLevel === "safe" && img.sexual > 0.5) || (sexualLevel === "suggestive" && img.sexual > 1.5)
-  const isViolent = (violenceLevel === "tame" && img.violence > 0.5) || (violenceLevel === "violent" && img.violence > 1.5)
-  return isSexual || isViolent
-}
 
 function ImageLightbox({
   images, index, onClose, onPrev, onNext, sexualLevel, violenceLevel,
@@ -58,7 +34,7 @@ function ImageLightbox({
   violenceLevel: string
 }) {
   const img = images[index]
-  const blurred = shouldBlur(img, sexualLevel, violenceLevel)
+  const blurred = shouldBlur(img.sexual, img.violence, sexualLevel, violenceLevel)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -143,7 +119,7 @@ function ReleaseImages({
     <>
       <div className="flex flex-wrap gap-1.5">
         {images.map((img, i) => {
-          const blurred = shouldBlur(img, sexualLevel, violenceLevel)
+          const blurred = shouldBlur(img.sexual, img.violence, sexualLevel, violenceLevel)
           return (
             <button
               key={img.id}
@@ -185,9 +161,9 @@ function ReleaseImages({
 function ReleaseInfoPanel({ release }: { release: Release }) {
   const rtypes = [...new Set(release.vns.map(v => v.rtype))]
   const ageLabel = release.minage == null ? null : release.minage === 0 ? "All Ages" : `${release.minage}+`
-  const PLATFORM = ENUMS.PLATFORM as Record<string, string>
-  const VOICED = ENUMS.VOICED as Record<number, string>
-  const MEDIUM = ENUMS.MEDIUM as Record<string, string>
+  const PLATFORM = enumMap('PLATFORM')
+  const VOICED = enumMap('VOICED')
+  const MEDIUM = enumMap('MEDIUM')
   const PLAT_ICON = ICON.PLATFORM as Record<string, string>
   const MEDIA_ICON = ICON.RELEASE_MEDIA as Record<string, string>
   const VOICED_ICON = ICON.RELEASE_VOICED as Record<number, string>
@@ -230,7 +206,7 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
                   rt === "trial" ? "text-blue-400" :
                   rt === "partial" ? "text-yellow-400" : "text-white/80"
                 )}>
-                  {(ENUMS.RTYPE as Record<string, string>)[rt] ?? rt}
+                  {enumLabel('RTYPE', rt)}
                 </span>
               ))}
             </div>
@@ -274,7 +250,7 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
                       "text-xs",
                       lang.main ? "text-white/90 font-medium" : "text-white/70"
                     )}>
-                      {(ENUMS.LANGUAGE as Record<string, string>)[lang.lang] ?? lang.lang}
+                      {enumLabel('LANGUAGE', lang.lang)}
                     </span>
                     {lang.mtl && (
                       <span className="text-xs text-amber-400/80">[MTL]</span>
@@ -378,7 +354,7 @@ function LinkedVNs({ vns }: { vns: Release["vns"] }) {
             <p className="text-sm text-white truncate">{vn.title}</p>
           </div>
           <span className="text-xs px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/70 shrink-0">
-            {(ENUMS.RTYPE as Record<string, string>)[vn.rtype] ?? vn.rtype}
+            {enumLabel('RTYPE', vn.rtype)}
           </span>
         </Link>
       ))}

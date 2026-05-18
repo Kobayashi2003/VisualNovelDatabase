@@ -27,10 +27,9 @@ import {
 } from "@/components/card/CardsGrid"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { Loading } from "@/components/status/Loading"
+import { PAGE_LIMIT, COLLECTION_TYPE_MAP } from "@/lib/constants"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const LIMIT = 24
-
 const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
   vn:        [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "rating", label: "Rating" }, { value: "released", label: "Released" }],
   release:   [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "released", label: "Released" }],
@@ -41,18 +40,9 @@ const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
   trait:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
 }
 
-// ─── Inline type metadata (avoids Turbopack module-init timing issues) ─────
-const TYPE_PREFIXES: Record<string, string> = {
-  vn: "v", release: "r", character: "c", producer: "p", staff: "s", tag: "g", trait: "i",
-}
-const TYPE_LABELS: Record<string, string> = {
-  vn: "Visual Novel", release: "Release", character: "Character",
-  producer: "Producer", staff: "Staff", tag: "Tag", trait: "Trait",
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function prefixForType(type: string): string {
-  return TYPE_PREFIXES[type] ?? ""
+  return COLLECTION_TYPE_MAP[type]?.route ?? ""
 }
 
 async function fetchByIdsForType(
@@ -262,7 +252,7 @@ function CollectionContent() {
           const cidParam: number | "all" = activeCategory === "all" ? "all" : (activeCategory as number)
           const marksPage = await api.category.getMarks(
             type,
-            { cid: cidParam, sort: "marked_at", reverse: order !== "asc", page, limit: LIMIT },
+            { cid: cidParam, sort: "marked_at", reverse: order !== "asc", page, limit: PAGE_LIMIT },
             ctrl.signal,
           )
           const pageIds = marksPage.results.map(m => m.id)
@@ -271,7 +261,7 @@ function CollectionContent() {
             setTotalCount(marksPage.count ?? 0)
             return
           }
-          const data = await fetchByIdsForType(type, pageIds, { limit: LIMIT }, ctrl.signal)
+          const data = await fetchByIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
           const idMap = new Map(data.results.map((item: { id: string }) => [
             parseInt(item.id.replace(/^[a-z]+/, "")),
             item
@@ -285,7 +275,7 @@ function CollectionContent() {
             sort: sort === "date_added" ? "id" : sort,
             reverse: order === "desc",
             page,
-            limit: LIMIT,
+            limit: PAGE_LIMIT,
             ...(q ? { search: q } : {}),
           }
           const data = await fetchByIdsForType(type, allIds, params, ctrl.signal)
@@ -447,9 +437,9 @@ function CollectionContent() {
   }
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const totalPages = Math.ceil(totalCount / LIMIT)
+  const totalPages = Math.ceil(totalCount / PAGE_LIMIT)
   const activeCategoryName = activeCategory === "all"
-    ? `All ${TYPE_LABELS[type] ?? type}s`
+    ? `All ${COLLECTION_TYPE_MAP[type]?.label ?? type}s`
     : (categories.find(c => c.id === activeCategory)?.category_name ?? "")
 
   const sortOptions = SORT_OPTIONS[type] ?? SORT_OPTIONS.vn

@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ENUMS } from "@/lib/enums"
+import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { useSearchContext } from "@/context/SearchContext"
 import type { VN } from "@/lib/types"
@@ -17,8 +17,8 @@ interface VNReleasesProps {
 }
 
 export function VNReleases({ releases, olang }: VNReleasesProps) {
-  const LANGUAGE = ENUMS.LANGUAGE as Record<string, string>
-  const RTYPE = ENUMS.RTYPE as Record<string, string>
+  const LANGUAGE = enumMap('LANGUAGE')
+  const RTYPE = enumMap('RTYPE')
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
   const { showOriginal } = useSearchContext()
 

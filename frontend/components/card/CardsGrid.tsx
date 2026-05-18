@@ -7,7 +7,8 @@ import { ImageCard } from "./ImageCard"
 import { ImageCard2 } from "./ImageCard2"
 import { TextCard } from "./TextCard"
 import { CompactRow } from "./CompactRow"
-import { ENUMS } from "@/lib/enums"
+import { enumLabel } from "@/lib/enums"
+import { shouldBlur } from "@/lib/blur"
 import { useSearchContext } from "@/context/SearchContext"
 
 import {
@@ -45,11 +46,7 @@ function getBlurClass(
   violenceLevel: string
 ): string {
   if (!image) return ""
-  const { sexual, violence } = image
-  const isSexual = (sexualLevel === "safe" && sexual > 0.5) || (sexualLevel === "suggestive" && sexual > 1.5)
-  const isViolent = (violenceLevel === "tame" && violence > 0.5) || (violenceLevel === "violent" && violence > 1.5)
-  if (isSexual || isViolent) return BLUR
-  return ""
+  return shouldBlur(image.sexual, image.violence, sexualLevel, violenceLevel) ? BLUR : ""
 }
 
 export function GenImageCard({
@@ -334,7 +331,7 @@ export function CharactersCardsGrid({
     return (
       <div className="flex flex-col">
         {characters.map((c, idx) => {
-          const role = c.vns?.[0]?.role ? (ENUMS.CHARACTER_ROLE as Record<string, string>)[c.vns[0].role] || c.vns[0].role : ""
+          const role = c.vns?.[0]?.role ? enumLabel('CHARACTER_ROLE', c.vns[0].role) : ""
           const subtitle = !showOriginal ? [c.original, role].filter(Boolean).join(" · ") : role
           return (
             <CompactRow
@@ -357,7 +354,7 @@ export function CharactersCardsGrid({
   return (
     <div className={gridClass(effectiveLayout)}>
       {characters.map((c) => {
-        const role = c.vns?.[0]?.role ? (ENUMS.CHARACTER_ROLE as Record<string, string>)[c.vns[0].role] || c.vns[0].role : ""
+        const role = c.vns?.[0]?.role ? enumLabel('CHARACTER_ROLE', c.vns[0].role) : ""
         const displayName = showOriginal && c.original ? c.original : c.name
         const msgs = (!showOriginal && c.original ? [c.original, role] : [role]).filter(Boolean) as string[]
         return (

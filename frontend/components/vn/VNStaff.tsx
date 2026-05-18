@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ENUMS } from "@/lib/enums"
+import { enumMap } from "@/lib/enums"
 import { useSearchContext } from "@/context/SearchContext"
 import type { VN } from "@/lib/types"
 
@@ -19,7 +19,7 @@ interface VNStaffProps {
 }
 
 export function VNStaff({ staff, editions }: VNStaffProps) {
-  const STAFF_ROLE = ENUMS.STAFF_ROLE as Record<string, string>
+  const STAFF_ROLE = enumMap('STAFF_ROLE')
 
   // Map eid (number) → edition name
   const editionMap = new Map<number, string>()

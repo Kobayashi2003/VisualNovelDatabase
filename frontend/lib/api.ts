@@ -4,7 +4,7 @@ import {
   Staff_Small, Tag_Small, Trait_Small, User, Category, Mark,
   VNDBQueryParams, MarksQueryParams, PaginatedResponse
 } from "./types"
-import { VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL } from "./constants"
+import { VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL, COLLECTION_TYPE_MAP } from "./constants"
 
 const getBaseUrl = (type: "vndb" | "imgserve" | "userserve") => {
   if (typeof window === "undefined") {
@@ -79,12 +79,8 @@ const fetchUserserve = async <T>(
   return await response.json()
 }
 
-// Maps full type names (used in frontend) to single-letter route prefixes (used by backend)
-const TYPE_ROUTE: Record<string, string> = {
-  vn: 'v', release: 'r', character: 'c', producer: 'p', staff: 's', tag: 'g', trait: 'i',
-}
 function typeRoute(type: string): string {
-  return TYPE_ROUTE[type] ?? type
+  return COLLECTION_TYPE_MAP[type]?.route ?? type
 }
 
 function convertToImgserveUrl(url: string): string {

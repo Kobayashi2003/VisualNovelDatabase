@@ -5,15 +5,10 @@ import Image from "next/image"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { shouldBlur } from "@/lib/blur"
 import type { VN } from "@/lib/types"
 
 type Screenshot = VN["screenshots"][number]
-
-function shouldBlur(s: Screenshot, sexualLevel: string, violenceLevel: string): boolean {
-  const isSexual = (sexualLevel === "safe" && s.sexual > 0.5) || (sexualLevel === "suggestive" && s.sexual > 1.5)
-  const isViolent = (violenceLevel === "tame" && s.violence > 0.5) || (violenceLevel === "violent" && s.violence > 1.5)
-  return isSexual || isViolent
-}
 
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
 function Lightbox({
@@ -29,7 +24,7 @@ function Lightbox({
   violenceLevel: string
 }) {
   const s = screenshots[index]
-  const blurred = shouldBlur(s, sexualLevel, violenceLevel)
+  const blurred = shouldBlur(s.sexual, s.violence, sexualLevel, violenceLevel)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -149,7 +144,7 @@ export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScr
           <p className="text-xs text-muted mb-2 truncate">{group.releaseTitle}</p>
           <div className="flex flex-wrap gap-1.5">
             {group.items.map(({ screenshot: s, flatIdx }) => {
-              const blurred = shouldBlur(s, sexualLevel, violenceLevel)
+              const blurred = shouldBlur(s.sexual, s.violence, sexualLevel, violenceLevel)
               // Thumbnail cells: fixed small size to avoid upscaling low-res thumbnails
               return (
                 <button

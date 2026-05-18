@@ -8,27 +8,9 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { ICON } from "@/lib/icons"
+import { shouldBlur } from "@/lib/blur"
+import { InfoRow } from "@/components/common/InfoPanel"
 import type { Character } from "@/lib/types"
-
-// ─── blur helper ─────────────────────────────────────────────────────────────
-function shouldBlur(
-  sexual: number, violence: number,
-  sexualLevel: string, violenceLevel: string
-): boolean {
-  const isSexual = (sexualLevel === "safe" && sexual > 0.5) || (sexualLevel === "suggestive" && sexual > 1.5)
-  const isViolent = (violenceLevel === "tame" && violence > 0.5) || (violenceLevel === "violent" && violence > 1.5)
-  return isSexual || isViolent
-}
-
-// ─── shared sub-components ────────────────────────────────────────────────────
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-2 py-1.5 border-b border-white/5 last:border-0">
-      <span className="text-xs text-muted w-24 shrink-0 pt-0.5">{label}</span>
-      <div className="flex-1 text-xs text-white/90 flex flex-wrap gap-1">{children}</div>
-    </div>
-  )
-}
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",

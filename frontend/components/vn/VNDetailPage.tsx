@@ -1,3 +1,4 @@
+/** VN detail page: info sidebar + description / tags / characters / staff / releases / screenshots sections. */
 "use client"
 
 import { useEffect, useState, useRef } from "react"

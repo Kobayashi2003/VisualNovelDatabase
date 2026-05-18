@@ -1,3 +1,4 @@
+/** Tag detail page: info sidebar + description + paginated tagged VNs. */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -14,14 +15,15 @@ import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { PAGE_LIMIT } from "@/lib/constants"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const CATEGORY_LABEL: Record<string, string> = {
   cont: "Content",
   ero: "Sexual Content",
   tech: "Technical",
 }
 
-// ─── Sidebar info panel ───────────────────────────────────────────────────────
+
+/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
+
 function TagInfoPanel({ tag }: { tag: Tag }) {
   return (
     <div className="flex flex-col gap-3">
@@ -47,7 +49,7 @@ function TagInfoPanel({ tag }: { tag: Tag }) {
   )
 }
 
-// ─── VNs section ─────────────────────────────────────────────────────────────
+/* ─── VNs section ──────────────────────────────────────────────────────────── */
 interface TagVNsProps {
   tagId: string
   sexualLevel: "safe" | "suggestive" | "explicit"
@@ -96,7 +98,7 @@ function TagVNs({ tagId, sexualLevel, violenceLevel }: TagVNsProps) {
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+/* ─── Main page ────────────────────────────────────────────────────────────── */
 interface TagDetailPageProps {
   id: number
 }

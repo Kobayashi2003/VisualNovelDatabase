@@ -1,20 +1,11 @@
-/**
- * VNDB enum dictionaries — short codes from the VNDB API mapped to the
- * human-readable labels we render in the UI. All entries follow VNDB's own
- * naming (so `"ja"` → `"Japanese"`, `"win"` → `"Windows"`, etc.).
- *
- * Layout:
- *   - `ENUMS` — the dictionaries themselves, grouped by domain
- *   - Helper types — one `keyof typeof` alias per group
- *   - Accessors — `enumMap` / `enumLabel` for type-safe lookups
- */
+/** VNDB short-code dictionaries used to render human-readable labels. */
 
 
-// ─── Dictionaries ─────────────────────────────────────────────────────────────
+/* ─── Dictionaries ─────────────────────────────────────────────────────────── */
 
 export const ENUMS = {
 
-  // ── Staff roles (VNDB `staff.role`) ─────────────────────────────────────────
+  /* Staff roles (VNDB `staff.role`) */
   "STAFF_ROLE": {
     scenario: "Scenario",
     director: "Director",
@@ -28,7 +19,7 @@ export const ENUMS = {
     staff: "Staff",
   },
 
-  // ── VN-to-VN relationship kinds (VNDB `relations.relation`) ────────────────
+  /* VN-to-VN relationship kinds (VNDB `relations.relation`) */
   'RELATION': {
     ser: "Same series",
     char: "Shares characters",
@@ -41,7 +32,7 @@ export const ENUMS = {
     orig: "Original game",
   },
 
-  // ── Physical media (VNDB `release.media.medium`) ───────────────────────────
+  /* Physical media (VNDB `release.media.medium`) */
   "MEDIUM": {
     blr: "Blu-ray disc",
     mrt: "Cartridge",
@@ -58,7 +49,7 @@ export const ENUMS = {
     otc: "Other",
   },
 
-  // ── Languages (VNDB ISO-ish language codes) ────────────────────────────────
+  /* Languages (VNDB ISO-ish language codes) */
   "LANGUAGE": {
     ar: "Arabic",
     eu: "Basque",
@@ -117,7 +108,7 @@ export const ENUMS = {
     vi: "Vietnamese",
   },
 
-  // ── Platforms (VNDB `release.platforms`) ───────────────────────────────────
+  /* Platforms (VNDB `release.platforms`) */
   "PLATFORM": {
     win: "Windows",
     lin: "Linux",
@@ -168,7 +159,7 @@ export const ENUMS = {
     oth: "Other",
   },
 
-  // ── VN length buckets (VNDB `vn.length`) ───────────────────────────────────
+  /* VN length buckets (VNDB `vn.length`) */
   "LENGTH": {
     1: "Very Short",
     2: "Short",
@@ -177,14 +168,14 @@ export const ENUMS = {
     5: "Very Long",
   },
 
-  // ── Development status (VNDB `vn.devstatus`) ───────────────────────────────
+  /* Development status (VNDB `vn.devstatus`) */
   "DEVSTATUS": {
     0: "Finished",
     1: "In Development",
     2: "Cancelled",
   },
 
-  // ── Voice acting coverage (VNDB `release.voiced`) ──────────────────────────
+  /* Voice acting coverage (VNDB `release.voiced`) */
   "VOICED": {
     1: "Not voiced",
     2: "Only ero scenes voiced",
@@ -192,14 +183,14 @@ export const ENUMS = {
     4: "Fully voiced",
   },
 
-  // ── Release scope (VNDB `release.rtype`) ───────────────────────────────────
+  /* Release scope (VNDB `release.rtype`) */
   "RTYPE": {
     trial: "Trial",
     partial: "Partial",
     complete: "Complete",
   },
 
-  // ── Character role within a VN (VNDB `character.vns.role`) ─────────────────
+  /* Character role within a VN (VNDB `character.vns.role`) */
   "CHARACTER_ROLE": {
     main: "Protagonist",
     primary: "Main Character",
@@ -207,14 +198,14 @@ export const ENUMS = {
     appears: "Appears",
   },
 
-  // ── Producer type (VNDB `producer.type`) ───────────────────────────────────
+  /* Producer type (VNDB `producer.type`) */
   "TYPE": {
     co: "Company",
     in: "Individual",
     ng: "Amateur Group",
   },
 
-  // ── Tag category (VNDB `tag.category`) ─────────────────────────────────────
+  /* Tag category (VNDB `tag.category`) */
   "CATEGORY": {
     cont: "Content",
     ero: "Sexual Content",
@@ -224,7 +215,7 @@ export const ENUMS = {
 } as const
 
 
-// ─── Per-group type aliases ───────────────────────────────────────────────────
+/* ─── Per-group type aliases ───────────────────────────────────────────────── */
 // One `keyof typeof ENUMS.X` per group, so consumers can type-narrow values
 // they got out of a VN/Release/Character payload.
 
@@ -247,7 +238,7 @@ export type {
 }
 
 
-// ─── Accessors ────────────────────────────────────────────────────────────────
+/* ─── Accessors ────────────────────────────────────────────────────────────── */
 
 // Return a dictionary as a plain object keyed by string / number, suitable for
 // direct subscript lookups in JSX (`MAP[value]`).

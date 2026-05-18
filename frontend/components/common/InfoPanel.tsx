@@ -1,3 +1,5 @@
+/** Shared layout primitives for detail-side info panels (label row + section heading). */
+
 export function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-2 py-1.5 border-b border-white/5 last:border-0">

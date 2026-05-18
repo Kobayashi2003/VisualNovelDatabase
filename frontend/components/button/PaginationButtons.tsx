@@ -1,3 +1,5 @@
+/** Pagination control with prev/next arrows and ellipsis-collapsed page numbers. */
+
 import { cn } from "@/lib/utils"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 

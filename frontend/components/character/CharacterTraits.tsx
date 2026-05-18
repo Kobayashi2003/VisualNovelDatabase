@@ -1,3 +1,4 @@
+/** Traits panel on the character page — groups + spoiler reveal buttons. */
 "use client"
 
 import Link from "next/link"
@@ -7,7 +8,7 @@ import type { Character } from "@/lib/types"
 
 type Trait = Character["traits"][number]
 
-// Predefined group order matching VNDB display order
+// VNDB's canonical group ordering; unknown groups fall through alphabetically.
 const GROUP_ORDER = [
   "Hair", "Eyes", "Body", "Clothes", "Items", "Accessories",
   "Personality", "Role", "Engages in", "Engages in (Sexual)",

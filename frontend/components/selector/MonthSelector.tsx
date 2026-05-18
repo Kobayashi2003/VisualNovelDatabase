@@ -1,3 +1,4 @@
+/** Month picker dropdown; `"00"` is the "any month" sentinel. */
 "use client"
 
 import { cn } from "@/lib/utils"

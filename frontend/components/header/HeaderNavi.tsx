@@ -1,3 +1,4 @@
+/** Brand link + back button (back button hidden on the home page). */
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"

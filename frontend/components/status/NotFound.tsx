@@ -1,3 +1,5 @@
+/** Full-panel empty/not-found state with an icon and message. */
+
 import { cn } from "@/lib/utils"
 import { SearchX } from "lucide-react"
 

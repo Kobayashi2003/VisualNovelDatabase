@@ -1,3 +1,4 @@
+/** Screenshot grid with a keyboard-navigable lightbox. */
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
@@ -9,7 +10,9 @@ import type { VN } from "@/lib/types"
 
 type Screenshot = VN["screenshots"][number]
 
-// ─── Lightbox ─────────────────────────────────────────────────────────────────
+
+/* ─── Lightbox ─────────────────────────────────────────────────────────────── */
+
 function Lightbox({
   screenshots, index, onClose, onPrev, onNext,
   sexualLevel, violenceLevel,
@@ -104,7 +107,7 @@ function Lightbox({
   )
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+/* ─── Component ────────────────────────────────────────────────────────────── */
 interface VNScreenshotsProps {
   screenshots: Screenshot[]
   sexualLevel: string

@@ -1,3 +1,5 @@
+/** Circular back-chevron button. */
+
 import { cn } from "@/lib/utils"
 import { ChevronLeft } from "lucide-react"
 

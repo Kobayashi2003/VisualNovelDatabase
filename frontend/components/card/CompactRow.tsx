@@ -1,10 +1,10 @@
+/** Single-line dense row used by the collection page's "compact" view. */
 "use client"
 
 import Image from "next/image"
 import Link from "next/link"
 import { X, FolderInput, Check } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { formatRelativeDate } from "@/lib/utils"
+import { cn, formatRelativeDate } from "@/lib/utils"
 
 interface CompactRowProps {
   index: number

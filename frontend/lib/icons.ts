@@ -1,15 +1,9 @@
-/**
- * VNDB code → CSS class lookup for sprite-based icons (languages, platforms,
- * character sex, release media, voice coverage).
- *
- * The class names refer to sprites defined in the global stylesheet; nothing
- * here is React-aware — callers just spread the class onto a `<span>`.
- */
+/** VNDB short-code to sprite-class lookups for inline icons. */
 
 
 export const ICON = {
 
-  // ── Language flags ──────────────────────────────────────────────────────────
+  /* Language flags */
   "LANGUAGE": {
     ar: "icon-lang-ar",
     be: "icon-lang-be",
@@ -67,7 +61,7 @@ export const ICON = {
     zh: "icon-lang-zh",
   },
 
-  // ── Platforms ───────────────────────────────────────────────────────────────
+  /* Platforms */
   "PLATFORM": {
     and: "icon-plat-and",
     bdp: "icon-plat-bdp",
@@ -118,7 +112,7 @@ export const ICON = {
     xxs: "icon-plat-xxs",
   },
 
-  // ── Character sex (incl. "spoil" variants) ─────────────────────────────────
+  /* Character sex (incl. "spoil" variants) */
   "CHARACTER_SEX": {
     a: "icon-char-a",
     b: "icon-char-b",
@@ -129,7 +123,7 @@ export const ICON = {
     u: "icon-char-u",
   },
 
-  // ── Release media (disk / cartridge / download / …) ────────────────────────
+  /* Release media (disk / cartridge / download / …) */
   "RELEASE_MEDIA": {
     "in":  "icon-rel-download",
     cd:    "icon-rel-disk",
@@ -146,7 +140,7 @@ export const ICON = {
     otc:   "icon-rel-disk",
   },
 
-  // ── Voice acting coverage (combined classes for fill level) ────────────────
+  /* Voice acting coverage (combined classes for fill level) */
   "RELEASE_VOICED": {
     1: "icon-rel-voiced",
     2: "icon-rel-voiced icon-rel-v2",

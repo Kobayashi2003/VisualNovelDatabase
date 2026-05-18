@@ -1,3 +1,5 @@
+/** Asc/desc sort-order toggle button. */
+
 import { cn } from "@/lib/utils"
 import { ArrowUp, ArrowDown } from "lucide-react"
 

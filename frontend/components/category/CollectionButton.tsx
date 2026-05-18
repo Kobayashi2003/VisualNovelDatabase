@@ -1,3 +1,4 @@
+/** "Add to Collection" button on detail pages — toggles marks per user category. */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"

@@ -1,3 +1,4 @@
+/** VN detail sidebar: cover, hidden-by-default rating, metadata rows, relations, links, collection button. */
 "use client"
 
 import { useState, useEffect } from "react"
@@ -21,7 +22,9 @@ function Badge({ children, className }: { children: React.ReactNode; className?:
   )
 }
 
-// ─── Main panel ───────────────────────────────────────────────────────────────
+
+/* ─── Main panel ───────────────────────────────────────────────────────────── */
+
 interface VNInfoPanelProps {
   vn: VN
   sexualLevel: string

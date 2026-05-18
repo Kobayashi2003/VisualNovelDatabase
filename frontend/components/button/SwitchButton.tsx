@@ -1,3 +1,5 @@
+/** Segmented switch — renders a row of mutually-exclusive option buttons. */
+
 import { cn } from "@/lib/utils"
 
 interface SwitchButtonOption {

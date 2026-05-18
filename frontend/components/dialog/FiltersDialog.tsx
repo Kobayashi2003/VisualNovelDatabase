@@ -1,3 +1,4 @@
+/** Modal wrapper around `FiltersForm` with Apply / Clear All actions. */
 "use client"
 
 import { useState, useEffect } from "react"

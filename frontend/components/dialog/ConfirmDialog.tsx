@@ -1,3 +1,5 @@
+/** Yes/no confirmation dialog with a destructive primary action. */
+
 import { BaseDialog } from "./BaseDialog"
 
 interface ConfirmDialogProps {

@@ -1,3 +1,4 @@
+/** Release detail page: image gallery + info sidebar + linked VNs + producers. */
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
@@ -17,7 +18,8 @@ import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelect
 import { useSearchContext } from "@/context/SearchContext"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
-// ─── Image gallery ────────────────────────────────────────────────────────────
+
+/* ─── Image gallery ────────────────────────────────────────────────────────── */
 
 type ReleaseImage = Release["images"][number]
 
@@ -155,7 +157,7 @@ function ReleaseImages({
   )
 }
 
-// ─── Sidebar info panel ───────────────────────────────────────────────────────
+/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
 
 function ReleaseInfoPanel({ release }: { release: Release }) {
   const rtypes = [...new Set(release.vns.map(v => v.rtype))]
@@ -338,7 +340,7 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
   )
 }
 
-// ─── Linked VNs ───────────────────────────────────────────────────────────────
+/* ─── Linked VNs ───────────────────────────────────────────────────────────── */
 
 function LinkedVNs({ vns }: { vns: Release["vns"] }) {
   return (
@@ -361,7 +363,7 @@ function LinkedVNs({ vns }: { vns: Release["vns"] }) {
   )
 }
 
-// ─── Producers ────────────────────────────────────────────────────────────────
+/* ─── Producers ────────────────────────────────────────────────────────────── */
 
 function ReleaseProducers({ producers }: { producers: NonNullable<Release["producers"]> }) {
   const { showOriginal } = useSearchContext()
@@ -391,7 +393,7 @@ function ReleaseProducers({ producers }: { producers: NonNullable<Release["produ
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+/* ─── Main page ────────────────────────────────────────────────────────────── */
 
 interface ReleaseDetailPageProps {
   id: number

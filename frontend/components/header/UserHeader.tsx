@@ -1,3 +1,4 @@
+/** Header user widget: avatar + logout when signed in, login + register otherwise. */
 "use client"
 
 import { useState } from "react"

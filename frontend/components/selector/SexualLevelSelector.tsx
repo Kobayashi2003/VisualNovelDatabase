@@ -1,3 +1,5 @@
+/** Tri-state selector for the sexual-content tolerance (safe / suggestive / explicit). */
+
 import { cn } from "@/lib/utils"
 
 const LEVELS = [

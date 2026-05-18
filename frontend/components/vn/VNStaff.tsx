@@ -1,3 +1,4 @@
+/** Staff credits list on the VN page, grouped by role and split by edition. */
 "use client"
 
 import Link from "next/link"

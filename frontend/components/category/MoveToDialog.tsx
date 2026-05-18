@@ -1,3 +1,4 @@
+/** "Move to another collection" target picker. */
 "use client"
 
 import { BaseDialog } from "@/components/dialog/BaseDialog"

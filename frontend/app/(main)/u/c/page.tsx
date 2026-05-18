@@ -1,3 +1,4 @@
+/** User collections page — browse, search, sort, and bulk-edit marked items per category. */
 "use client"
 
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from "react"
@@ -5,13 +6,14 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   LayoutGrid, LayoutList, AlignJustify, ArrowDown, ArrowUp,
   Pencil, Menu, Lock, Library, X, ChevronDown, Search,
-  CheckSquare, Square, FolderInput, Trash2
+  CheckSquare, Square, FolderInput, Trash2,
 } from "lucide-react"
 
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useUserContext } from "@/context/UserContext"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { PAGE_LIMIT, COLLECTION_TYPE_MAP } from "@/lib/constants"
 import type {
   Category, Mark,
   VN_Small, Release_Small, Character_Small, Producer_Small,
@@ -27,9 +29,11 @@ import {
 } from "@/components/card/CardsGrid"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { Loading } from "@/components/status/Loading"
-import { PAGE_LIMIT, COLLECTION_TYPE_MAP } from "@/lib/constants"
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+
+/* ─── Sort options per entity type ─────────────────────────────────────────── */
+// Collection-specific sorts (note: "date_added" is local-only).
+
 const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
   vn:        [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "rating", label: "Rating" }, { value: "released", label: "Released" }],
   release:   [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "released", label: "Released" }],
@@ -40,16 +44,25 @@ const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
   trait:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
+
+type ViewMode = "grid" | "list" | "compact"
+
+interface CollectionGridProps extends CollectionCardProps {
+  view: ViewMode
+}
+
 function prefixForType(type: string): string {
   return COLLECTION_TYPE_MAP[type]?.route ?? ""
 }
 
+// Type-erased dispatcher onto the `api.small.byIds.*` family.
 async function fetchByIdsForType(
   type: string,
   ids: number[],
   params: Record<string, unknown>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) {
   const b = api.small.byIds
   switch (type) {
@@ -64,26 +77,23 @@ async function fetchByIdsForType(
   }
 }
 
-type ViewMode = "grid" | "list" | "compact"
-
-interface CollectionGridProps extends CollectionCardProps {
-  view: ViewMode
-}
-
 function renderCollectionGrid(type: string, items: unknown[], props: CollectionGridProps) {
   switch (type) {
-    case "vn":        return <VNsCardsGrid        vns={items as VN_Small[]}           {...props} />
-    case "release":   return <ReleasesCardsGrid    releases={items as Release_Small[]} {...props} />
-    case "character": return <CharactersCardsGrid  characters={items as Character_Small[]} {...props} />
-    case "producer":  return <ProducersCardsGrid   producers={items as Producer_Small[]} {...props} />
-    case "staff":     return <StaffCardsGrid       staff={items as Staff_Small[]}      {...props} />
-    case "tag":       return <TagsCardsGrid        tags={items as Tag_Small[]}         {...props} />
-    case "trait":     return <TraitsCardsGrid      traits={items as Trait_Small[]}     {...props} />
+    case "vn":        return <VNsCardsGrid        vns={items as VN_Small[]}                {...props} />
+    case "release":   return <ReleasesCardsGrid   releases={items as Release_Small[]}      {...props} />
+    case "character": return <CharactersCardsGrid characters={items as Character_Small[]}  {...props} />
+    case "producer":  return <ProducersCardsGrid  producers={items as Producer_Small[]}    {...props} />
+    case "staff":     return <StaffCardsGrid      staff={items as Staff_Small[]}           {...props} />
+    case "tag":       return <TagsCardsGrid       tags={items as Tag_Small[]}              {...props} />
+    case "trait":     return <TraitsCardsGrid     traits={items as Trait_Small[]}          {...props} />
     default:          return null
   }
 }
 
-// ─── Main content (requires Suspense for useSearchParams) ────────────────────
+
+/* ─── Main content ─────────────────────────────────────────────────────────── */
+// Wrapped in <Suspense> at the bottom because `useSearchParams` requires it.
+
 function CollectionContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -91,7 +101,7 @@ function CollectionContent() {
   const { updateMultipleKeys } = useUrlParams()
   const { user, isLoading: authLoading } = useUserContext()
 
-  // URL params
+  /* URL-driven filters */
   const type    = searchParams.get("type")  ?? "vn"
   const cidRaw  = searchParams.get("cid")   ?? "all"
   const q       = searchParams.get("q")     ?? ""
@@ -100,30 +110,32 @@ function CollectionContent() {
 
   const activeCategory: number | "all" = cidRaw === "all" ? "all" : parseInt(cidRaw)
 
-  // Local page state (not persisted in URL)
+  // Page index is kept local — paging shouldn't grow the URL or affect history.
   const [page, setPage] = useState(1)
 
-  // State
-  const [categories, setCategories]         = useState<Category[]>([])
-  const [items, setItems]                   = useState<unknown[]>([])
-  const [totalCount, setTotalCount]         = useState(0)
+  /* Server-derived state */
+  const [categories, setCategories]               = useState<Category[]>([])
+  const [items, setItems]                         = useState<unknown[]>([])
+  const [totalCount, setTotalCount]               = useState(0)
   const [loadingCategories, setLoadingCategories] = useState(false)
-  const [loadingItems, setLoadingItems]     = useState(false)
-  const [editMode, setEditMode]             = useState(false)
-  const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set())
-  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
-  const [moveSingleId, setMoveSingleId]     = useState<string | null>(null)
+  const [loadingItems, setLoadingItems]           = useState(false)
+
+  /* UI state */
+  const [editMode, setEditMode]                   = useState(false)
+  const [selectedIds, setSelectedIds]             = useState<Set<string>>(new Set())
+  const [moveDialogOpen, setMoveDialogOpen]       = useState(false)
+  const [moveSingleId, setMoveSingleId]           = useState<string | null>(null)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
-  const [view, setView]                     = useState<ViewMode>("grid")
+  const [view, setView]                           = useState<ViewMode>("grid")
 
   const abortRef = useRef<AbortController | null>(null)
 
-  // ── Search input: local state + IME-safe debounced commit to URL ───────────
-  const [searchInput, setSearchInput]   = useState(q)
-  const [isComposing, setIsComposing]   = useState(false)
-  const lastCommittedRef                = useRef(q)
+  /* Search input: local state + IME-safe debounced commit to URL */
+  const [searchInput, setSearchInput] = useState(q)
+  const [isComposing, setIsComposing] = useState(false)
+  const lastCommittedRef              = useRef(q)
 
-  // External URL change → sync local input (e.g. browser back, link change)
+  // External URL change → sync local input (e.g. browser back, link change).
   useEffect(() => {
     if (q !== lastCommittedRef.current) {
       setSearchInput(q)
@@ -131,11 +143,10 @@ function CollectionContent() {
     }
   }, [q])
 
-  // Local input change → debounced URL update (skip while composing IME).
-  // Using state for isComposing (not ref) ensures this effect re-runs when
-  // composition ends, so the final IME-committed text actually triggers a search.
-  // When entering a search while date_added is selected, auto-switch sort —
-  // userserve has no title index, so date_added + search has no honest answer.
+  // Local input change → debounced URL update. Skip while composing IME, but
+  // re-run on `isComposing` change so the final committed text actually fires.
+  // Also auto-switches off `date_added` sort when a search is active —
+  // userserve has no title index, so "date_added + search" has no honest answer.
   useEffect(() => {
     if (isComposing) return
     if (searchInput === lastCommittedRef.current) return
@@ -157,19 +168,19 @@ function CollectionContent() {
     updateMultipleKeys({ q: "" })
   }, [updateMultipleKeys])
 
-  // Restore view from localStorage
+  // Restore last-used view mode from localStorage.
   useEffect(() => {
     const stored = localStorage.getItem("collectionView") as ViewMode | null
     if (stored && ["grid", "list", "compact"].includes(stored)) setView(stored)
   }, [])
 
-  // Reset to page 1 when filters/type/category change
+  // Reset to page 1 whenever the result set could change.
   useEffect(() => { setPage(1) }, [q, sort, order, type, cidRaw])
 
-  // ── allMarks: flat sorted list of marks for current type+category ──────────
-  // For "All", dedupe by id keeping the latest marked_at to match the userserve
-  // endpoint's aggregation semantic — otherwise the date-added badge on a card
-  // and the page-order from userserve can disagree.
+  /* Flat mark list for the current type+category, sorted by `marked_at`.
+     For "All", we dedupe by id keeping the latest marked_at to match the
+     userserve aggregation — otherwise the date-added badge on a card and the
+     page-order from userserve can disagree. */
   const allMarks = useMemo<Mark[]>(() => {
     if (activeCategory === "all") {
       const byId = new Map<number, Mark>()
@@ -194,7 +205,7 @@ function CollectionContent() {
     )
   }, [categories, activeCategory, order])
 
-  // ── markedAtMap: `${prefix}${id}` → iso string ────────────────────────────
+  // Lookup table: `${prefix}${id}` → marked_at, used to render date badges.
   const markedAtMap = useMemo<Record<string, string>>(() => {
     const prefix = prefixForType(type)
     const map: Record<string, string> = {}
@@ -202,36 +213,40 @@ function CollectionContent() {
     return map
   }, [allMarks, type])
 
-  // ── Refresh categories ─────────────────────────────────────────────────────
   const refreshCategories = useCallback(async () => {
     if (!user) return
     const data = await api.category.get(type)
     setCategories(data)
   }, [user, type])
 
-  // ── Load categories on type/user change ───────────────────────────────────
+  // Load categories when the user or active type changes; reset cid to "all"
+  // if the previously selected category no longer exists under the new type.
   useEffect(() => {
     if (!user) { setCategories([]); return }
     setLoadingCategories(true)
     api.category.get(type)
       .then(data => {
         setCategories(data)
-        // If active category no longer exists for new type, reset to 'all'
         if (cidRaw !== "all") {
-              const exists = data.some(c => c.id === parseInt(cidRaw))
-              if (!exists) {
-                const params = new URLSearchParams(searchParams)
-                params.delete("cid")
-                router.replace(`${pathname}?${params.toString()}`)
-              }
-            }
+          const exists = data.some(c => c.id === parseInt(cidRaw))
+          if (!exists) {
+            const params = new URLSearchParams(searchParams)
+            params.delete("cid")
+            router.replace(`${pathname}?${params.toString()}`)
+          }
+        }
       })
       .catch(() => setCategories([]))
       .finally(() => setLoadingCategories(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, type])
 
-  // ── Fetch items ────────────────────────────────────────────────────────────
+  /* Fetch the current page of items.
+     Two strategies:
+       - date_added + no search → userserve paginates by `marked_at`, then we
+         hydrate the page from VNDB and re-order to match the userserve order.
+       - everything else → fetch the full id set from VNDB with the requested
+         sort + (optional) search applied. */
   useEffect(() => {
     abortRef.current?.abort()
     if (!user || allMarks.length === 0) {
@@ -248,7 +263,6 @@ function CollectionContent() {
     const run = async () => {
       try {
         if (sort === "date_added" && !q) {
-          // Userserve owns marked_at — let it sort+paginate, then hydrate the page from vndb.
           const cidParam: number | "all" = activeCategory === "all" ? "all" : (activeCategory as number)
           const marksPage = await api.category.getMarks(
             type,
@@ -264,7 +278,7 @@ function CollectionContent() {
           const data = await fetchByIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
           const idMap = new Map(data.results.map((item: { id: string }) => [
             parseInt(item.id.replace(/^[a-z]+/, "")),
-            item
+            item,
           ]))
           const ordered = pageIds.map(id => idMap.get(id)).filter(Boolean)
           setItems(ordered)
@@ -295,11 +309,13 @@ function CollectionContent() {
     return () => ctrl.abort()
   }, [allMarks, sort, order, page, q, type, user, activeCategory])
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  /* ─── Handlers ─────────────────────────────────────────────────────────── */
+
   const handleRemove = async (itemId: string) => {
     const markId = parseInt(itemId.replace(/^[a-z]+/, ""))
     if (activeCategory === "all") {
-      // Find which category contains this mark
+      // In "All" view we have to discover which category currently owns this mark.
       const cat = categories.find(c => c.marks.some(m => m.id === markId))
       if (!cat) return
       await api.category.removeMark(type, cat.id, markId)
@@ -340,7 +356,7 @@ function CollectionContent() {
   const handleBatchDelete = async () => {
     const markIds = Array.from(selectedIds).map(id => parseInt(id.replace(/^[a-z]+/, "")))
     if (activeCategory === "all") {
-      // Group by category
+      // Marks may live across several categories; remove from each in parallel.
       const groups = new Map<number, number[]>()
       for (const markId of markIds) {
         const cat = categories.find(c => c.marks.some(m => m.id === markId))
@@ -393,7 +409,7 @@ function CollectionContent() {
   }
 
   const handleTypeChange = (newType: string) => {
-    setItems([])   // clear immediately to avoid stale type mismatch render
+    setItems([])   // Drop stale items so we don't briefly render with the wrong card grid.
     const params = new URLSearchParams()
     params.set("type", newType)
     router.push(`${pathname}?${params.toString()}`)
@@ -436,16 +452,17 @@ function CollectionContent() {
     localStorage.setItem("collectionView", v)
   }
 
-  // ── Derived values ─────────────────────────────────────────────────────────
+  /* Derived values for the render pass */
   const totalPages = Math.ceil(totalCount / PAGE_LIMIT)
   const activeCategoryName = activeCategory === "all"
     ? `All ${COLLECTION_TYPE_MAP[type]?.label ?? type}s`
     : (categories.find(c => c.id === activeCategory)?.category_name ?? "")
-
   const sortOptions = SORT_OPTIONS[type] ?? SORT_OPTIONS.vn
   const canMove = activeCategory !== "all" && categories.length > 1
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+
+  /* ─── Render ───────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex overflow-hidden" style={{ height: "calc(100vh - var(--header-height, 56px))" }}>
       {/* Desktop sidebar */}
@@ -490,7 +507,7 @@ function CollectionContent() {
       <div className="flex-1 min-w-0 overflow-y-auto">
         <div className="px-4 lg:px-6 py-6 max-w-7xl mx-auto">
 
-          {/* Mobile: Collections toggle button */}
+          {/* Mobile: sidebar toggle */}
           <button
             className="lg:hidden flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-elevated text-sm text-muted hover:text-white hover:bg-white/10 transition-colors"
             onClick={() => setShowMobileSidebar(true)}
@@ -755,7 +772,7 @@ function CollectionContent() {
   )
 }
 
-// ─── Page export (Suspense wrapper required for useSearchParams) ──────────────
+
 export default function CollectionPage() {
   return (
     <Suspense fallback={

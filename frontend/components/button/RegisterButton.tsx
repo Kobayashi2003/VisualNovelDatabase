@@ -1,3 +1,5 @@
+/** Header "Sign up" pill button. */
+
 import { cn } from "@/lib/utils"
 
 interface RegisterButtonProps {

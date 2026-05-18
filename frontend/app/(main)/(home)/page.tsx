@@ -1,3 +1,4 @@
+/** Home page — paginated grid of recent VN releases filtered by year and month. */
 "use client"
 
 import { useEffect, useState, useRef, Suspense } from "react"
@@ -30,6 +31,7 @@ function HomeContent() {
 
   const itemsPerPage = 24
   const currentPage = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1
+  // "00" is the "any" sentinel from YearSelector / MonthSelector.
   const selectedYear = searchParams.get("year") || `${new Date().getFullYear()}`
   const selectedMonth = searchParams.get("month") || `${(new Date().getMonth() + 1).toString().padStart(2, "0")}`
 
@@ -53,6 +55,8 @@ function HomeContent() {
     setStatus("loading")
     setStatusMsg(null)
     try {
+      // The OR-of-AND `released` filter handles both "exact year" and
+      // "year+month range" forms VNDB exposes for partial release dates.
       let released = ""
       if (selectedYear !== "00" && selectedMonth === "00") {
         released = `(>=${selectedYear}-01-01+<=${selectedYear}-12-31),(=${selectedYear})`
@@ -71,6 +75,8 @@ function HomeContent() {
     }
   }
 
+  // Date arrow guards: don't let the user step past the supported VNDB range
+  // (1985-01 through next-year-12).
   const monthAddable = () => {
     const yr = parseInt(selectedYear), mo = parseInt(selectedMonth)
     if (yr === new Date().getFullYear() + 1) return mo !== 12

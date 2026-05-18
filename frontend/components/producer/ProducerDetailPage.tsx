@@ -1,3 +1,4 @@
+/** Producer detail page: info sidebar + description + paginated VN catalog. */
 "use client"
 
 import { useEffect, useState, useRef } from "react"
@@ -16,7 +17,8 @@ import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { PAGE_LIMIT } from "@/lib/constants"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
-// ─── Sidebar info panel ───────────────────────────────────────────────────────
+/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
+
 interface ProducerInfoPanelProps {
   producer: Producer
 }
@@ -77,7 +79,7 @@ function ProducerInfoPanel({ producer }: ProducerInfoPanelProps) {
   )
 }
 
-// ─── VN list section ──────────────────────────────────────────────────────────
+/* ─── VN list section ──────────────────────────────────────────────────────── */
 interface ProducerVNsProps {
   producerId: string
   sexualLevel: "safe" | "suggestive" | "explicit"
@@ -120,7 +122,7 @@ function ProducerVNs({ producerId, sexualLevel, violenceLevel }: ProducerVNsProp
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+/* ─── Main page ────────────────────────────────────────────────────────────── */
 interface ProducerDetailPageProps {
   id: number
 }

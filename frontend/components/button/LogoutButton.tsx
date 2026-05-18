@@ -1,3 +1,5 @@
+/** Icon-only logout button. */
+
 import { cn } from "@/lib/utils"
 import { LogOut } from "lucide-react"
 

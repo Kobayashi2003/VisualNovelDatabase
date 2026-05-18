@@ -1,19 +1,10 @@
-/**
- * Catch-all for small, dependency-light helpers used across the UI.
- * Anything bigger than a few lines or with its own clear domain should live in
- * its own module instead of getting bolted on here.
- *
- * Layout:
- *   - Class-name composition
- *   - Formatters (dates, playtime)
- *   - Content-rating helpers
- */
+/** Miscellaneous small helpers shared across the UI. */
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 
-// ─── Class-name composition ───────────────────────────────────────────────────
+/* ─── Class-name composition ───────────────────────────────────────────────── */
 
 // Merge Tailwind class lists while resolving conflicts (later utilities win).
 // Standard convenience wrapper used by every component for `className` props.
@@ -22,7 +13,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
+/* ─── Formatters ───────────────────────────────────────────────────────────── */
 
 // Render an ISO date as a coarse "X days/months/years ago" string.
 // Used for "created/updated" labels where exact timestamps are not useful.
@@ -51,7 +42,7 @@ export function formatPlaytime(totalMinutes: number): string {
 }
 
 
-// ─── Content-rating helpers ───────────────────────────────────────────────────
+/* ─── Content-rating helpers ───────────────────────────────────────────────── */
 
 /**
  * Decide whether an image should be blurred for the active content level.

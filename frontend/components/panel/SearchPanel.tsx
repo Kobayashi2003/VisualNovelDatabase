@@ -1,3 +1,4 @@
+/** Right-side drawer for advanced search: source / type / sort / order / filters. */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -13,14 +14,12 @@ import {
 } from "@/lib/config"
 import { FiltersForm } from "@/components/dialog/FiltersForm"
 
-// ─── From options ─────────────────────────────────────────────────────────────
 const FROM_OPTIONS = [
   { value: "both", label: "Both" },
   { value: "remote", label: "Remote" },
   { value: "local", label: "Local" },
 ]
 
-// ─── Type options ──────────────────────────────────────────────────────────────
 const TYPE_OPTIONS = [
   { value: "v", label: "Visual Novel" },
   { value: "r", label: "Release" },
@@ -31,7 +30,6 @@ const TYPE_OPTIONS = [
   { value: "i", label: "Trait" },
 ]
 
-// ─── Section heading ───────────────────────────────────────────────────────────
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-xs font-bold text-muted uppercase tracking-widest mb-2">
@@ -40,7 +38,6 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
-// ─── Props ─────────────────────────────────────────────────────────────────────
 interface SearchPanelProps {
   open: boolean
   setOpen: (open: boolean) => void
@@ -67,7 +64,8 @@ export function SearchPanel({
 
   useEffect(() => { setMounted(true) }, [])
 
-  // Re-initialize staged state every time panel opens
+  // Re-seed staged state from the live values every time the drawer opens, so
+  // closing without applying is a true cancel.
   useEffect(() => {
     if (!open) return
     setLocalFromRaw(initialFrom)
@@ -77,7 +75,6 @@ export function SearchPanel({
     setLocalFilterState(buildInitialState(initialType))
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Escape key — close without applying
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
@@ -85,13 +82,13 @@ export function SearchPanel({
     return () => document.removeEventListener("keydown", handler)
   }, [open, setOpen])
 
-  // When from changes, reset sort options (sort list depends on from)
+  // Source change → sort list depends on source, so reset to its default.
   const setLocalFrom = (f: string) => {
     setLocalFromRaw(f)
     setLocalSortBy(getDefaultSortOption(localType, f))
   }
 
-  // When type changes, reset sort to first valid option and clear filters
+  // Type change → reset sort + clear filters (filters are per-type).
   const setLocalType = (t: string) => {
     setLocalTypeRaw(t)
     setLocalSortBy(getDefaultSortOption(t, localFrom))
@@ -140,7 +137,7 @@ export function SearchPanel({
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-accent" />
@@ -155,10 +152,10 @@ export function SearchPanel({
           </button>
         </div>
 
-        {/* ── Scrollable body ──────────────────────────────────────────────── */}
+        {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-6">
 
-          {/* ── From ──────────────────────────────────────────────────────── */}
+          {/* Source */}
           <div>
             <SectionHeading>Source</SectionHeading>
             <div className="flex rounded-full border border-white/10 overflow-hidden">
@@ -179,7 +176,7 @@ export function SearchPanel({
             </div>
           </div>
 
-          {/* ── Type ──────────────────────────────────────────────────────── */}
+          {/* Type */}
           <div>
             <SectionHeading>Type</SectionHeading>
             <div className="flex flex-wrap gap-1.5">
@@ -200,7 +197,7 @@ export function SearchPanel({
             </div>
           </div>
 
-          {/* ── Sort ──────────────────────────────────────────────────────── */}
+          {/* Sort */}
           <div>
             <SectionHeading>Sort By</SectionHeading>
             <div className="grid grid-cols-2 gap-1">
@@ -221,7 +218,7 @@ export function SearchPanel({
             </div>
           </div>
 
-          {/* ── Order ─────────────────────────────────────────────────────── */}
+          {/* Order */}
           <div>
             <SectionHeading>Order</SectionHeading>
             <div className="flex rounded-full border border-white/10 overflow-hidden">
@@ -252,7 +249,7 @@ export function SearchPanel({
             </div>
           </div>
 
-          {/* ── Filters ───────────────────────────────────────────────────── */}
+          {/* Filters */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <SectionHeading>Filters</SectionHeading>
@@ -271,7 +268,7 @@ export function SearchPanel({
           </div>
         </div>
 
-        {/* ── Footer ──────────────────────────────────────────────────────── */}
+        {/* Footer */}
         <div className="shrink-0 px-5 py-4 border-t border-white/10 flex gap-2">
           <button
             onClick={handleApply}

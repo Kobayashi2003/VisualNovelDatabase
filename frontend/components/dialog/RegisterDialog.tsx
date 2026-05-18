@@ -1,3 +1,4 @@
+/** Registration form dialog. */
 "use client"
 
 import { useState } from "react"

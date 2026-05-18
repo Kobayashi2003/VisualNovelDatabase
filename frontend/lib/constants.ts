@@ -1,11 +1,7 @@
-/**
- * Cross-cutting constants used by the frontend.
- * Grouped by concern: backend routes, UI defaults, and the collection-type
- * registry that ties high-level names (e.g. `"vn"`) to VNDB route prefixes.
- */
+/** Application-wide constants: backend routes, UI defaults, and the entity-type registry. */
 
 
-// ─── Backend routes ───────────────────────────────────────────────────────────
+/* ─── Backend routes ───────────────────────────────────────────────────────── */
 // Three services sit behind Next.js proxy routes. The constants below are the
 // browser-side defaults; server-side code may override them via env vars in
 // `api.ts`.
@@ -15,13 +11,13 @@ export const IMGSERVE_BASE_URL = "/api/imgserve"
 export const USERSERVE_BASE_URL = "/api/userserve"
 
 
-// ─── UI defaults ──────────────────────────────────────────────────────────────
+/* ─── UI defaults ──────────────────────────────────────────────────────────── */
 
 // Default page size for paginated lists / grids.
 export const PAGE_LIMIT = 24
 
 
-// ─── Collection-type registry ─────────────────────────────────────────────────
+/* ─── Collection-type registry ─────────────────────────────────────────────── */
 // Single source of truth that maps a high-level type name to the VNDB
 // single-letter route prefix and a human-readable label. Adding a new entity
 // type means appending a row here.

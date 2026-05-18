@@ -1,3 +1,5 @@
+/** Text-only card (no thumbnail), with grid and single-row layouts. */
+
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 

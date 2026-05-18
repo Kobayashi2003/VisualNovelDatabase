@@ -1,3 +1,5 @@
+/** Dialog presenting a list of mutually-exclusive options; selecting closes it. */
+
 import { cn } from "@/lib/utils"
 import { BaseDialog } from "./BaseDialog"
 

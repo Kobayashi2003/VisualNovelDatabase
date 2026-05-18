@@ -1,3 +1,5 @@
+/** Full-panel error state with an icon and message. */
+
 import { cn } from "@/lib/utils"
 import { AlertCircle } from "lucide-react"
 

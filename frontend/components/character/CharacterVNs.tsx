@@ -1,3 +1,4 @@
+/** VN appearances list on the character page, grouped by role badge. */
 "use client"
 
 import Link from "next/link"

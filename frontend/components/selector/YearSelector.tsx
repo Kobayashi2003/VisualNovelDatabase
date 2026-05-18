@@ -1,3 +1,4 @@
+/** Year picker dropdown; range is 1985 → current+1, with `"00"` as "any year". */
 "use client"
 
 import { cn } from "@/lib/utils"

@@ -1,3 +1,4 @@
+/** Renders the per-type filter form driven by `searchFilters` in lib/config. */
 "use client"
 
 import { cn } from "@/lib/utils"
@@ -8,11 +9,13 @@ import {
   isValidNumberInput, isValidDateInput, isValidDate,
 } from "@/lib/config"
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
+
+/* ─── Shared styles & small primitives ─────────────────────────────────────── */
+
 const inputCls = "w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
 const selectCls = "appearance-none pl-3 pr-8 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 cursor-pointer"
 
-// Wrapper that adds the custom chevron icon
+// Decorative chevron wrapper for native <select>.
 function SelectWrap({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
     <div className={cn("relative", className)}>
@@ -22,7 +25,7 @@ function SelectWrap({ className, children }: { className?: string; children: Rea
   )
 }
 
-// Segmented operator button group — replaces the operator <select> dropdown
+// Segmented operator pill row used by *Comparable filter variants.
 function OperatorButtons({ value, onChange }: { value: string; onChange: (op: string) => void }) {
   return (
     <div className="flex rounded-lg border border-white/10 overflow-hidden">
@@ -45,12 +48,13 @@ function OperatorButtons({ value, onChange }: { value: string; onChange: (op: st
   )
 }
 
-// ─── Field label ──────────────────────────────────────────────────────────────
 function FieldLabel({ label }: { label: string }) {
   return <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">{label}</p>
 }
 
-// ─── Field components ─────────────────────────────────────────────────────────
+
+/* ─── Per-field renderers (one per filter kind, with comparable variant) ───── */
+
 function TextFilter({ filter, value, onChange }: { filter: TextField; value: string; onChange: (k: string, v: string) => void }) {
   return (
     <div>
@@ -90,7 +94,8 @@ function NumberFilterComparable({ filter, value, onChange }: {
 }
 
 function SelectFilter({ filter, value, onChange }: { filter: SelectField; value: string; onChange: (k: string, v: string) => void }) {
-  // Use segmented toggle buttons only when options are few AND all labels are short enough to fit
+  // Render as segmented buttons when there are few short-labeled options;
+  // otherwise fall back to a native <select>.
   const useToggle = filter.options.length <= 3 ||
     (filter.options.length <= 5 && filter.options.every(o => o.label.length <= 3))
   if (useToggle) {
@@ -181,7 +186,8 @@ function DateFilterComparable({ filter, value, onChange }: {
   )
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+/* ─── Form ─────────────────────────────────────────────────────────────────── */
+
 interface FiltersFormProps {
   type: string
   filterState: FilterState

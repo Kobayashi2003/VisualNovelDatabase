@@ -1,3 +1,4 @@
+/** Staff detail page: info sidebar + description + paginated VN credits. */
 "use client"
 
 import { useEffect, useState, useRef } from "react"
@@ -17,11 +18,11 @@ import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { PAGE_LIMIT } from "@/lib/constants"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const GENDER_LABEL: Record<string, string> = { m: "Male", f: "Female" }
 
-// ─── Collection button ────────────────────────────────────────────────────────
-// ─── Sidebar info panel ───────────────────────────────────────────────────────
+
+/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
+
 interface StaffInfoPanelProps {
   staff: Staff
 }
@@ -92,7 +93,7 @@ function StaffInfoPanel({ staff }: StaffInfoPanelProps) {
   )
 }
 
-// ─── VN Credits section ───────────────────────────────────────────────────────
+/* ─── VN credits section ───────────────────────────────────────────────────── */
 interface VNCreditsProps {
   staffId: string
   sexualLevel: "safe" | "suggestive" | "explicit"
@@ -135,7 +136,7 @@ function VNCredits({ staffId, sexualLevel, violenceLevel }: VNCreditsProps) {
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+/* ─── Main page ────────────────────────────────────────────────────────────── */
 interface StaffDetailPageProps {
   id: number
 }

@@ -1,3 +1,4 @@
+/** Layout for the main app: background, header, and global context providers. */
 "use client"
 
 import { useRef, useEffect, useState } from "react"
@@ -11,12 +12,15 @@ import { HeaderBar } from "@/components/header/HeaderBar"
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const bgUrl = `url(${IMGSERVE_BASE_URL}/bg)`
 
+  // Drives the auto-hide header when the user scrolls down.
   const { trigger } = useOnScroll({ scrollThreshold: 30, throttleTime: 150, debounceTime: 200 })
 
   const [mounted, setMounted] = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
 
+  // Measure the header so the spacer below can reserve its exact height —
+  // ResizeObserver keeps the spacer in sync if the header reflows.
   useEffect(() => {
     const header = headerRef.current
     if (!header) return
@@ -28,6 +32,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => observer.disconnect()
   }, [])
 
+  // `mounted` gates the header/spacer until the client has hydrated, so the
+  // SSR markup doesn't show a header that disappears on the first scroll tick.
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)

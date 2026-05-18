@@ -1,3 +1,4 @@
+/** Auth state and login/register/logout actions, backed by the userserve API. */
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
@@ -24,6 +25,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Re-establish the session on mount. A stale/invalid token is silently
+  // discarded so the app falls back to the logged-out state.
   useEffect(() => {
     const initializeUser = async () => {
       const token = localStorage.getItem("access_token")
@@ -42,6 +45,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     initializeUser()
   }, [])
 
+  // Auth transitions reload the page so every Server Component re-renders
+  // with the new token (simpler than threading it through context everywhere).
   const register = async (username: string, password: string) => {
     const response = await api.user.register(username, password)
     localStorage.setItem("access_token", response.access_token)

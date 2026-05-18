@@ -1,3 +1,5 @@
+/** Header "Login" pill button. */
+
 import { cn } from "@/lib/utils"
 
 interface LoginButtonProps {

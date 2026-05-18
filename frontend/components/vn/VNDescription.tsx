@@ -1,8 +1,11 @@
+/** Renders VNDB-flavoured BBCode descriptions with spoiler toggles. */
 "use client"
 
 import { useState } from "react"
 
-// ─── VNDB bbcode parser ────────────────────────────────────────────────────────
+
+/* ─── BBCode parser ────────────────────────────────────────────────────────── */
+
 type Node =
   | { type: "text"; value: string }
   | { type: "br" }
@@ -70,7 +73,7 @@ function parseInline(text: string): Node[] {
   return nodes
 }
 
-// ─── Renderer ─────────────────────────────────────────────────────────────────
+/* ─── Renderer ─────────────────────────────────────────────────────────────── */
 function RenderNode({
   node, showSpoilers,
 }: {
@@ -114,7 +117,7 @@ function RenderNodes({ nodes, showSpoilers }: { nodes: Node[]; showSpoilers: boo
   return <>{nodes.map((n, i) => <RenderNode key={i} node={n} showSpoilers={showSpoilers} />)}</>
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+/* ─── Component ────────────────────────────────────────────────────────────── */
 interface VNDescriptionProps {
   text: string
 }

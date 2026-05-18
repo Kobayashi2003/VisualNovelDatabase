@@ -1,3 +1,4 @@
+/** Tag chips on the VN page, grouped by content / sexual / technical with spoiler reveal. */
 "use client"
 
 import { useState } from "react"

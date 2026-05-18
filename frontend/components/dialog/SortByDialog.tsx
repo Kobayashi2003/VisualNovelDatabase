@@ -1,3 +1,5 @@
+/** Sort-by picker dialog driven by the per-type options in `lib/config`. */
+
 import { RadioGroupDialog } from "./RadioGroupDialog"
 import { getSortOptions } from "@/lib/config"
 

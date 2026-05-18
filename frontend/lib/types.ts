@@ -1,15 +1,7 @@
-/**
- * Shared type definitions used across the frontend.
- *
- * Layout:
- *   - Pagination / query shapes
- *   - Full entity payloads (`size=large`)
- *   - Small entity payloads (`size=small`) used for cards / autocompletes
- *   - User domain (auth, categories, marks)
- */
+/** Shared TypeScript types for VNDB entities, query shapes, and user data. */
 
 
-// ─── Pagination & query parameters ────────────────────────────────────────────
+/* ─── Pagination & query parameters ────────────────────────────────────────── */
 
 export interface PaginationParams {
   page?: number
@@ -42,7 +34,7 @@ export interface MarksQueryParams extends PaginationParams {
 }
 
 
-// ─── Full entity payloads ─────────────────────────────────────────────────────
+/* ─── Full entity payloads ─────────────────────────────────────────────────── */
 // Shape returned by `size=large` endpoints. These are the ones used by detail
 // pages.
 
@@ -362,7 +354,7 @@ export interface Trait {
 }
 
 
-// ─── Small entity payloads ────────────────────────────────────────────────────
+/* ─── Small entity payloads ────────────────────────────────────────────────── */
 // Shape returned by `size=small` endpoints — enough to render a card or list
 // row, but stripped of heavy nested data.
 
@@ -460,7 +452,7 @@ export interface Trait_Small {
 }
 
 
-// ─── User domain ──────────────────────────────────────────────────────────────
+/* ─── User domain ──────────────────────────────────────────────────────────── */
 // Auth, plus the per-user "categories" (named lists) and the "marks"
 // (membership rows pairing a category with an entity).
 

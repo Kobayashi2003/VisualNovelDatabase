@@ -1,3 +1,5 @@
+/** Pill-shaped skeleton placeholder used while a button's content is loading. */
+
 import { cn } from "@/lib/utils"
 
 interface GhostButtonProps {

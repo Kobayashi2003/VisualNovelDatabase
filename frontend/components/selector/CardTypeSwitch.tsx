@@ -1,3 +1,5 @@
+/** Toggle between image-card and text-card grids. */
+
 import { SwitchButton } from "@/components/button/SwitchButton"
 import { ImageIcon, TextIcon } from "lucide-react"
 

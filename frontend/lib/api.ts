@@ -1,11 +1,4 @@
-/**
- * HTTP client for the three backend services that power the UI:
- *   - VNDB proxy        — read-only catalog data (vn, release, character, …)
- *   - Imgserve          — image CDN rewrite for VNDB image URLs
- *   - Userserve         — auth + per-user categories / marks
- *
- * The public surface is the `api` object at the bottom of this file.
- */
+/** HTTP client for the VNDB proxy, image cache, and userserve backends. */
 
 import {
   VN, Release, Character, Producer, Staff, Tag, Trait,
@@ -19,7 +12,7 @@ import {
 } from "./constants"
 
 
-// ─── Base URL resolution ──────────────────────────────────────────────────────
+/* ─── Base URL resolution ──────────────────────────────────────────────────── */
 // On the server the URL can be overridden via env vars (so SSR can hit the
 // internal hostnames); on the client we always go through the Next.js proxy
 // routes defined under `app/api/*`.
@@ -41,7 +34,7 @@ const getBaseUrl = (type: "vndb" | "imgserve" | "userserve") => {
 }
 
 
-// ─── Generic VNDB fetchers ────────────────────────────────────────────────────
+/* ─── Generic VNDB fetchers ────────────────────────────────────────────────── */
 // Two flavours: paginated list (`fetchVNDB`) and single-item by id
 // (`fetchVNDBById`). Both accept an optional `processor` so callers can rewrite
 // image URLs (or do other per-item massaging) before the data reaches React.
@@ -84,7 +77,7 @@ const fetchVNDBById = async <T>(
 }
 
 
-// ─── Userserve fetcher ────────────────────────────────────────────────────────
+/* ─── Userserve fetcher ────────────────────────────────────────────────────── */
 // Authenticated calls — attaches the bearer token from localStorage when
 // present, and serialises the request body as JSON.
 
@@ -109,7 +102,7 @@ const fetchUserserve = async <T>(
 }
 
 
-// ─── URL / route helpers ──────────────────────────────────────────────────────
+/* ─── URL / route helpers ──────────────────────────────────────────────────── */
 
 // Map a high-level collection name (e.g. `"vn"`) onto the single-letter VNDB
 // route prefix (`"v"`). Falls back to the input if the type isn't registered.
@@ -127,7 +120,7 @@ function convertToImgserveUrl(url: string): string {
 }
 
 
-// ─── Per-entity image post-processors ─────────────────────────────────────────
+/* ─── Per-entity image post-processors ─────────────────────────────────────── */
 // VNDB returns absolute image URLs; we mirror them through imgserve so the
 // browser hits our cache. One processor per entity that carries images.
 
@@ -162,19 +155,11 @@ function processVNDBResponse<T>(response: PaginatedResponse<T>, processor: (item
 }
 
 
-// ─── Public API surface ───────────────────────────────────────────────────────
-// Shape:
-//   api.<entity>(params)            → paginated, large payload
-//   api.by_id.<entity>(id, params)  → single item, large payload
-//   api.small.<entity>(params)      → paginated, small payload
-//   api.small.by_id.<entity>(id)    → single small item
-//   api.small.byIds.<entity>(ids)   → batched fetch by id list
-//   api.user.*                      → auth
-//   api.category.*                  → user collections & marks
+/* ─── Public API surface ───────────────────────────────────────────────────── */
 
 export const api = {
 
-  // ── VNDB: paginated, large ────────────────────────────────────────────────
+  /* VNDB: paginated, large */
   vn: (params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
     params.size = "large"; return fetchVNDB<VN>(`v`, params, processVNImages, abortSignal)
   },
@@ -197,7 +182,7 @@ export const api = {
     params.size = "large"; return fetchVNDB<Trait>(`i`, params, undefined, abortSignal)
   },
 
-  // ── VNDB: single item by id, large ────────────────────────────────────────
+  /* VNDB: single item by id, large */
   by_id: {
     vn: (id: number, params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
       params.size = "large"; return fetchVNDBById<VN>(`v${id}`, params, processVNImages, abortSignal)
@@ -222,7 +207,7 @@ export const api = {
     },
   },
 
-  // ── VNDB: small variants (list cards, autocomplete, …) ────────────────────
+  /* VNDB: small variants (list cards, autocomplete, …) */
   small: {
     vn: (params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
       params.size = "small"; return fetchVNDB<VN_Small>(`v`, params, processSmallVNImages, abortSignal)
@@ -303,7 +288,7 @@ export const api = {
     },
   },
 
-  // ── Userserve: auth ───────────────────────────────────────────────────────
+  /* Userserve: auth */
   user: {
     login: (username: string, password: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ access_token: string; username: string }>("login", "POST", { username, password }, abortSignal),
@@ -313,7 +298,7 @@ export const api = {
       fetchUserserve<User>(`u${username}`, "GET", undefined, abortSignal),
   },
 
-  // ── Userserve: categories and their marks ─────────────────────────────────
+  /* Userserve: categories and their marks */
   category: {
     get: (type: string, abortSignal?: AbortSignal) =>
       fetchUserserve<Category[]>(`${typeRoute(type)}/c`, "GET", undefined, abortSignal),

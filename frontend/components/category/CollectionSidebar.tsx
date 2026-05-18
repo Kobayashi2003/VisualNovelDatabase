@@ -1,21 +1,20 @@
+/** Left rail on the user-collections page: entity-type list + per-type category list. */
 "use client"
 
 import { useState, useRef, useEffect } from "react"
 import {
   BookOpen, Package, User, Building2, Users, Tag, Sparkles,
-  Library, Plus, Pencil, Trash2, Check, X
+  Library, Plus, Pencil, Trash2, Check, X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COLLECTION_TYPES } from "@/lib/constants"
 import type { Category } from "@/lib/types"
 
-// ─── Type icon map ───────────────────────────────────────────────────────────
 const TYPE_ICONS: Record<string, React.ElementType> = {
   vn: BookOpen, release: Package, character: User,
   producer: Building2, staff: Users, tag: Tag, trait: Sparkles,
 }
 
-// ─── Props ───────────────────────────────────────────────────────────────────
 interface CollectionSidebarProps {
   activeType: string
   activeCategory: number | "all"
@@ -29,7 +28,8 @@ interface CollectionSidebarProps {
   className?: string
 }
 
-// ─── Single category row ─────────────────────────────────────────────────────
+/* ─── Single category row ──────────────────────────────────────────────────── */
+
 function CategoryRow({
   cat, active, onSelect, onRename, onDelete
 }: {
@@ -127,7 +127,8 @@ function CategoryRow({
   )
 }
 
-// ─── New collection inline form ──────────────────────────────────────────────
+/* ─── New collection inline form ───────────────────────────────────────────── */
+
 function NewCategoryForm({ onConfirm, onCancel }: { onConfirm: (name: string) => Promise<void>; onCancel: () => void }) {
   const [value, setValue] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -161,7 +162,8 @@ function NewCategoryForm({ onConfirm, onCancel }: { onConfirm: (name: string) =>
   )
 }
 
-// ─── Main sidebar ────────────────────────────────────────────────────────────
+/* ─── Main sidebar ─────────────────────────────────────────────────────────── */
+
 export function CollectionSidebar({
   activeType, activeCategory, categories,
   onTypeChange, onCategorySelect, onCreate, onRename, onDelete,
@@ -181,12 +183,12 @@ export function CollectionSidebar({
   return (
     <div className={cn("flex flex-col bg-surface border-r border-white/10 overflow-hidden", className)}>
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="px-4 pt-4 pb-3 shrink-0">
         <h2 className="text-xs font-bold text-muted tracking-widest uppercase">Your Library</h2>
       </div>
 
-      {/* ── Type list ──────────────────────────────────────────────────── */}
+      {/* Type list */}
       <div className="px-1 pb-3 shrink-0">
         {COLLECTION_TYPES.map(ct => {
           const Icon = TYPE_ICONS[ct.type]
@@ -210,12 +212,12 @@ export function CollectionSidebar({
 
       <div className="h-px bg-white/10 mx-3 mb-2 shrink-0" />
 
-      {/* ── Category section heading ────────────────────────────────────── */}
+      {/* Category section heading */}
       <div className="px-4 pb-1 shrink-0">
         <span className="text-xs font-semibold text-muted/60 tracking-wider uppercase">Collections</span>
       </div>
 
-      {/* ── "All" virtual row ───────────────────────────────────────────── */}
+      {/* "All" virtual row */}
       <div className="px-1 shrink-0">
         <button
           onClick={() => onCategorySelect("all")}
@@ -236,7 +238,7 @@ export function CollectionSidebar({
         </button>
       </div>
 
-      {/* ── Category list (scrollable) ──────────────────────────────────── */}
+      {/* Category list (scrollable) */}
       <div className="flex-1 overflow-y-auto py-1 min-h-0">
         {categories.map(cat => (
           <CategoryRow

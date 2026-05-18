@@ -1,3 +1,5 @@
+/** Icon-only button with an optional hover tooltip. */
+
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 

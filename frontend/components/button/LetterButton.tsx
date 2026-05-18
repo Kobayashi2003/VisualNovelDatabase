@@ -1,3 +1,5 @@
+/** Single-letter pill button (used for user avatars / initials). */
+
 import { cn } from "@/lib/utils"
 
 interface LetterButtonProps {

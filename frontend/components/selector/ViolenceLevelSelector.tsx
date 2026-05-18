@@ -1,3 +1,5 @@
+/** Tri-state selector for the violence-content tolerance (tame / violent / brutal). */
+
 import { cn } from "@/lib/utils"
 
 const LEVELS = [

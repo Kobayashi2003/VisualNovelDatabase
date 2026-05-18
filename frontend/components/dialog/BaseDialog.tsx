@@ -1,3 +1,4 @@
+/** Portaled modal shell with backdrop, header, and ESC-to-close. */
 "use client"
 
 import { useEffect, useRef, useState } from "react"

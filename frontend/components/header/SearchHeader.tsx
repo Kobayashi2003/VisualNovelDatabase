@@ -1,3 +1,4 @@
+/** Header search field with refresh / original-names toggle / advanced options panel. */
 "use client"
 
 import { useState } from "react"
@@ -22,20 +23,22 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
   const [sortOrder, setSortOrder] = useState("desc")
   const [searchQuery, setSearchQuery] = useState("")
   const [filtersParams, setFiltersParams] = useState<Record<string, string>>({})
-  const [filtersType, setFiltersType] = useState<string>(searchType) // tracks which type filtersParams belongs to
+  // `filtersType` tracks which entity type the stored `filtersParams` belongs to,
+  // so filters from a previous search don't leak into a query for a different type.
+  const [filtersType, setFiltersType] = useState<string>(searchType)
   const [panelOpen, setPanelOpen] = useState(false)
 
-  // Accept optional overrides to avoid async state issues when applying from panel
+  // Accepts overrides so the panel's onApply can pass the freshly-edited values
+  // directly, avoiding the React batch that would otherwise delay setState.
   const handleSubmit = (
     e?: React.FormEvent,
-    overrides?: { from?: string; type?: string; sortByVal?: string; order?: string; filters?: Record<string, string> }
+    overrides?: { from?: string; type?: string; sortByVal?: string; order?: string; filters?: Record<string, string> },
   ) => {
     if (e) e.preventDefault()
     const from = overrides?.from ?? searchFrom
     const type = overrides?.type ?? searchType
     const sort = overrides?.sortByVal ?? sortBy
     const order = overrides?.order ?? sortOrder
-    // Only use stored filters if they belong to the current type; otherwise discard them
     const filters = overrides?.filters ?? (filtersType === type ? filtersParams : {})
 
     setLoading(true)

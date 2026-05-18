@@ -1,3 +1,4 @@
+/** Character detail sidebar: cover, physical stats, voice actors, collection button. */
 "use client"
 
 import { useState, useEffect } from "react"
@@ -20,7 +21,6 @@ const SEX_LABEL: Record<string, string> = {
   m: "Male", f: "Female", b: "Both", n: "Unknown",
 }
 
-// ─── Main panel ───────────────────────────────────────────────────────────────
 interface CharacterInfoPanelProps {
   character: Character
   sexualLevel: string

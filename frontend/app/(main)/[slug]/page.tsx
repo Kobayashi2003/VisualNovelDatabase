@@ -1,3 +1,4 @@
+/** Catch-all `/[slug]` route — dispatches to search results or a per-entity detail page. */
 "use client"
 
 import { useState, useEffect, useRef, Suspense } from "react"
@@ -9,7 +10,7 @@ import { useSearchContext } from "@/context/SearchContext"
 import { api } from "@/lib/api"
 import type {
   VN_Small, Release_Small, Character_Small, Producer_Small,
-  Staff_Small, Tag_Small, Trait_Small, VNDBQueryParams
+  Staff_Small, Tag_Small, Trait_Small, VNDBQueryParams,
 } from "@/lib/types"
 
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -29,14 +30,16 @@ import { TagDetailPage } from "@/components/tag/TagDetailPage"
 import { ReleaseDetailPage } from "@/components/release/ReleaseDetailPage"
 import {
   VNsCardsGrid, ReleasesCardsGrid, CharactersCardsGrid,
-  ProducersCardsGrid, StaffCardsGrid, TagsCardsGrid, TraitsCardsGrid
+  ProducersCardsGrid, StaffCardsGrid, TagsCardsGrid, TraitsCardsGrid,
 } from "@/components/card/CardsGrid"
 
-// ─── Type helpers ────────────────────────────────────────────────────────────
+// `/v`, `/c`, … → search results; `/v123`, `/c45`, … → detail pages.
 const SEARCH_TYPES = /^[vrpcsgit]$/
 const DETAIL_TYPES = /^[vrpcsgit]\d+$/
 
-// ─── Search Results ──────────────────────────────────────────────────────────
+
+/* ─── Search results ───────────────────────────────────────────────────────── */
+
 function SearchResultsContent({ slug }: { slug: string }) {
   const type = slug as "v" | "r" | "c" | "p" | "s" | "g" | "i"
   const searchParams = useSearchParams()
@@ -75,13 +78,15 @@ function SearchResultsContent({ slug }: { slug: string }) {
     setStatus("loading")
     setStatusMsg(null)
     try {
+      // Forward every URL param to the API as a filter (`tag`, `lang`, …),
+      // plus the trio we manage ourselves (`page`, `limit`, `sort`).
       const queryParams: VNDBQueryParams = { page: currentPage, limit: itemsPerPage, sort: sortBy }
       for (const [key, value] of searchParams.entries()) {
         queryParams[key as keyof VNDBQueryParams] = value as string
       }
       const fetchFn = {
         v: api.small.vn, r: api.small.release, c: api.small.character,
-        p: api.small.producer, s: api.small.staff, g: api.small.tag, i: api.small.trait
+        p: api.small.producer, s: api.small.staff, g: api.small.tag, i: api.small.trait,
       }
       const response = await fetchFn[type as keyof typeof fetchFn](queryParams, ctrl.signal)
       setTotalPages(Math.ceil(response.count / itemsPerPage))
@@ -161,38 +166,20 @@ function SearchResultsContent({ slug }: { slug: string }) {
   )
 }
 
-// ─── Detail page router ───────────────────────────────────────────────────────
+
+/* ─── Detail-page dispatcher ───────────────────────────────────────────────── */
+
 function DetailContent({ slug }: { slug: string }) {
   const type = slug[0]
   const numericId = parseInt(slug.slice(1), 10)
 
-  if (type === "v") {
-    return <VNDetailPage id={numericId} />
-  }
-
-  if (type === "c") {
-    return <CharacterDetailPage id={numericId} />
-  }
-
-  if (type === "s") {
-    return <StaffDetailPage id={numericId} />
-  }
-
-  if (type === "p") {
-    return <ProducerDetailPage id={numericId} />
-  }
-
-  if (type === "i") {
-    return <TraitDetailPage id={numericId} />
-  }
-
-  if (type === "g") {
-    return <TagDetailPage id={numericId} />
-  }
-
-  if (type === "r") {
-    return <ReleaseDetailPage id={numericId} />
-  }
+  if (type === "v") return <VNDetailPage id={numericId} />
+  if (type === "c") return <CharacterDetailPage id={numericId} />
+  if (type === "s") return <StaffDetailPage id={numericId} />
+  if (type === "p") return <ProducerDetailPage id={numericId} />
+  if (type === "i") return <TraitDetailPage id={numericId} />
+  if (type === "g") return <TagDetailPage id={numericId} />
+  if (type === "r") return <ReleaseDetailPage id={numericId} />
 
   return (
     <main className="container mx-auto flex-1 p-4 pb-8">
@@ -203,7 +190,9 @@ function DetailContent({ slug }: { slug: string }) {
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+
+/* ─── Page entry ───────────────────────────────────────────────────────────── */
+
 function SlugContent() {
   const params = useParams()
   const slug = (params.slug as string) || ""

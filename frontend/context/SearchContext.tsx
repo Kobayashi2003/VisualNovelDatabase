@@ -1,3 +1,4 @@
+/** Global search/sort state for the header and search panel, persisted to localStorage. */
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
@@ -37,6 +38,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("searchType", type)
   }
 
+  // sortBy is stored per (type, from) pair, so switching either restores the
+  // last sort the user picked for that combination rather than a global one.
   const setSortBy = (by: string) => {
     setSortByState(by)
     localStorage.setItem(`sortBy-${searchType}-${searchFrom}`, by)
@@ -47,6 +50,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("showOriginal", v ? "1" : "0")
   }
 
+  // Hydrate from localStorage after mount (avoids SSR/CSR markup mismatch).
   useEffect(() => {
     const from = localStorage.getItem("searchFrom") || "both"
     const type = localStorage.getItem("searchType") || "v"
@@ -58,6 +62,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     setShowOriginalState(orig)
   }, [])
 
+  // Re-pull sortBy when the (type, from) pair changes — see setSortBy.
   useEffect(() => {
     const sort = localStorage.getItem(`sortBy-${searchType}-${searchFrom}`) || "id"
     setSortByState(sort)

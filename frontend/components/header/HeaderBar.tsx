@@ -1,3 +1,5 @@
+/** Top header bar: brand/back nav + search field + user controls. */
+
 import { cn } from "@/lib/utils"
 import { HeaderNavi } from "./HeaderNavi"
 import { UserHeader } from "./UserHeader"

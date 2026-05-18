@@ -1,3 +1,4 @@
+/** Square-thumbnail card with title + sub-messages; falls back gracefully on image errors. */
 "use client"
 
 import { useEffect, useState, useCallback } from "react"

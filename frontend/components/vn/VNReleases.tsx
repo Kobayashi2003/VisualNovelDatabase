@@ -1,3 +1,4 @@
+/** Releases section on the VN page, grouped by language and expandable. */
 "use client"
 
 import { useState } from "react"

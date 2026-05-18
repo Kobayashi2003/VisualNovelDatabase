@@ -1,3 +1,4 @@
+/** Horizontal-layout image card (thumbnail left, text right) — used in list views. */
 "use client"
 
 import { useEffect, useState, useCallback } from "react"

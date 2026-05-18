@@ -1,3 +1,4 @@
+/** Trait detail page: info sidebar + description + paginated characters with the trait. */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -14,7 +15,8 @@ import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { PAGE_LIMIT } from "@/lib/constants"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
-// ─── Sidebar info panel ───────────────────────────────────────────────────────
+/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
+
 function TraitInfoPanel({ trait }: { trait: Trait }) {
   return (
     <div className="flex flex-col gap-3">
@@ -40,7 +42,7 @@ function TraitInfoPanel({ trait }: { trait: Trait }) {
   )
 }
 
-// ─── Characters section ───────────────────────────────────────────────────────
+/* ─── Characters section ───────────────────────────────────────────────────── */
 interface TraitCharactersProps {
   traitId: string
   sexualLevel: "safe" | "suggestive" | "explicit"
@@ -89,7 +91,7 @@ function TraitCharacters({ traitId, sexualLevel, violenceLevel }: TraitCharacter
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+/* ─── Main page ────────────────────────────────────────────────────────────── */
 interface TraitDetailPageProps {
   id: number
 }

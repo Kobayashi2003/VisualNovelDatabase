@@ -1,3 +1,5 @@
+/** Rounded text input used as the header search field. */
+
 import { cn } from "@/lib/utils"
 
 interface SearchBarProps {

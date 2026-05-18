@@ -1,3 +1,5 @@
+/** Toggle between grid and single-column list layouts. */
+
 import { SwitchButton } from "@/components/button/SwitchButton"
 import { LayoutGrid, Rows } from "lucide-react"
 

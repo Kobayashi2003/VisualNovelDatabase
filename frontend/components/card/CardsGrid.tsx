@@ -1,3 +1,4 @@
+/** Per-entity card grids used by search results and the user-collections page. */
 "use client"
 
 import { cn, formatRelativeDate, shouldBlur } from "@/lib/utils"
@@ -11,8 +12,11 @@ import { useSearchContext } from "@/context/SearchContext"
 
 import {
   VN_Small, Release_Small, Character_Small, Producer_Small,
-  Staff_Small, Tag_Small, Trait_Small
+  Staff_Small, Tag_Small, Trait_Small,
 } from "@/lib/types"
+
+
+/* ─── Generic image card (handles content-rating blur) ─────────────────────── */
 
 type ImageProps = {
   url: string
@@ -88,7 +92,7 @@ const gridClass = (layout: "single" | "grid") =>
     ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3"
     : "flex flex-col gap-2"
 
-// ─── Shared collection props ─────────────────────────────────────────────────
+/* ─── Shared collection props + hover-action wrapper ──────────────────────── */
 export interface CollectionCardProps {
   view?: "grid" | "list" | "compact"
   onRemove?: (id: string) => void
@@ -99,7 +103,9 @@ export interface CollectionCardProps {
   markedAtMap?: Record<string, string>
 }
 
-// ─── Collection card wrapper (hover actions, checkbox, date badge) ───────────
+// Adds hover-actions (remove/move), edit-mode checkbox, and a date-added badge
+// on top of any card. Used to make the same card components reusable across
+// search results (plain) and the user-collections page (with collection chrome).
 function CollectionWrapper({
   id, children,
   onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
@@ -168,7 +174,7 @@ function CollectionWrapper({
   )
 }
 
-// ─── VNs ────────────────────────────────────────────────────────────────────
+/* ─── VNs ──────────────────────────────────────────────────────────────────── */
 interface VNsCardsGridProps extends CollectionCardProps {
   vns: VN_Small[]
   cardType?: "image" | "text"
@@ -248,7 +254,7 @@ export function VNsCardsGrid({
   )
 }
 
-// ─── Releases ───────────────────────────────────────────────────────────────
+/* ─── Releases ─────────────────────────────────────────────────────────────── */
 interface ReleasesCardsGridProps extends CollectionCardProps {
   releases: Release_Small[]
   layout?: "single" | "grid"
@@ -308,7 +314,7 @@ export function ReleasesCardsGrid({
   )
 }
 
-// ─── Characters ─────────────────────────────────────────────────────────────
+/* ─── Characters ───────────────────────────────────────────────────────────── */
 interface CharactersCardsGridProps extends CollectionCardProps {
   characters: Character_Small[]
   cardType?: "image" | "text"
@@ -377,7 +383,7 @@ export function CharactersCardsGrid({
   )
 }
 
-// ─── Producers ──────────────────────────────────────────────────────────────
+/* ─── Producers ────────────────────────────────────────────────────────────── */
 interface ProducersCardsGridProps extends CollectionCardProps {
   producers: Producer_Small[]
   layout?: "single" | "grid"
@@ -429,7 +435,7 @@ export function ProducersCardsGrid({
   )
 }
 
-// ─── Staff ──────────────────────────────────────────────────────────────────
+/* ─── Staff ────────────────────────────────────────────────────────────────── */
 interface StaffCardsGridProps extends CollectionCardProps {
   staff: Staff_Small[]
   layout?: "single" | "grid"
@@ -481,7 +487,7 @@ export function StaffCardsGrid({
   )
 }
 
-// ─── Tags ───────────────────────────────────────────────────────────────────
+/* ─── Tags ─────────────────────────────────────────────────────────────────── */
 interface TagsCardsGridProps extends CollectionCardProps {
   tags: Tag_Small[]
   layout?: "single" | "grid"
@@ -528,7 +534,7 @@ export function TagsCardsGrid({
   )
 }
 
-// ─── Traits ─────────────────────────────────────────────────────────────────
+/* ─── Traits ───────────────────────────────────────────────────────────────── */
 interface TraitsCardsGridProps extends CollectionCardProps {
   traits: Trait_Small[]
   layout?: "single" | "grid"

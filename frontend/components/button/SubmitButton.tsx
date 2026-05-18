@@ -1,3 +1,5 @@
+/** Search icon submit button used inside the header search bar. */
+
 import { cn } from "@/lib/utils"
 import { Search } from "lucide-react"
 

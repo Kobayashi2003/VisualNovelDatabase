@@ -1,3 +1,4 @@
+/** Character grid on the VN page, with role-filter tabs and seiyuu listings. */
 "use client"
 
 import { useState } from "react"

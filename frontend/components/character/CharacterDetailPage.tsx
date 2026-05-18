@@ -1,3 +1,4 @@
+/** Character detail page: info panel sidebar + description / traits / VNs sections. */
 "use client"
 
 import { useEffect, useState, useRef } from "react"

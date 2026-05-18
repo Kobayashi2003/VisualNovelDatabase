@@ -1,18 +1,9 @@
-/**
- * Search/filter/sort configuration for the VNDB-backed UI.
- *
- * Two concerns live here, both keyed by the single-letter entity type used by
- * the VNDB API (`v`, `r`, `c`, `p`, `s`, `g`, `i`):
- *   - `searchFilters` — the filter fields shown in the search panel, plus the
- *     validators and state helpers needed to drive a controlled form.
- *   - `SORT_OPTIONS` — the per-type sort columns, split by whether they are
- *     supported by the remote VNDB API, the local DB, or both.
- */
+/** Search panel filter and sort configuration for each entity type. */
 
 import { ENUMS } from "@/lib/enums"
 
 
-// ─── Filter field types ───────────────────────────────────────────────────────
+/* ─── Filter field types ───────────────────────────────────────────────────── */
 // A filter field is rendered as text / number / select / date. Some kinds
 // support comparison operators (=, <, >, …); see `OPERATORS` below.
 
@@ -34,7 +25,7 @@ export interface FilterState {
   dateComparable: Record<string, { operator: string; date: string }>
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+/* ─── Validation ───────────────────────────────────────────────────────────── */
 
 export const OPERATORS = ["=", "<", ">", "<=", ">=", "!="]
 
@@ -107,7 +98,7 @@ export const isValidSelect = (value: string, comparable = false): boolean => {
   return value.toLowerCase() !== "any" && value !== ""
 }
 
-// ─── Filter definitions (per entity type) ────────────────────────────────────
+/* ─── Filter definitions (per entity type) ─────────────────────────────────── */
 // Adding a new field here automatically wires it into the search panel form,
 // initial state, and query parameter builder.
 
@@ -208,7 +199,7 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
   i: {},
 }
 
-// ─── Filter state helpers ─────────────────────────────────────────────────────
+/* ─── Filter state helpers ─────────────────────────────────────────────────── */
 
 // Produces a blank `FilterState` for the given entity type, seeded with the
 // per-field defaults declared in `searchFilters`.
@@ -263,7 +254,7 @@ export function buildFilterParams(type: string, state: FilterState): Record<stri
   return result
 }
 
-// ─── Sort options (per entity type) ───────────────────────────────────────────
+/* ─── Sort options (per entity type) ───────────────────────────────────────── */
 // Each type lists sort columns under three buckets:
 //   - `both`   — available against either backend
 //   - `remote` — VNDB-only (e.g. search rank)

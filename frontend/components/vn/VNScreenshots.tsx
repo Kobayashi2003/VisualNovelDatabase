@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { shouldBlur } from "@/lib/blur"
+import { cn, shouldBlur } from "@/lib/utils"
 import type { VN } from "@/lib/types"
 
 type Screenshot = VN["screenshots"][number]

@@ -1,14 +1,12 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { formatRelativeDate } from "@/lib/utils"
+import { cn, formatRelativeDate, shouldBlur } from "@/lib/utils"
 import { X, FolderInput, Check } from "lucide-react"
 import { ImageCard } from "./ImageCard"
 import { ImageCard2 } from "./ImageCard2"
 import { TextCard } from "./TextCard"
 import { CompactRow } from "./CompactRow"
 import { enumLabel } from "@/lib/enums"
-import { shouldBlur } from "@/lib/blur"
 import { useSearchContext } from "@/context/SearchContext"
 
 import {

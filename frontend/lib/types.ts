@@ -1,3 +1,16 @@
+/**
+ * Shared type definitions used across the frontend.
+ *
+ * Layout:
+ *   - Pagination / query shapes
+ *   - Full entity payloads (`size=large`)
+ *   - Small entity payloads (`size=small`) used for cards / autocompletes
+ *   - User domain (auth, categories, marks)
+ */
+
+
+// ─── Pagination & query parameters ────────────────────────────────────────────
+
 export interface PaginationParams {
   page?: number
   limit?: number
@@ -14,15 +27,24 @@ export interface PaginatedResponse<T> {
   count: number
 }
 
+// VNDB-specific query params. `from` selects the data source ("local" vs the
+// upstream VNDB), `size` toggles the large/small payload variant.
 export interface VNDBQueryParams extends PaginationParams {
   from?: 'local' | 'remote'
   size?: 'small' | 'large'
   [key: string]: unknown
 }
 
+// Marks listing query params. `cid` filters by category id (or "all" for the
+// flat across-categories list).
 export interface MarksQueryParams extends PaginationParams {
   cid?: number | 'all'
 }
+
+
+// ─── Full entity payloads ─────────────────────────────────────────────────────
+// Shape returned by `size=large` endpoints. These are the ones used by detail
+// pages.
 
 export interface VN {
   id: string
@@ -339,28 +361,10 @@ export interface Trait {
   char_count: number
 }
 
-export interface User {
-  id: number
-  is_admin: boolean
-  username: string
-  created_at: string
-  updated_at: string
-}
 
-export interface Category {
-  id: number
-  user_id: number
-  category_name: string
-  marks: Mark[]
-  type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
-  created_at: string
-  updated_at: string
-}
-
-export interface Mark {
-  id: number
-  marked_at: string
-}
+// ─── Small entity payloads ────────────────────────────────────────────────────
+// Shape returned by `size=small` endpoints — enough to render a card or list
+// row, but stripped of heavy nested data.
 
 export interface VN_Small {
   id: string
@@ -455,4 +459,34 @@ export interface Trait_Small {
   group_name?: string
 }
 
+
+// ─── User domain ──────────────────────────────────────────────────────────────
+// Auth, plus the per-user "categories" (named lists) and the "marks"
+// (membership rows pairing a category with an entity).
+
+export interface User {
+  id: number
+  is_admin: boolean
+  username: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Category {
+  id: number
+  user_id: number
+  category_name: string
+  marks: Mark[]
+  type: 'vn' | 'character' | 'producer' | 'staff' | 'release' | 'tag' | 'trait'
+  created_at: string
+  updated_at: string
+}
+
+export interface Mark {
+  id: number
+  marked_at: string
+}
+
+// Generic merge helper: any small entity plus the `marked_at` timestamp that
+// the categories endpoint attaches when listing a category's contents.
 export type MarkedItem<T> = T & { marked_at: string }

@@ -1,4 +1,20 @@
+/**
+ * VNDB enum dictionaries — short codes from the VNDB API mapped to the
+ * human-readable labels we render in the UI. All entries follow VNDB's own
+ * naming (so `"ja"` → `"Japanese"`, `"win"` → `"Windows"`, etc.).
+ *
+ * Layout:
+ *   - `ENUMS` — the dictionaries themselves, grouped by domain
+ *   - Helper types — one `keyof typeof` alias per group
+ *   - Accessors — `enumMap` / `enumLabel` for type-safe lookups
+ */
+
+
+// ─── Dictionaries ─────────────────────────────────────────────────────────────
+
 export const ENUMS = {
+
+  // ── Staff roles (VNDB `staff.role`) ─────────────────────────────────────────
   "STAFF_ROLE": {
     scenario: "Scenario",
     director: "Director",
@@ -9,8 +25,10 @@ export const ENUMS = {
     translator: "Translator",
     editor: "Editor",
     qa: "Quality assurance",
-    staff: "Staff"
+    staff: "Staff",
   },
+
+  // ── VN-to-VN relationship kinds (VNDB `relations.relation`) ────────────────
   'RELATION': {
     ser: "Same series",
     char: "Shares characters",
@@ -22,6 +40,8 @@ export const ENUMS = {
     fan: "Fandisc",
     orig: "Original game",
   },
+
+  // ── Physical media (VNDB `release.media.medium`) ───────────────────────────
   "MEDIUM": {
     blr: "Blu-ray disc",
     mrt: "Cartridge",
@@ -35,8 +55,10 @@ export const ENUMS = {
     mem: "Memory card",
     nod: "Nintendo Optical Disc",
     umd: "UMD",
-    otc: "Other"
+    otc: "Other",
   },
+
+  // ── Languages (VNDB ISO-ish language codes) ────────────────────────────────
   "LANGUAGE": {
     ar: "Arabic",
     eu: "Basque",
@@ -92,8 +114,10 @@ export const ENUMS = {
     tr: "Turkish",
     uk: "Ukrainian",
     ur: "Urdu",
-    vi: "Vietnamese"
+    vi: "Vietnamese",
   },
+
+  // ── Platforms (VNDB `release.platforms`) ───────────────────────────────────
   "PLATFORM": {
     win: "Windows",
     lin: "Linux",
@@ -141,8 +165,10 @@ export const ENUMS = {
     xbo: "Xbox One",
     xxs: "Xbox X/S",
     mob: "Other (mobile)",
-    oth: "Other"
+    oth: "Other",
   },
+
+  // ── VN length buckets (VNDB `vn.length`) ───────────────────────────────────
   "LENGTH": {
     1: "Very Short",
     2: "Short",
@@ -150,46 +176,87 @@ export const ENUMS = {
     4: "Long",
     5: "Very Long",
   },
+
+  // ── Development status (VNDB `vn.devstatus`) ───────────────────────────────
   "DEVSTATUS": {
     0: "Finished",
     1: "In Development",
     2: "Cancelled",
   },
+
+  // ── Voice acting coverage (VNDB `release.voiced`) ──────────────────────────
   "VOICED": {
     1: "Not voiced",
     2: "Only ero scenes voiced",
     3: "Partially voiced",
     4: "Fully voiced",
   },
+
+  // ── Release scope (VNDB `release.rtype`) ───────────────────────────────────
   "RTYPE": {
     trial: "Trial",
     partial: "Partial",
     complete: "Complete",
   },
+
+  // ── Character role within a VN (VNDB `character.vns.role`) ─────────────────
   "CHARACTER_ROLE": {
     main: "Protagonist",
     primary: "Main Character",
     side: "Side Character",
     appears: "Appears",
   },
+
+  // ── Producer type (VNDB `producer.type`) ───────────────────────────────────
   "TYPE": {
     co: "Company",
     in: "Individual",
     ng: "Amateur Group",
   },
+
+  // ── Tag category (VNDB `tag.category`) ─────────────────────────────────────
   "CATEGORY": {
     cont: "Content",
     ero: "Sexual Content",
     tech: "Technical",
-  }
+  },
+
 } as const
 
-type EnumGroup = keyof typeof ENUMS
 
+// ─── Per-group type aliases ───────────────────────────────────────────────────
+// One `keyof typeof ENUMS.X` per group, so consumers can type-narrow values
+// they got out of a VN/Release/Character payload.
+
+type EnumGroup = keyof typeof ENUMS
+type StaffRole = keyof typeof ENUMS.STAFF_ROLE
+type Medium = keyof typeof ENUMS.MEDIUM
+type Language = keyof typeof ENUMS.LANGUAGE
+type Platform = keyof typeof ENUMS.PLATFORM
+type Length = keyof typeof ENUMS.LENGTH
+type DevStatus = keyof typeof ENUMS.DEVSTATUS
+type Voiced = keyof typeof ENUMS.VOICED
+type RType = keyof typeof ENUMS.RTYPE
+type CharacterRole = keyof typeof ENUMS.CHARACTER_ROLE
+type Type = keyof typeof ENUMS.TYPE
+type Category = keyof typeof ENUMS.CATEGORY
+
+export type {
+  StaffRole, Medium, Language, Platform, Length, DevStatus,
+  Voiced, RType, CharacterRole, Type, Category,
+}
+
+
+// ─── Accessors ────────────────────────────────────────────────────────────────
+
+// Return a dictionary as a plain object keyed by string / number, suitable for
+// direct subscript lookups in JSX (`MAP[value]`).
 export function enumMap<G extends EnumGroup>(group: G): Record<string | number, string> {
   return ENUMS[group] as Record<string | number, string>
 }
 
+// Lookup with a safe fallback: returns the label for `key` in `group`, or the
+// stringified key when the value isn't in the dictionary.
 export function enumLabel<G extends EnumGroup>(group: G, key: string | number): string {
   return enumMap(group)[key] ?? String(key)
 }

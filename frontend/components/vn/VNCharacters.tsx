@@ -3,11 +3,10 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
+import { cn, shouldBlur } from "@/lib/utils"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { useSearchContext } from "@/context/SearchContext"
-import { shouldBlur } from "@/lib/blur"
 import type { VN } from "@/lib/types"
 
 type VNCharacter = VN["characters"][number]

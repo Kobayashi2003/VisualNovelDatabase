@@ -1,5 +1,5 @@
 import { RadioGroupDialog } from "./RadioGroupDialog"
-import { getSortOptions } from "@/lib/sortConfig"
+import { getSortOptions } from "@/lib/config"
 
 interface SortByDialogProps {
   open: boolean

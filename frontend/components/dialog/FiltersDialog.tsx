@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { BaseDialog } from "./BaseDialog"
 import { FiltersForm } from "./FiltersForm"
-import { FilterState, buildInitialState, buildFilterParams } from "@/lib/filterConfig"
+import { FilterState, buildInitialState, buildFilterParams } from "@/lib/config"
 
 interface FiltersDialogProps {
   open: boolean

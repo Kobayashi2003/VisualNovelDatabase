@@ -5,12 +5,11 @@ import Image from "next/image"
 import Link from "next/link"
 import { createPortal } from "react-dom"
 import { Eye, EyeOff, ExternalLink, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
-import { shouldBlur } from "@/lib/blur"
 import { InfoRow } from "@/components/common/InfoPanel"
 import type { VN } from "@/lib/types"
 
@@ -163,13 +162,16 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
         {vn.released && (
           <InfoRow label="Released">{vn.released}</InfoRow>
         )}
-        {vn.length != null && (
+        {(vn.length != null || vn.length_minutes != null) && (
           <InfoRow label="Length">
-            {LENGTH[vn.length] ?? String(vn.length)}
-            {vn.length_minutes != null && (
+            {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
+            {vn.length_minutes != null && vn.length_minutes > 0 && (
               <span className="text-muted">
-                &nbsp;({Math.floor(vn.length_minutes / 60)}h{vn.length_minutes % 60}m
-                {vn.length_votes > 0 && `, ${vn.length_votes} votes`})
+                {vn.length != null && " "}
+                {vn.length != null ? "(" : ""}
+                {formatPlaytime(vn.length_minutes)}
+                {vn.length_votes > 0 && ` from ${vn.length_votes} votes`}
+                {vn.length != null ? ")" : ""}
               </span>
             )}
           </InfoRow>
@@ -307,6 +309,18 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
             {DEVSTATUS[vn.devstatus]}
           </span>
           {vn.released && <span className="text-xs text-muted">{vn.released}</span>}
+          {(vn.length != null || (vn.length_minutes != null && vn.length_minutes > 0)) && (
+            <span className="text-xs text-muted">
+              {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
+              {vn.length_minutes != null && vn.length_minutes > 0 && (
+                <>
+                  {vn.length != null ? " (" : ""}
+                  {formatPlaytime(vn.length_minutes)}
+                  {vn.length != null ? ")" : ""}
+                </>
+              )}
+            </span>
+          )}
           {vn.developers.length > 0 && (
             <span className="text-xs text-white/70">{vn.developers.map(d => d.name).join(", ")}</span>
           )}

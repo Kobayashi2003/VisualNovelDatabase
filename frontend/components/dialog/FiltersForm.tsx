@@ -6,7 +6,7 @@ import {
   FilterState, TextField, NumberField, SelectField, DateField,
   OPERATORS, searchFilters,
   isValidNumberInput, isValidDateInput, isValidDate,
-} from "@/lib/filterConfig"
+} from "@/lib/config"
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const inputCls = "w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"

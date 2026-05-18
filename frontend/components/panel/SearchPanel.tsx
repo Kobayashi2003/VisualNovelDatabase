@@ -4,8 +4,13 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { X, ArrowUp, ArrowDown, SlidersHorizontal } from "lucide-react"
-import { FilterState, buildInitialState, buildFilterParams } from "@/lib/filterConfig"
-import { getSortOptions, getDefaultSortOption } from "@/lib/sortConfig"
+import {
+  FilterState,
+  buildInitialState,
+  buildFilterParams,
+  getSortOptions,
+  getDefaultSortOption,
+} from "@/lib/config"
 import { FiltersForm } from "@/components/dialog/FiltersForm"
 
 // ─── From options ─────────────────────────────────────────────────────────────

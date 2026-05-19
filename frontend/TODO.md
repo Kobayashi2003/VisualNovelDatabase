@@ -1,2 +1,1 @@
-1. 原文模式支持待补充：vn页面relations的title，vn页面screenshots中的release的title，release的页面的vns的title，建议整理出一个恰当的设计规范，但前提需要先完成vn的列请求
 2. release的producer需要区分为developer和publisher

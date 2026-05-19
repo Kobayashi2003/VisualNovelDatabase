@@ -369,27 +369,37 @@ function LinkedVNs({ vns }: { vns: Release["vns"] }) {
 
 function ReleaseProducers({ producers }: { producers: NonNullable<Release["producers"]> }) {
   const { showOriginal } = useSearchContext()
-  return (
+  const developers = producers.filter(p => p.developer)
+  const publishers = producers.filter(p => p.publisher)
+
+  const renderList = (list: NonNullable<Release["producers"]>) => (
     <div className="flex flex-col gap-2">
-      {producers.map(p => (
+      {list.map(p => (
         <Link
           key={p.id}
           href={`/${p.id}`}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-colors"
+          className="flex items-center px-3 py-2 rounded-lg bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-colors"
         >
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-white truncate">{displayName(p, showOriginal)}</p>
-          </div>
-          <div className="flex gap-1 shrink-0">
-            {p.developer && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/20 text-blue-400">Dev</span>
-            )}
-            {p.publisher && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/20 text-purple-400">Pub</span>
-            )}
-          </div>
+          <p className="text-sm text-white truncate">{displayName(p, showOriginal)}</p>
         </Link>
       ))}
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-4">
+      {developers.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Developer</p>
+          {renderList(developers)}
+        </div>
+      )}
+      {publishers.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Publisher</p>
+          {renderList(publishers)}
+        </div>
+      )}
     </div>
   )
 }
@@ -506,7 +516,7 @@ export function ReleaseDetailPage({ id }: ReleaseDetailPageProps) {
           )}
 
           {release.producers && release.producers.length > 0 && (
-            <Section title={`Producers (${release.producers.length})`}>
+            <Section title="Producers" count={release.producers.length}>
               <ReleaseProducers producers={release.producers} />
             </Section>
           )}

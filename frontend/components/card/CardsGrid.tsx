@@ -442,7 +442,7 @@ export function StaffCardsGrid({
       <div className="flex flex-col">
         {staff.map((s, idx) => (
           <CompactRow
-            key={s.id} index={idx + 1}
+            key={`${s.id}-${idx}`} index={idx + 1}
             title={displayNameFn(s, showOriginal)}
             markedAt={markedAtMap?.[s.id]}
             onRemove={onRemove ? () => onRemove(s.id) : undefined}
@@ -458,10 +458,10 @@ export function StaffCardsGrid({
 
   return (
     <div className={gridClass(effectiveLayout)}>
-      {staff.map((s) => {
+      {staff.map((s, idx) => {
         return (
           <CollectionWrapper
-            key={s.id} id={s.id}
+            key={`${s.id}-${idx}`} id={s.id}
             onRemove={onRemove} onMove={onMove}
             editMode={editMode} selectedIds={selectedIds}
             onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
@@ -538,7 +538,7 @@ export function TraitsCardsGrid({
       <div className="flex flex-col">
         {traits.map((t, idx) => (
           <CompactRow
-            key={t.id} index={idx + 1} title={t.name}
+            key={`${t.id}-${idx}`} index={idx + 1} title={t.name}
             subtitle={t.group_name}
             markedAt={markedAtMap?.[t.id]}
             onRemove={onRemove ? () => onRemove(t.id) : undefined}
@@ -554,9 +554,9 @@ export function TraitsCardsGrid({
 
   return (
     <div className={gridClass(effectiveLayout)}>
-      {traits.map((t) => (
+      {traits.map((t, idx) => (
         <CollectionWrapper
-          key={t.id} id={t.id}
+          key={`${t.id}-${idx}`} id={t.id}
           onRemove={onRemove} onMove={onMove}
           editMode={editMode} selectedIds={selectedIds}
           onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}

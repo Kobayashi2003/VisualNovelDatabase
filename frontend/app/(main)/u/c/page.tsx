@@ -504,7 +504,7 @@ function CollectionContent() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
+      <div className={cn("flex-1 min-w-0 overflow-y-auto", editMode && "pb-24")}>
         <div className="px-4 lg:px-6 py-6 max-w-7xl mx-auto">
 
           {/* Mobile: sidebar toggle */}
@@ -693,7 +693,7 @@ function CollectionContent() {
 
       {/* Floating batch action bar (Spotify-style) */}
       {user && editMode && (
-        <div className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-3 pointer-events-none">
+        <div className="fixed bottom-4 left-0 lg:left-64 right-0 z-40 flex justify-center px-3 pointer-events-none">
           <div
             className={cn(
               "pointer-events-auto flex items-center gap-1 p-1.5",

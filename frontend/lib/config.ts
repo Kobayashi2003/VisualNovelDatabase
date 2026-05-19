@@ -12,6 +12,9 @@ export interface TextField extends BaseField { allowEmpty?: boolean; placeholder
 export interface NumberField extends BaseField { integer?: boolean; comparable?: boolean; placeholder?: string }
 export interface SelectField extends BaseField { default?: string; comparable?: boolean; options: { value: string; label: string }[] }
 export interface DateField extends BaseField { availableFormats: string[]; comparable?: boolean; placeholder?: string }
+export type EntityType = "tag" | "trait" | "staff" | "producer"
+export interface EntityItem { id: string; label: string }
+export interface EntityField extends BaseField { entityType: EntityType }
 
 // Controlled state for the search panel form, grouped by field kind.
 // `*Comparable` variants pair an operator with the user-entered value.
@@ -23,6 +26,7 @@ export interface FilterState {
   selectComparable: Record<string, { operator: string; value: string }>
   date: Record<string, string>
   dateComparable: Record<string, { operator: string; date: string }>
+  entity: Record<string, EntityItem[]>
 }
 
 /* ─── Validation ───────────────────────────────────────────────────────────── */
@@ -102,15 +106,17 @@ export const isValidSelect = (value: string, comparable = false): boolean => {
 // Adding a new field here automatically wires it into the search panel form,
 // initial state, and query parameter builder.
 
-export const searchFilters: Record<string, { text?: TextField[]; number?: NumberField[]; select?: SelectField[]; date?: DateField[] }> = {
+export const searchFilters: Record<string, { text?: TextField[]; number?: NumberField[]; select?: SelectField[]; date?: DateField[]; entity?: EntityField[] }> = {
   v: {
+    entity: [
+      { value: "tag",       label: "Tag",          entityType: "tag" },
+      { value: "dtag",     label: "Directed Tag",  entityType: "tag" },
+      { value: "staff",     label: "Staff",         entityType: "staff" },
+      { value: "developer", label: "Developer",     entityType: "producer" },
+    ],
     text: [
-      { value: "tag", label: "Tag" },
-      { value: "dtag", label: "Directed Tag" },
-      { value: "release", label: "Release" },
+      { value: "release",   label: "Release" },
       { value: "character", label: "Character" },
-      { value: "staff", label: "Staff" },
-      { value: "developer", label: "Developer" },
     ],
     number: [
       { value: "rating", label: "Rating", integer: true, comparable: true, placeholder: "Bayesian rating 10–100" },
@@ -130,11 +136,13 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
     date: [{ value: "released", label: "Release Date", availableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"], comparable: true, placeholder: "YYYY-MM-DD / YYYY-MM / YYYY" }],
   },
   r: {
+    entity: [
+      { value: "producer", label: "Producer", entityType: "producer" },
+    ],
     text: [
-      { value: "engine", label: "Engine" },
+      { value: "engine",  label: "Engine" },
       { value: "extlink", label: "External Link" },
-      { value: "vn", label: "Visual Novel" },
-      { value: "producer", label: "Producer" },
+      { value: "vn",     label: "Visual Novel" },
     ],
     number: [{ value: "minage", label: "Minimum Age", integer: true, comparable: true, placeholder: "Integer" }],
     select: [
@@ -152,10 +160,12 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
     date: [{ value: "released", label: "Release Date", availableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"], comparable: true, placeholder: "YYYY-MM-DD / YYYY-MM / YYYY" }],
   },
   c: {
+    entity: [
+      { value: "trait",  label: "Trait",          entityType: "trait" },
+      { value: "dtrait", label: "Directed Trait",  entityType: "trait" },
+      { value: "seiyuu", label: "Seiyuu",          entityType: "staff" },
+    ],
     text: [
-      { value: "trait", label: "Trait" },
-      { value: "dtrait", label: "Directed Trait" },
-      { value: "seiyuu", label: "Seiyuu" },
       { value: "vn", label: "Visual Novel" },
     ],
     number: [
@@ -213,6 +223,7 @@ export function buildInitialState(type: string): FilterState {
     selectComparable: Object.fromEntries((f.select || []).filter(x => x.comparable).map(x => [x.value, { operator: "=", value: "any" }])),
     date: Object.fromEntries((f.date || []).filter(x => !x.comparable).map(x => [x.value, ""])),
     dateComparable: Object.fromEntries((f.date || []).filter(x => x.comparable).map(x => [x.value, { operator: "=", date: "" }])),
+    entity: Object.fromEntries((f.entity || []).map(x => [x.value, []])),
   }
 }
 
@@ -249,6 +260,9 @@ export function buildFilterParams(type: string, state: FilterState): Record<stri
     const combined = `${v.operator} ${v.date}`.trim()
     const field = f.date?.find(x => x.value === k)
     if (field && field.availableFormats.some(fmt => isValidDate(combined, fmt, true))) result[k] = combined
+  }
+  for (const [k, v] of Object.entries(state.entity || {})) {
+    if (v.length > 0) result[k] = v.map(item => item.id).join(",")
   }
 
   return result

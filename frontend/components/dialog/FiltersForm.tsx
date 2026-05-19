@@ -4,10 +4,11 @@
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
 import {
-  FilterState, TextField, NumberField, SelectField, DateField,
+  FilterState, TextField, NumberField, SelectField, DateField, EntityField, EntityItem,
   OPERATORS, searchFilters,
   isValidNumberInput, isValidDateInput, isValidDate,
 } from "@/lib/config"
+import { EntityFilter } from "@/components/input/EntityFilter"
 
 
 /* ─── Shared styles & small primitives ─────────────────────────────────────── */
@@ -207,11 +208,22 @@ export function FiltersForm({ type, filterState, setFilterState }: FiltersFormPr
   const setDate = (k: string, v: string) => setFilterState({ ...filterState, date: { ...filterState.date, [k]: v } })
   const setDateComparable = (k: string, v: { operator: string; date: string }) =>
     setFilterState({ ...filterState, dateComparable: { ...filterState.dateComparable, [k]: v } })
+  const setEntity = (k: string, v: EntityItem[]) =>
+    setFilterState({ ...filterState, entity: { ...filterState.entity, [k]: v } })
 
-  const hasAny = f.text?.length || f.number?.length || f.select?.length || f.date?.length
+  const hasAny = f.text?.length || f.number?.length || f.select?.length || f.date?.length || f.entity?.length
 
   return (
     <div className="flex flex-col gap-4">
+      {f.entity?.map(field => (
+        <EntityFilter
+          key={field.value}
+          label={field.label}
+          entityType={field.entityType}
+          value={filterState.entity?.[field.value] ?? []}
+          onChange={v => setEntity(field.value, v)}
+        />
+      ))}
       {f.text?.map(field => (
         <TextFilter key={field.value} filter={field}
           value={filterState.text[field.value] ?? ""}

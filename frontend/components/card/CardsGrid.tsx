@@ -4,7 +4,6 @@
 import { cn, formatRelativeDate, shouldBlur } from "@/lib/utils"
 import { X, FolderInput, Check } from "lucide-react"
 import { ImageCard } from "./ImageCard"
-import { ImageCard2 } from "./ImageCard2"
 import { TextCard } from "./TextCard"
 import { CompactRow } from "./CompactRow"
 import { enumLabel } from "@/lib/enums"
@@ -65,7 +64,7 @@ export function GenImageCard({
   const effectiveUrl = isRestricted ? "" : imgUrl
   const effectiveLink = isRestricted ? undefined : link
 
-  return layout === "grid" ? (
+  return (
     <ImageCard
       url={effectiveUrl}
       title={title}
@@ -74,16 +73,7 @@ export function GenImageCard({
       restricted={isRestricted}
       className={cn(className, !isRestricted && blurClass, "transition-all duration-300")}
       tooltip={tooltip}
-    />
-  ) : (
-    <ImageCard2
-      url={effectiveUrl}
-      title={title}
-      msgs={msgs}
-      link={effectiveLink}
-      restricted={isRestricted}
-      className={cn(className, !isRestricted && blurClass, "transition-all duration-300")}
-      tooltip={tooltip}
+      layout={layout === "grid" ? "grid" : "list"}
     />
   )
 }
@@ -327,11 +317,10 @@ export function CharactersCardsGrid({
       <div className="flex flex-col">
         {characters.map((c, idx) => {
           const role = c.vns?.[0]?.role ? enumLabel('CHARACTER_ROLE', c.vns[0].role) : ""
-          const subtitle = role
           return (
             <CompactRow
               key={c.id} index={idx + 1} title={displayNameFn(c, showOriginal)}
-              subtitle={subtitle}
+              subtitle={role}
               thumbnail={c.image?.url}
               markedAt={markedAtMap?.[c.id]}
               onRemove={onRemove ? () => onRemove(c.id) : undefined}

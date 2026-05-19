@@ -1,16 +1,17 @@
 /** Tri-state selector for the violence-content tolerance (tame / violent / brutal). */
 
 import { cn } from "@/lib/utils"
+import type { ViolenceLevel } from "@/lib/types"
 
-const LEVELS = [
+const LEVELS: { value: ViolenceLevel; label: string; short: string }[] = [
   { value: "tame", label: "Tame", short: "Tame" },
   { value: "violent", label: "Violent", short: "Viol" },
   { value: "brutal", label: "Brutal", short: "Brut" },
 ]
 
 interface ViolenceLevelSelectorProps {
-  violenceLevel: string
-  setViolenceLevel: (level: string) => void
+  violenceLevel: ViolenceLevel
+  setViolenceLevel: (level: ViolenceLevel) => void
   className?: string
 }
 

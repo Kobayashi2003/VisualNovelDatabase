@@ -105,8 +105,8 @@ function CollectionContent() {
   const pathname = usePathname()
   const { updateMultipleKeys } = useUrlParams()
   const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
-  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
-  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
   /* URL-driven filters */
   const type    = searchParams.get("type")  ?? "vn"
@@ -551,8 +551,8 @@ function CollectionContent() {
 
               {/* Content level selectors */}
               <div className="flex flex-row gap-2 mb-3">
-                <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={v => setSexualLevel(v as "safe" | "suggestive" | "explicit")} className="w-full" />
-                <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={v => setViolenceLevel(v as "tame" | "violent" | "brutal")} className="w-full" />
+                <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={setSexualLevel} className="w-full" />
+                <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel} className="w-full" />
               </div>
 
               {/* Search / sort / view bar */}

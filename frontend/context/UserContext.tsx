@@ -2,7 +2,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
-import type { User } from "@/lib/types"
+import type { User, SexualLevel, ViolenceLevel } from "@/lib/types"
 import { api } from "@/lib/api"
 
 interface UserContextType {
@@ -11,10 +11,10 @@ interface UserContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   isLoading: boolean
-  defaultSexualLevel: string
-  defaultViolenceLevel: string
-  updateDefaultSexualLevel: (v: string) => void
-  updateDefaultViolenceLevel: (v: string) => void
+  defaultSexualLevel: SexualLevel
+  defaultViolenceLevel: ViolenceLevel
+  updateDefaultSexualLevel: (v: SexualLevel) => void
+  updateDefaultViolenceLevel: (v: ViolenceLevel) => void
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -28,18 +28,18 @@ export function useUserContext() {
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [defaultSexualLevel, setDefaultSexualLevel] = useState<string>(
-    () => (typeof window !== "undefined" ? localStorage.getItem("defaultSexualLevel") || "safe" : "safe")
+  const [defaultSexualLevel, setDefaultSexualLevel] = useState<SexualLevel>(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("defaultSexualLevel") as SexualLevel) || "safe" : "safe")
   )
-  const [defaultViolenceLevel, setDefaultViolenceLevel] = useState<string>(
-    () => (typeof window !== "undefined" ? localStorage.getItem("defaultViolenceLevel") || "tame" : "tame")
+  const [defaultViolenceLevel, setDefaultViolenceLevel] = useState<ViolenceLevel>(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("defaultViolenceLevel") as ViolenceLevel) || "tame" : "tame")
   )
 
-  const updateDefaultSexualLevel = (v: string) => {
+  const updateDefaultSexualLevel = (v: SexualLevel) => {
     localStorage.setItem("defaultSexualLevel", v)
     setDefaultSexualLevel(v)
   }
-  const updateDefaultViolenceLevel = (v: string) => {
+  const updateDefaultViolenceLevel = (v: ViolenceLevel) => {
     localStorage.setItem("defaultViolenceLevel", v)
     setDefaultViolenceLevel(v)
   }

@@ -41,8 +41,8 @@ function HomeContent() {
   const [totalPages, setTotalPages] = useState(0)
   const [cardType, setCardType] = useState<"image" | "text">("image")
   const [layout, setLayout] = useState<"single" | "grid">("grid")
-  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
-  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -138,8 +138,8 @@ function HomeContent() {
       </div>
       {/* Row 2: level selectors — always side-by-side (abbreviated labels on mobile) */}
       <div className="flex flex-row gap-2 mb-4">
-        <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={v => setSexualLevel(v as "safe" | "suggestive" | "explicit")} className="w-full" />
-        <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={v => setViolenceLevel(v as "tame" | "violent" | "brutal")} className="w-full" />
+        <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={setSexualLevel} className="w-full" />
+        <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel} className="w-full" />
       </div>
 
       <AnimatePresence mode="wait">

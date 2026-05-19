@@ -29,8 +29,8 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
-  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
-  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 
@@ -76,11 +76,11 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
         <div className="flex flex-col gap-2">
           <SexualLevelSelector
             sexualLevel={sexualLevel}
-            setSexualLevel={v => setSexualLevel(v as "safe" | "suggestive" | "explicit")}
+            setSexualLevel={setSexualLevel}
           />
           <ViolenceLevelSelector
             violenceLevel={violenceLevel}
-            setViolenceLevel={v => setViolenceLevel(v as "tame" | "violent" | "brutal")}
+            setViolenceLevel={setViolenceLevel}
           />
         </div>
         <VNInfoPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
@@ -93,12 +93,12 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
           <div className="flex flex-row gap-2">
             <SexualLevelSelector
               sexualLevel={sexualLevel}
-              setSexualLevel={v => setSexualLevel(v as "safe" | "suggestive" | "explicit")}
+              setSexualLevel={setSexualLevel}
               className="flex-1"
             />
             <ViolenceLevelSelector
               violenceLevel={violenceLevel}
-              setViolenceLevel={v => setViolenceLevel(v as "tame" | "violent" | "brutal")}
+              setViolenceLevel={setViolenceLevel}
               className="flex-1"
             />
           </div>

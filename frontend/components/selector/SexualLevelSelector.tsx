@@ -1,16 +1,17 @@
 /** Tri-state selector for the sexual-content tolerance (safe / suggestive / explicit). */
 
 import { cn } from "@/lib/utils"
+import type { SexualLevel } from "@/lib/types"
 
-const LEVELS = [
+const LEVELS: { value: SexualLevel; label: string; short: string }[] = [
   { value: "safe", label: "Safe", short: "Safe" },
   { value: "suggestive", label: "Suggestive", short: "Sugg" },
   { value: "explicit", label: "Explicit", short: "Expl" },
 ]
 
 interface SexualLevelSelectorProps {
-  sexualLevel: string
-  setSexualLevel: (level: string) => void
+  sexualLevel: SexualLevel
+  setSexualLevel: (level: SexualLevel) => void
   className?: string
 }
 

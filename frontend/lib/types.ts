@@ -1,6 +1,10 @@
 /** Shared TypeScript types for VNDB entities, query shapes, and user data. */
 
 
+export type SexualLevel = "safe" | "suggestive" | "explicit"
+export type ViolenceLevel = "tame" | "violent" | "brutal"
+
+
 /* ─── Pagination & query parameters ────────────────────────────────────────── */
 
 export interface PaginationParams {
@@ -235,7 +239,7 @@ export interface Release {
   uncensored?: boolean
   official: boolean
   has_ero: boolean
-  resolution?: string
+  resolution?: string | [number, number]
   engine?: string
   voiced?: number
   notes?: string

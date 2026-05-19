@@ -3,18 +3,18 @@
 
 import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
+import { displayName } from "@/lib/original"
 import type { Character } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
-import { displayName } from "@/lib/original"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
+import { Section } from "@/components/common/InfoPanel"
 import { VNDescription } from "@/components/vn/VNDescription"
 import { CharacterInfoPanel } from "./CharacterInfoPanel"
 import { CharacterTraits } from "./CharacterTraits"
 import { CharacterVNs } from "./CharacterVNs"
-import { Section } from "@/components/common/InfoPanel"
 
 interface CharacterDetailPageProps {
   id: number
@@ -151,7 +151,7 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
           )}
 
           {character.traits.length > 0 && (
-            <Section title="Traits">
+            <Section title="Traits" count={character.traits.length}>
               <CharacterTraits
                 traits={character.traits}
                 spoilerLevel={spoilerLevel}
@@ -164,7 +164,7 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
           )}
 
           {character.vns.length > 0 && (
-            <Section title="Visual Novels">
+            <Section title="Visual Novels" count={character.vns.length}>
               <CharacterVNs vns={character.vns} />
             </Section>
           )}

@@ -3,13 +3,14 @@
 
 import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
+import { displayTitle } from "@/lib/original"
 import type { VN } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
-import { displayTitle } from "@/lib/original"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
+import { Section } from "@/components/common/InfoPanel"
 import { VNInfoPanel } from "./VNInfoPanel"
 import { VNDescription } from "./VNDescription"
 import { VNTags } from "./VNTags"
@@ -17,7 +18,6 @@ import { VNScreenshots } from "./VNScreenshots"
 import { VNStaff } from "./VNStaff"
 import { VNCharacters } from "./VNCharacters"
 import { VNReleases } from "./VNReleases"
-import { Section } from "@/components/common/InfoPanel"
 
 interface VNDetailPageProps {
   id: number
@@ -117,13 +117,13 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
           )}
 
           {vn.tags.length > 0 && (
-            <Section title="Tags">
+            <Section title="Tags" count={vn.tags.length}>
               <VNTags tags={vn.tags} sexualLevel={sexualLevel} />
             </Section>
           )}
 
           {vn.characters.length > 0 && (
-            <Section title="Characters">
+            <Section title="Characters" count={vn.characters.length}>
               <VNCharacters
                 characters={vn.characters}
                 va={vn.va}
@@ -134,19 +134,19 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
           )}
 
           {vn.staff.length > 0 && (
-            <Section title="Staff">
+            <Section title="Staff" count={vn.staff.length}>
               <VNStaff staff={vn.staff} editions={vn.editions} />
             </Section>
           )}
 
           {vn.releases && vn.releases.length > 0 && (
-            <Section title="Releases">
+            <Section title="Releases" count={vn.releases.length}>
               <VNReleases releases={vn.releases} olang={vn.olang} />
             </Section>
           )}
 
           {vn.screenshots.length > 0 && (
-            <Section title="Screenshots">
+            <Section title="Screenshots" count={vn.screenshots.length}>
               <VNScreenshots
                 screenshots={vn.screenshots}
                 sexualLevel={sexualLevel}

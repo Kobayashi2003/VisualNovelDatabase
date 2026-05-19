@@ -4,23 +4,22 @@
 import { useEffect, useState, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
-import { useSearchContext } from "@/context/SearchContext"
-import { displayName } from "@/lib/original"
-import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumLabel } from "@/lib/enums"
-import type { Staff, VN_Small } from "@/lib/types"
+import { displayName } from "@/lib/original"
+import type { Staff } from "@/lib/types"
+import { useSearchContext } from "@/context/SearchContext"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { VNDescription } from "@/components/vn/VNDescription"
-import { VNsCardsGrid } from "@/components/card/CardsGrid"
-import { PaginationButtons } from "@/components/button/PaginationButtons"
-import { PAGE_LIMIT } from "@/lib/constants"
+import { CollectionButton } from "@/components/category/CollectionButton"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
+import { TabBar } from "@/components/common/TabBar"
+import { VNDescription } from "@/components/vn/VNDescription"
+import { StaffVNCredits } from "@/components/staff/StaffVNCredits"
+import { StaffVoicedCharacters } from "@/components/staff/StaffVoicedCharacters"
 
 const GENDER_LABEL: Record<string, string> = { m: "Male", f: "Female" }
-
 
 /* ─── Sidebar info panel ───────────────────────────────────────────────────── */
 
@@ -94,50 +93,8 @@ function StaffInfoPanel({ staff }: StaffInfoPanelProps) {
   )
 }
 
-/* ─── VN credits section ───────────────────────────────────────────────────── */
-interface VNCreditsProps {
-  staffId: string
-  sexualLevel: "safe" | "suggestive" | "explicit"
-  violenceLevel: "tame" | "violent" | "brutal"
-}
-
-function VNCredits({ staffId, sexualLevel, violenceLevel }: VNCreditsProps) {
-  const [vns, setVns] = useState<VN_Small[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-
-    api.small.vn({ staff: staffId, sort: "released", reverse: true, limit: PAGE_LIMIT, page })
-      .then(res => {
-        if (cancelled) return
-        setVns(res.results)
-        setTotalPages(Math.ceil(res.count / PAGE_LIMIT))
-      })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-
-    return () => { cancelled = true }
-  }, [staffId, page])
-
-  if (loading) return <Loading message="Loading visual novels..." />
-  if (error) return <ErrorStatus message={error} />
-  if (vns.length === 0) return <p className="text-sm text-muted">No visual novels found.</p>
-
-  return (
-    <div className="flex flex-col gap-4">
-      <VNsCardsGrid vns={vns} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
-      <PaginationButtons totalPages={totalPages} currentPage={page} onPageChange={p => { setPage(p); }} />
-    </div>
-  )
-}
-
 /* ─── Main page ────────────────────────────────────────────────────────────── */
+
 interface StaffDetailPageProps {
   id: number
 }
@@ -148,6 +105,9 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
   const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const [activeTab, setActiveTab] = useState<"credits" | "characters">("credits")
+  const [voicedCount, setVoicedCount] = useState(0)
+  const [vnCreditsCount, setVnCreditsCount] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 
@@ -160,7 +120,14 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
     setStaff(null)
 
     api.by_id.staff(id, {}, ctrl.signal)
-      .then(data => { if (!ctrl.signal.aborted) setStaff(data) })
+      .then(data => {
+        if (!ctrl.signal.aborted) {
+          setStaff(data)
+          api.small.character({ seiyuu: data.id, limit: 1 })
+            .then(res => { if (!ctrl.signal.aborted) setVoicedCount(res.count) })
+            .catch(() => {})
+        }
+      })
       .catch(e => { if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
       .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
 
@@ -232,19 +199,38 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
             )}
           </div>
 
-                    {staff.description && (
+          {staff.description && (
             <Section title="Description">
               <VNDescription text={staff.description} />
             </Section>
           )}
 
-                    <Section title="Visual Novel Credits">
-            <VNCredits
-              staffId={staff.id}
-              sexualLevel={sexualLevel}
-              violenceLevel={violenceLevel}
-            />
-          </Section>
+          <div>
+            <div className="mb-3">
+              <TabBar
+                tabs={[
+                  { value: "credits", label: "VN Credits", count: vnCreditsCount || undefined },
+                  ...(voicedCount > 0 ? [{ value: "characters", label: "Voiced Characters", count: voicedCount }] : [])
+                ]}
+                active={activeTab}
+                onChange={v => setActiveTab(v as "credits" | "characters")}
+              />
+            </div>
+            {activeTab === "credits" ? (
+              <StaffVNCredits
+                staffId={staff.id}
+                sexualLevel={sexualLevel}
+                violenceLevel={violenceLevel}
+                onCountLoaded={setVnCreditsCount}
+              />
+            ) : (
+              <StaffVoicedCharacters
+                staffId={staff.id}
+                sexualLevel={sexualLevel}
+                violenceLevel={violenceLevel}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

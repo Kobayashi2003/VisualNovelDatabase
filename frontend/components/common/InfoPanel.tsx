@@ -9,10 +9,13 @@ export function InfoRow({ label, children }: { label: string; children: React.Re
   )
 }
 
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">{title}</h2>
+      <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">
+        {title}
+        {count !== undefined && <span className="ml-1.5 text-xs font-normal">{count}</span>}
+      </h2>
       {children}
     </div>
   )

@@ -3,20 +3,20 @@
 
 import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
-import { useSearchContext } from "@/context/SearchContext"
-import { displayName } from "@/lib/original"
-import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumLabel } from "@/lib/enums"
+import { PAGE_LIMIT } from "@/lib/constants"
+import { displayName } from "@/lib/original"
 import type { Producer, VN_Small } from "@/lib/types"
+import { useSearchContext } from "@/context/SearchContext"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { VNDescription } from "@/components/vn/VNDescription"
+import { CollectionButton } from "@/components/category/CollectionButton"
+import { InfoRow, Section } from "@/components/common/InfoPanel"
 import { VNsCardsGrid } from "@/components/card/CardsGrid"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
-import { PAGE_LIMIT } from "@/lib/constants"
-import { InfoRow, Section } from "@/components/common/InfoPanel"
+import { VNDescription } from "@/components/vn/VNDescription"
 
 /* ─── Sidebar info panel ───────────────────────────────────────────────────── */
 
@@ -80,14 +80,14 @@ function ProducerInfoPanel({ producer }: ProducerInfoPanelProps) {
   )
 }
 
-/* ─── VN list section ──────────────────────────────────────────────────────── */
-interface ProducerVNsProps {
+/* ─── VN list section ──────────────────────────────────────────────────────── */interface ProducerVNsProps {
   producerId: string
   sexualLevel: "safe" | "suggestive" | "explicit"
   violenceLevel: "tame" | "violent" | "brutal"
+  onCountLoaded?: (count: number) => void
 }
 
-function ProducerVNs({ producerId, sexualLevel, violenceLevel }: ProducerVNsProps) {
+function ProducerVNs({ producerId, sexualLevel, violenceLevel, onCountLoaded }: ProducerVNsProps) {
   const [vns, setVns] = useState<VN_Small[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -104,6 +104,7 @@ function ProducerVNs({ producerId, sexualLevel, violenceLevel }: ProducerVNsProp
         if (cancelled) return
         setVns(res.results)
         setTotalPages(Math.ceil(res.count / PAGE_LIMIT))
+        onCountLoaded?.(res.count)
       })
       .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -118,12 +119,13 @@ function ProducerVNs({ producerId, sexualLevel, violenceLevel }: ProducerVNsProp
   return (
     <div className="flex flex-col gap-4">
       <VNsCardsGrid vns={vns} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
-      <PaginationButtons totalPages={totalPages} currentPage={page} onPageChange={p => { setPage(p); }} />
+      <PaginationButtons totalPages={totalPages} currentPage={page} onPageChange={setPage} />
     </div>
   )
 }
 
 /* ─── Main page ────────────────────────────────────────────────────────────── */
+
 interface ProducerDetailPageProps {
   id: number
 }
@@ -134,6 +136,7 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
   const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const [vnCount, setVnCount] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 
@@ -213,17 +216,18 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
             </h1>
           </div>
 
-                    {producer.description && (
+          {producer.description && (
             <Section title="Description">
               <VNDescription text={producer.description} />
             </Section>
           )}
 
-                    <Section title="Visual Novels">
+          <Section title="Visual Novels" count={vnCount || undefined}>
             <ProducerVNs
               producerId={producer.id}
               sexualLevel={sexualLevel}
               violenceLevel={violenceLevel}
+              onCountLoaded={setVnCount}
             />
           </Section>
         </div>

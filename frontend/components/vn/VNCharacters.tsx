@@ -7,9 +7,10 @@ import Link from "next/link"
 import { cn, shouldBlur } from "@/lib/utils"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
-import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
 import type { VN } from "@/lib/types"
+import { useSearchContext } from "@/context/SearchContext"
+import { TabBar } from "@/components/common/TabBar"
 
 type VNCharacter = VN["characters"][number]
 type VAEntry = VN["va"][number]
@@ -93,27 +94,13 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
     <div>
       {/* Controls row: role tabs + spoiler toggle */}
       <div className="flex items-start justify-between gap-2 mb-4 flex-wrap">
-        <div className="flex gap-1 flex-wrap">
-          {ROLE_TABS.map(tab => (
-            tab.value !== "all" && roleCounts[tab.value] === 0 ? null : (
-              <button
-                key={tab.value}
-                onClick={() => setActiveRole(tab.value)}
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                  activeRole === tab.value
-                    ? "bg-white/20 text-white"
-                    : "text-muted hover:text-white hover:bg-white/10"
-                )}
-              >
-                {tab.label}
-                {roleCounts[tab.value] > 0 && (
-                  <span className="ml-1.5 text-muted">{roleCounts[tab.value]}</span>
-                )}
-              </button>
-            )
-          ))}
-        </div>
+        <TabBar
+          tabs={ROLE_TABS
+            .filter(tab => tab.value === "all" || roleCounts[tab.value] > 0)
+            .map(tab => ({ value: tab.value, label: tab.label, count: roleCounts[tab.value] }))}
+          active={activeRole}
+          onChange={setActiveRole}
+        />
         {hasAnySpoilers && (
           <button
             onClick={() => setSpoilerLevel(nextSpoilerLevel())}

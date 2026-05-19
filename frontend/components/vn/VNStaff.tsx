@@ -3,9 +3,9 @@
 
 import Link from "next/link"
 import { enumMap } from "@/lib/enums"
-import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
 import type { VN } from "@/lib/types"
+import { useSearchContext } from "@/context/SearchContext"
 
 type StaffEntry = VN["staff"][number]
 type Edition = VN["editions"][number]
@@ -79,7 +79,10 @@ export function VNStaff({ staff, editions }: VNStaffProps) {
 
         return (
           <div key={role} className="flex gap-3">
-            <span className="text-xs text-muted w-28 shrink-0 pt-0.5 font-medium">{roleLabel}</span>
+            <span className="text-xs text-muted w-28 shrink-0 pt-0.5 font-medium">
+              {roleLabel}
+              <span className="ml-1 font-normal opacity-60">{entries.length}</span>
+            </span>
             <div className="flex-1 min-w-0">{content}</div>
           </div>
         )

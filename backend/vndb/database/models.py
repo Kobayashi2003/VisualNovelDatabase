@@ -165,6 +165,7 @@ class Trait(db.Model):
     description = Column(Text)
     searchable = Column(Boolean)
     applicable = Column(Boolean)
+    sexual = Column(Boolean)
     group_id = Column(String)
     group_name = Column(String)
     char_count = Column(Integer)

@@ -186,7 +186,7 @@ class VNDBFields:
     class Trait(FieldGroup):
         _prefix = ""
         _fields = ['ID', 'NAME', 'ALIASES', 'DESCRIPTION', 'SEARCHABLE', 'APPLICABLE',
-                   'GROUP_ID', 'GROUP_NAME', 'CHAR_COUNT']
+                   'SEXUAL', 'GROUP_ID', 'GROUP_NAME', 'CHAR_COUNT']
 
 
 SMALL_FIELDS_VN: list[str] = [

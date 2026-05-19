@@ -16,6 +16,7 @@ import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle, displayName } from "@/lib/original"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
 
@@ -343,6 +344,7 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
 /* ─── Linked VNs ───────────────────────────────────────────────────────────── */
 
 function LinkedVNs({ vns }: { vns: Release["vns"] }) {
+  const { showOriginal } = useSearchContext()
   return (
     <div className="flex flex-col gap-2">
       {vns.map(vn => (
@@ -352,7 +354,7 @@ function LinkedVNs({ vns }: { vns: Release["vns"] }) {
           className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-colors"
         >
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-white truncate">{vn.title}</p>
+            <p className="text-sm text-white truncate">{displayTitle(vn, showOriginal)}</p>
           </div>
           <span className="text-xs px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/70 shrink-0">
             {enumLabel('RTYPE', vn.rtype)}
@@ -376,8 +378,7 @@ function ReleaseProducers({ producers }: { producers: NonNullable<Release["produ
           className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface border border-white/5 hover:bg-white/5 hover:border-white/10 transition-colors"
         >
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-white truncate">{showOriginal && p.original ? p.original : p.name}</p>
-            {!showOriginal && p.original && <p className="text-xs text-muted truncate">{p.original}</p>}
+            <p className="text-sm text-white truncate">{displayName(p, showOriginal)}</p>
           </div>
           <div className="flex gap-1 shrink-0">
             {p.developer && (
@@ -487,10 +488,9 @@ export function ReleaseDetailPage({ id }: ReleaseDetailPageProps) {
                 <span className={LANG_ICON[mainLang.lang]} />
               )}
               <h1 className="text-2xl font-bold text-white leading-tight">
-                {showOriginal && release.alttitle ? release.alttitle : release.title}
+                {displayTitle(release, showOriginal)}
               </h1>
             </div>
-            {!showOriginal && release.alttitle && <p className="text-muted text-sm mt-0.5">{release.alttitle}</p>}
           </div>
 
           {release.notes && (

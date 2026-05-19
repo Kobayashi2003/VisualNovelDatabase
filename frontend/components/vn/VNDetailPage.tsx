@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
 import type { VN } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle } from "@/lib/original"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -105,9 +106,8 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
         <div className="flex flex-col gap-6">
           <div>
             <h1 className="text-2xl font-bold text-white leading-tight">
-              {showOriginal && vn.alttitle ? vn.alttitle : vn.title}
+              {displayTitle(vn, showOriginal)}
             </h1>
-            {/* {!showOriginal && vn.alttitle && <p className="text-muted text-sm mt-0.5">{vn.alttitle}</p>} */}
           </div>
 
           {vn.description && (

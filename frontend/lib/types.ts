@@ -80,11 +80,13 @@ export interface VN {
     release: {
       id: string
       title: string
+      alttitle?: string
     }
   }>
   relations: Array<{
     id: string
     title: string
+    alttitle?: string
     relation: string
     relation_official: boolean
   }>
@@ -160,6 +162,7 @@ export interface VN {
   releases?: Array<{
     id: string
     title: string
+    alttitle?: string
     released?: string
     languages: Array<{
       lang: string
@@ -201,6 +204,7 @@ export interface Release {
   vns: Array<{
     id: string
     title: string
+    alttitle?: string
     rtype: string
   }>
   producers?: Array<{
@@ -270,9 +274,11 @@ export interface Character {
     id: string
     role: string
     title: string
+    alttitle?: string
     release?: {
       id: string
       title: string
+      alttitle?: string
     }
   }>
   traits: Array<{
@@ -361,6 +367,7 @@ export interface Trait {
 export interface VN_Small {
   id: string
   title: string
+  alttitle?: string
   titles: Array<{
     lang: string
     title: string
@@ -387,6 +394,7 @@ export interface VN_Small {
 export interface Release_Small {
   id: string
   title: string
+  alttitle?: string
   released: string
   languages: Array<{
     lang: string

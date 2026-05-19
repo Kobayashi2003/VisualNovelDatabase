@@ -8,6 +8,7 @@ import { createPortal } from "react-dom"
 import { Eye, EyeOff, ExternalLink, X } from "lucide-react"
 import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle, displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
@@ -183,7 +184,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           <InfoRow label="Developer">
             {vn.developers.map(d => (
               <Link key={d.id} href={`/${d.id}`} className="hover:text-accent transition-colors">
-                {showOriginal && d.original ? d.original : d.name}
+                {displayName(d, showOriginal)}
               </Link>
             ))}
           </InfoRow>
@@ -199,7 +200,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
                       LANG_ICON[l] ? <span key={l} className={LANG_ICON[l]} /> : null
                     )}
                   </div>
-                  <span className="truncate">{showOriginal && pub.original ? pub.original : pub.name}</span>
+                  <span className="truncate">{displayName(pub, showOriginal)}</span>
                 </Link>
               ))}
             </div>
@@ -248,7 +249,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
               <div className="flex flex-col gap-0.5">
                 {items.map(r => (
                   <Link key={r.id} href={`/${r.id}`} className="text-xs text-white/80 hover:text-accent transition-colors truncate">
-                    {r.title}
+                    {displayTitle(r, showOriginal)}
                   </Link>
                 ))}
               </div>

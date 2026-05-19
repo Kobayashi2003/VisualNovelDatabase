@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
 import type { Character } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayName } from "@/lib/original"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -130,9 +131,8 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-white leading-tight">
-                {showOriginal && character.original ? character.original : character.name}
+                {displayName(character, showOriginal)}
               </h1>
-              {!showOriginal && character.original && <p className="text-muted text-sm mt-0.5">{character.original}</p>}
             </div>
             {hasAnySpoilers && (
               <button
@@ -173,4 +173,3 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
     </div>
   )
 }
-

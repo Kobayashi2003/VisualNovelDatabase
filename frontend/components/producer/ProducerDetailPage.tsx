@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumLabel } from "@/lib/enums"
 import type { Producer, VN_Small } from "@/lib/types"
@@ -208,9 +209,8 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
         <div className="flex flex-col gap-6">
           <div>
             <h1 className="text-2xl font-bold text-white leading-tight">
-              {showOriginal && producer.original ? producer.original : producer.name}
+              {displayName(producer, showOriginal)}
             </h1>
-            {!showOriginal && producer.original && <p className="text-muted text-sm mt-0.5">{producer.original}</p>}
           </div>
 
                     {producer.description && (

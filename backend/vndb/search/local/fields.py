@@ -1,7 +1,7 @@
-from vndb.database.models import VN, Tag, Producer, Staff, Character, Trait, Release
+from vndb.database.models import VN as VisualNovel, Tag, Producer, Staff, Character, Trait, Release
 
 class LocalFields:
-    VN = [column.key for column in VN.__table__.columns]
+    VN = [column.key for column in VisualNovel.__table__.columns]
     RELEASE = [column.key for column in Release.__table__.columns]
     CHARACTER = [column.key for column in Character.__table__.columns]
     PRODUCER = [column.key for column in Producer.__table__.columns]
@@ -9,8 +9,8 @@ class LocalFields:
     TAG = [column.key for column in Tag.__table__.columns]
     TRAIT = [column.key for column in Trait.__table__.columns]
 
-    SMALL_VN = ['id', 'title', 'titles', 'released', 'developers', 'image']
-    SMALL_RELEASE = ['id', 'title', 'released', 'vns', 'producers', 'languages']
+    SMALL_VN = ['id', 'title', 'alttitle', 'titles', 'released', 'developers', 'image']
+    SMALL_RELEASE = ['id', 'title', 'alttitle', 'released', 'vns', 'producers', 'languages']
     SMALL_CHARACTER = ['id', 'name', 'sex', 'original', 'vns', 'image']
     SMALL_PRODUCER = ['id', 'name', 'original']
     SMALL_STAFF = ['id', 'name', 'original']

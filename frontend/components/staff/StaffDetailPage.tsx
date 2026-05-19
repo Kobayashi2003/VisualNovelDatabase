@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumLabel } from "@/lib/enums"
 import type { Staff, VN_Small } from "@/lib/types"
@@ -222,9 +223,8 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
         <div className="flex flex-col gap-6">
           <div>
             <h1 className="text-2xl font-bold text-white leading-tight">
-              {showOriginal && staff.original ? staff.original : staff.name}
+              {displayName(staff, showOriginal)}
             </h1>
-            {!showOriginal && staff.original && <p className="text-muted text-sm mt-0.5">{staff.original}</p>}
             {!staff.ismain && (
               <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">
                 Alias entry

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle, displayName } from "@/lib/original"
 import type { VN } from "@/lib/types"
 
 type VNRelease = NonNullable<VN["releases"]>[number]
@@ -105,23 +106,16 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
                   </span>
 
                   <div className="flex-1 min-w-0">
-                    {(() => {
-                      const mainLangEntry = r.languages?.find(l => l.main)
-                      const origTitle = mainLangEntry?.title
-                      const displayTitle = showOriginal && origTitle ? origTitle : r.title
-                      return (
-                        <Link href={`/${r.id}`} className="text-sm text-white/90 hover:text-accent transition-colors truncate block">
-                          {displayTitle}
-                        </Link>
-                      )
-                    })()}
+                    <Link href={`/${r.id}`} className="text-sm text-white/90 hover:text-accent transition-colors truncate block">
+                      {displayTitle(r, showOriginal)}
+                    </Link>
                     {r.producers && r.producers.length > 0 && (
                       <p className="text-xs text-muted truncate mt-0.5">
                         {r.producers.map((p, i) => (
                           <span key={p.id}>
                             {i > 0 && " · "}
                             <span>
-                              {showOriginal && p.original ? p.original : p.name}
+                              {displayName(p, showOriginal)}
                             </span>
                             {p.developer && !p.publisher && " (dev)"}
                             {p.publisher && !p.developer && " (pub)"}

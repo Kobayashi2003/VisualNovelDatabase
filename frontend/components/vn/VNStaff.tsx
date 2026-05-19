@@ -4,6 +4,7 @@
 import Link from "next/link"
 import { enumMap } from "@/lib/enums"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayName } from "@/lib/original"
 import type { VN } from "@/lib/types"
 
 type StaffEntry = VN["staff"][number]
@@ -94,7 +95,7 @@ function StaffList({ entries }: { entries: StaffEntry[] }) {
       {entries.map((s, i) => (
         <span key={`${s.id}-${i}`} className="flex items-baseline gap-1.5 text-sm">
           <Link href={`/${s.id}`} className="text-white/90 hover:text-accent transition-colors">
-            {showOriginal && s.original ? s.original : s.name}
+            {displayName(s, showOriginal)}
           </Link>
           {s.note && (
             <span className="text-xs text-muted">{s.note}</span>

@@ -8,6 +8,7 @@ import { cn, shouldBlur } from "@/lib/utils"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayName } from "@/lib/original"
 import type { VN } from "@/lib/types"
 
 type VNCharacter = VN["characters"][number]
@@ -161,11 +162,9 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
 
                 <div className="flex-1 p-2 min-h-18 overflow-hidden">
                   <p className="text-xs font-semibold text-white truncate">
-                    {showOriginal && c.original ? c.original : c.name}
+                    {displayName(c, showOriginal)}
                   </p>
-                  {/* {!showOriginal && c.original && (
-                    <p className="text-xs text-muted truncate">{c.original}</p>
-                  )} */}
+                  {/* original display handled by displayName */}
 
                   {sexApparent && (
                     <div className="flex items-center gap-1 mt-0.5">
@@ -190,7 +189,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
                       {vaEntries.map((v, i) => (
                         <p key={i} className="text-xs text-muted/80 truncate">
                           CV: <span>
-                            {showOriginal && v.staff.original ? v.staff.original : v.staff.name}
+                            {displayName(v.staff, showOriginal)}
                           </span>
                           {v.note && <span className="text-muted/60"> ({v.note})</span>}
                         </p>

@@ -3,6 +3,8 @@
 
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle } from "@/lib/original"
 import type { Character } from "@/lib/types"
 
 type CharVN = Character["vns"][number]
@@ -26,6 +28,7 @@ interface CharacterVNsProps {
 }
 
 export function CharacterVNs({ vns }: CharacterVNsProps) {
+  const { showOriginal } = useSearchContext()
   const sorted = [...vns].sort((a, b) => {
     const ai = ROLE_ORDER.indexOf(a.role as typeof ROLE_ORDER[number])
     const bi = ROLE_ORDER.indexOf(b.role as typeof ROLE_ORDER[number])
@@ -47,12 +50,12 @@ export function CharacterVNs({ vns }: CharacterVNsProps) {
               href={`/${entry.id}`}
               className="text-sm text-white/90 hover:text-accent transition-colors leading-snug"
             >
-              {entry.title}
+              {displayTitle(entry, showOriginal)}
             </Link>
             {entry.release && (
               <p className="text-xs text-muted mt-0.5 truncate">
                 <Link href={`/${entry.release.id}`} className="hover:text-white/70 transition-colors">
-                  {entry.release.title}
+                  {displayTitle(entry.release, showOriginal)}
                 </Link>
               </p>
             )}

@@ -67,12 +67,12 @@ class VNDBFields:
 
             class RELEASE(FieldGroup):
                 _prefix = "release."
-                _fields = ['ID', 'TITLE']
+                _fields = ['ID', 'TITLE', 'ALTTITLE']
 
         class RELATIONS(FieldGroup):
             _prefix = "relations."
             _fields = ['RELATION', 'RELATION_OFFICIAL',
-                       'ID', 'TITLE']
+                       'ID', 'TITLE', 'ALTTITLE']
 
         class TAGS(FieldGroup):
             _prefix = "tags."
@@ -123,7 +123,7 @@ class VNDBFields:
 
         class VNS(FieldGroup):
             _prefix = "vns."
-            _fields = ['ID', 'RTYPE', 'TITLE']
+            _fields = ['ID', 'RTYPE', 'TITLE', 'ALTTITLE']
 
         class PRODUCERS(FieldGroup):
             _prefix = "producers."
@@ -149,11 +149,11 @@ class VNDBFields:
 
         class VNS(FieldGroup):
             _prefix = "vns."
-            _fields = ['ID', 'SPOILER', 'ROLE', 'TITLE']
+            _fields = ['ID', 'SPOILER', 'ROLE', 'TITLE', 'ALTTITLE']
 
             class RELEASE(FieldGroup):
                 _prefix = "release."
-                _fields = ['ID', 'TITLE']
+                _fields = ['ID', 'TITLE', 'ALTTITLE']
 
         class TRAITS(FieldGroup):
             _prefix = "traits."
@@ -192,6 +192,7 @@ class VNDBFields:
 SMALL_FIELDS_VN: list[str] = [
     VNDBFields.VN.ID,
     VNDBFields.VN.TITLE,
+    VNDBFields.VN.ALTTITLE,
     VNDBFields.VN.TITLES.LANG,
     VNDBFields.VN.TITLES.TITLE,
     VNDBFields.VN.TITLES.LATIN,
@@ -212,6 +213,7 @@ SMALL_FIELDS_VN: list[str] = [
 SMALL_FIELDS_RELEASE: list[str] = [
     VNDBFields.Release.ID,
     VNDBFields.Release.TITLE,
+    VNDBFields.Release.ALTTITLE,
     VNDBFields.Release.RELEASED,
     VNDBFields.Release.LANGUAGES.LANG,
     VNDBFields.Release.LANGUAGES.TITLE,

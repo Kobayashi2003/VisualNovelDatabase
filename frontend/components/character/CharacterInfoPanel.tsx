@@ -7,6 +7,8 @@ import Link from "next/link"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn, shouldBlur } from "@/lib/utils"
+import { useSearchContext } from "@/context/SearchContext"
+import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { ICON } from "@/lib/icons"
 import { InfoRow } from "@/components/common/InfoPanel"
@@ -35,6 +37,7 @@ export function CharacterInfoPanel({
   const [coverOpen, setCoverOpen] = useState(false)
   const [coverMounted, setCoverMounted] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
+  const { showOriginal } = useSearchContext()
 
   useEffect(() => { setCoverMounted(true) }, [])
 
@@ -179,11 +182,8 @@ export function CharacterInfoPanel({
             {character.seiyuu.map((s, idx) => (
               <div key={`${s.id}-${idx}`} className="flex items-baseline gap-1.5">
                 <Link href={`/${s.id}`} className="text-xs text-white/90 hover:text-accent transition-colors">
-                  {s.name}
+                  {displayName(s, showOriginal)}
                 </Link>
-                {s.original && (
-                  <span className="text-xs text-muted">{s.original}</span>
-                )}
                 {s.note && (
                   <span className="text-xs text-muted/60">({s.note})</span>
                 )}

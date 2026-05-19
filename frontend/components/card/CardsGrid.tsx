@@ -9,6 +9,7 @@ import { TextCard } from "./TextCard"
 import { CompactRow } from "./CompactRow"
 import { enumLabel } from "@/lib/enums"
 import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle as displayTitleFn, displayName as displayNameFn } from "@/lib/original"
 
 import {
   VN_Small, Release_Small, Character_Small, Producer_Small,
@@ -197,16 +198,14 @@ export function VNsCardsGrid({
     return (
       <div className="flex flex-col">
         {vns.map((vn, idx) => {
-          const origScript = vn.titles.find(t => t.main)?.title
-          const displayTitle = showOriginal && origScript ? origScript : vn.title
-          const developer = showOriginal && vn.developers?.[0]?.original ? vn.developers[0].original : (vn.developers?.[0]?.name || "")
+          const developer = vn.developers?.[0] ? displayNameFn(vn.developers[0], showOriginal) : ""
           const year = vn.released ? vn.released.substring(0, 4) : ""
           const subtitle = [developer, year].filter(Boolean).join(" · ")
           return (
             <CompactRow
               key={vn.id}
               index={idx + 1}
-              title={displayTitle}
+              title={displayTitleFn(vn, showOriginal)}
               subtitle={subtitle}
               thumbnail={vn.image?.thumbnail || vn.image?.url}
               markedAt={markedAtMap?.[vn.id]}
@@ -226,9 +225,7 @@ export function VNsCardsGrid({
   return (
     <div className={gridClass(effectiveLayout)}>
       {vns.map((vn) => {
-        const origScript = vn.titles.find(t => t.main)?.title
-        const displayTitle = showOriginal && origScript ? origScript : vn.title
-        const developer = showOriginal && vn.developers?.[0]?.original ? vn.developers[0].original : (vn.developers?.[0]?.name || "")
+        const developer = vn.developers?.[0] ? displayNameFn(vn.developers[0], showOriginal) : ""
         const released = vn.released || ""
         const msgs = [developer, released].filter(Boolean)
         return (
@@ -239,10 +236,10 @@ export function VNsCardsGrid({
             onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
           >
             {cardType === "text" ? (
-              <TextCard title={displayTitle} msgs={msgs} link={`/${vn.id}`} layout={effectiveLayout} />
+              <TextCard title={displayTitleFn(vn, showOriginal)} msgs={msgs} link={`/${vn.id}`} layout={effectiveLayout} />
             ) : (
               <GenImageCard
-                image={vn.image} title={displayTitle} msgs={msgs} link={`/${vn.id}`}
+                image={vn.image} title={displayTitleFn(vn, showOriginal)} msgs={msgs} link={`/${vn.id}`}
                 sexualLevel={sexualLevel} violenceLevel={violenceLevel} layout={effectiveLayout}
                 isGuest={isGuest}
               />
@@ -271,13 +268,10 @@ export function ReleasesCardsGrid({
     return (
       <div className="flex flex-col">
         {releases.map((r, idx) => {
-          const mainLangEntry = r.languages?.find(l => l.main)
-          const origTitle = mainLangEntry?.title
-          const displayTitle = showOriginal && origTitle ? origTitle : r.title
           const langs = r.languages?.map(l => l.lang).join(", ") || ""
           return (
             <CompactRow
-              key={r.id} index={idx + 1} title={displayTitle}
+              key={r.id} index={idx + 1} title={displayTitleFn(r, showOriginal)}
               subtitle={[r.released, langs].filter(Boolean).join(" · ")}
               markedAt={markedAtMap?.[r.id]}
               onRemove={onRemove ? () => onRemove(r.id) : undefined}
@@ -295,9 +289,6 @@ export function ReleasesCardsGrid({
   return (
     <div className={gridClass(effectiveLayout)}>
       {releases.map((r) => {
-        const mainLangEntry = r.languages?.find(l => l.main)
-        const origTitle = mainLangEntry?.title
-        const displayTitle = showOriginal && origTitle ? origTitle : r.title
         const langs = r.languages?.map(l => l.lang).join(", ") || ""
         return (
           <CollectionWrapper
@@ -306,7 +297,7 @@ export function ReleasesCardsGrid({
             editMode={editMode} selectedIds={selectedIds}
             onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
           >
-            <TextCard title={displayTitle} msgs={[r.released, langs].filter(Boolean)} link={`/${r.id}`} layout={effectiveLayout} />
+            <TextCard title={displayTitleFn(r, showOriginal)} msgs={[r.released, langs].filter(Boolean)} link={`/${r.id}`} layout={effectiveLayout} />
           </CollectionWrapper>
         )
       })}
@@ -336,10 +327,10 @@ export function CharactersCardsGrid({
       <div className="flex flex-col">
         {characters.map((c, idx) => {
           const role = c.vns?.[0]?.role ? enumLabel('CHARACTER_ROLE', c.vns[0].role) : ""
-          const subtitle = !showOriginal ? [c.original, role].filter(Boolean).join(" · ") : role
+          const subtitle = role
           return (
             <CompactRow
-              key={c.id} index={idx + 1} title={showOriginal && c.original ? c.original : c.name}
+              key={c.id} index={idx + 1} title={displayNameFn(c, showOriginal)}
               subtitle={subtitle}
               thumbnail={c.image?.url}
               markedAt={markedAtMap?.[c.id]}
@@ -359,8 +350,8 @@ export function CharactersCardsGrid({
     <div className={gridClass(effectiveLayout)}>
       {characters.map((c) => {
         const role = c.vns?.[0]?.role ? enumLabel('CHARACTER_ROLE', c.vns[0].role) : ""
-        const displayName = showOriginal && c.original ? c.original : c.name
-        const msgs = (!showOriginal && c.original ? [c.original, role] : [role]).filter(Boolean) as string[]
+        const name = displayNameFn(c, showOriginal)
+        const msgs = [role].filter(Boolean) as string[]
         return (
           <CollectionWrapper
             key={c.id} id={c.id}
@@ -369,10 +360,10 @@ export function CharactersCardsGrid({
             onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
           >
             {cardType === "text" ? (
-              <TextCard title={displayName} msgs={msgs} link={`/${c.id}`} layout={effectiveLayout} />
+              <TextCard title={name} msgs={msgs} link={`/${c.id}`} layout={effectiveLayout} />
             ) : (
               <GenImageCard
-                image={c.image} title={displayName} msgs={msgs} link={`/${c.id}`}
+                image={c.image} title={name} msgs={msgs} link={`/${c.id}`}
                 sexualLevel={sexualLevel} violenceLevel={violenceLevel} layout={effectiveLayout}
               />
             )}
@@ -402,8 +393,7 @@ export function ProducersCardsGrid({
         {producers.map((p, idx) => (
           <CompactRow
             key={p.id} index={idx + 1}
-            title={showOriginal && p.original ? p.original : p.name}
-            subtitle={!showOriginal ? p.original : undefined}
+            title={displayNameFn(p, showOriginal)}
             markedAt={markedAtMap?.[p.id]}
             onRemove={onRemove ? () => onRemove(p.id) : undefined}
             onMove={onMove ? () => onMove(p.id) : undefined}
@@ -419,7 +409,6 @@ export function ProducersCardsGrid({
   return (
     <div className={gridClass(effectiveLayout)}>
       {producers.map((p) => {
-        const displayName = showOriginal && p.original ? p.original : p.name
         return (
           <CollectionWrapper
             key={p.id} id={p.id}
@@ -427,7 +416,7 @@ export function ProducersCardsGrid({
             editMode={editMode} selectedIds={selectedIds}
             onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
           >
-            <TextCard title={displayName} msgs={!showOriginal && p.original ? [p.original] : []} link={`/${p.id}`} layout={effectiveLayout} />
+            <TextCard title={displayNameFn(p, showOriginal)} msgs={[]} link={`/${p.id}`} layout={effectiveLayout} />
           </CollectionWrapper>
         )
       })}
@@ -454,8 +443,7 @@ export function StaffCardsGrid({
         {staff.map((s, idx) => (
           <CompactRow
             key={s.id} index={idx + 1}
-            title={showOriginal && s.original ? s.original : s.name}
-            subtitle={!showOriginal ? s.original : undefined}
+            title={displayNameFn(s, showOriginal)}
             markedAt={markedAtMap?.[s.id]}
             onRemove={onRemove ? () => onRemove(s.id) : undefined}
             onMove={onMove ? () => onMove(s.id) : undefined}
@@ -471,7 +459,6 @@ export function StaffCardsGrid({
   return (
     <div className={gridClass(effectiveLayout)}>
       {staff.map((s) => {
-        const displayName = showOriginal && s.original ? s.original : s.name
         return (
           <CollectionWrapper
             key={s.id} id={s.id}
@@ -479,7 +466,7 @@ export function StaffCardsGrid({
             editMode={editMode} selectedIds={selectedIds}
             onToggleSelect={onToggleSelect} markedAtMap={markedAtMap}
           >
-            <TextCard title={displayName} msgs={!showOriginal && s.original ? [s.original] : []} link={`/${s.id}`} layout={effectiveLayout} />
+            <TextCard title={displayNameFn(s, showOriginal)} msgs={[]} link={`/${s.id}`} layout={effectiveLayout} />
           </CollectionWrapper>
         )
       })}

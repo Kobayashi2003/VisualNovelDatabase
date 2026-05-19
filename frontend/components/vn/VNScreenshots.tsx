@@ -6,6 +6,8 @@ import Image from "next/image"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn, shouldBlur } from "@/lib/utils"
+import { useSearchContext } from "@/context/SearchContext"
+import { displayTitle } from "@/lib/original"
 import type { VN } from "@/lib/types"
 
 type Screenshot = VN["screenshots"][number]
@@ -15,7 +17,7 @@ type Screenshot = VN["screenshots"][number]
 
 function Lightbox({
   screenshots, index, onClose, onPrev, onNext,
-  sexualLevel, violenceLevel,
+  sexualLevel, violenceLevel, showOriginal,
 }: {
   screenshots: Screenshot[]
   index: number
@@ -24,6 +26,7 @@ function Lightbox({
   onNext: () => void
   sexualLevel: string
   violenceLevel: string
+  showOriginal: boolean
 }) {
   const s = screenshots[index]
   const blurred = shouldBlur(s.sexual, s.violence, sexualLevel, violenceLevel)
@@ -100,7 +103,7 @@ function Lightbox({
       {/* Counter + release label */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
         <span className="text-xs text-white/60">{index + 1} / {screenshots.length}</span>
-        <span className="text-xs text-white/40">{s.release.title}</span>
+        <span className="text-xs text-white/40">{displayTitle(s.release, showOriginal)}</span>
       </div>
     </div>,
     document.body
@@ -116,6 +119,7 @@ interface VNScreenshotsProps {
 
 export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScreenshotsProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const { showOriginal } = useSearchContext()
 
   // Flat list for lightbox navigation (all screenshots across all releases)
   const flatScreenshots = screenshots
@@ -132,7 +136,7 @@ export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScr
   screenshots.forEach((s, idx) => {
     const rid = s.release.id
     if (!seenReleases.has(rid)) {
-      const group = { releaseTitle: s.release.title, items: [] }
+      const group = { releaseTitle: displayTitle(s.release, showOriginal), items: [] }
       groups.push(group)
       seenReleases.set(rid, group)
     }
@@ -153,7 +157,7 @@ export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScr
                   key={flatIdx}
                   onClick={() => open(flatIdx)}
                   className="relative w-24 h-14 rounded overflow-hidden bg-elevated shrink-0 hover:ring-2 hover:ring-accent transition-all"
-                  title={s.release.title}
+                  title={displayTitle(s.release, showOriginal)}
                 >
                   <Image
                     src={s.thumbnail}
@@ -181,6 +185,7 @@ export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScr
           onNext={next}
           sexualLevel={sexualLevel}
           violenceLevel={violenceLevel}
+          showOriginal={showOriginal}
         />
       )}
     </div>

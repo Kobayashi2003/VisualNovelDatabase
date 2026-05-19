@@ -11,6 +11,10 @@ interface UserContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   isLoading: boolean
+  defaultSexualLevel: string
+  defaultViolenceLevel: string
+  updateDefaultSexualLevel: (v: string) => void
+  updateDefaultViolenceLevel: (v: string) => void
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -24,6 +28,21 @@ export function useUserContext() {
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [defaultSexualLevel, setDefaultSexualLevel] = useState<string>(
+    () => (typeof window !== "undefined" ? localStorage.getItem("defaultSexualLevel") || "safe" : "safe")
+  )
+  const [defaultViolenceLevel, setDefaultViolenceLevel] = useState<string>(
+    () => (typeof window !== "undefined" ? localStorage.getItem("defaultViolenceLevel") || "tame" : "tame")
+  )
+
+  const updateDefaultSexualLevel = (v: string) => {
+    localStorage.setItem("defaultSexualLevel", v)
+    setDefaultSexualLevel(v)
+  }
+  const updateDefaultViolenceLevel = (v: string) => {
+    localStorage.setItem("defaultViolenceLevel", v)
+    setDefaultViolenceLevel(v)
+  }
 
   // Re-establish the session on mount. A stale/invalid token is silently
   // discarded so the app falls back to the logged-out state.
@@ -73,7 +92,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <UserContext.Provider value={{ user, register, login, logout, isLoading }}>
+    <UserContext.Provider value={{ user, register, login, logout, isLoading, defaultSexualLevel, defaultViolenceLevel, updateDefaultSexualLevel, updateDefaultViolenceLevel }}>
       {children}
     </UserContext.Provider>
   )

@@ -20,6 +20,8 @@ import type {
   Staff_Small, Tag_Small, Trait_Small,
 } from "@/lib/types"
 
+import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
+import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { CollectionSidebar } from "@/components/category/CollectionSidebar"
 import { MoveToDialog } from "@/components/category/MoveToDialog"
 import {
@@ -51,6 +53,8 @@ type ViewMode = "grid" | "list" | "compact"
 
 interface CollectionGridProps extends CollectionCardProps {
   view: ViewMode
+  sexualLevel?: "safe" | "suggestive" | "explicit"
+  violenceLevel?: "tame" | "violent" | "brutal"
 }
 
 function prefixForType(type: string): string {
@@ -78,14 +82,15 @@ async function fetchByIdsForType(
 }
 
 function renderCollectionGrid(type: string, items: unknown[], props: CollectionGridProps) {
+  const { sexualLevel, violenceLevel, ...rest } = props
   switch (type) {
-    case "vn":        return <VNsCardsGrid        vns={items as VN_Small[]}                {...props} />
-    case "release":   return <ReleasesCardsGrid   releases={items as Release_Small[]}      {...props} />
-    case "character": return <CharactersCardsGrid characters={items as Character_Small[]}  {...props} />
-    case "producer":  return <ProducersCardsGrid  producers={items as Producer_Small[]}    {...props} />
-    case "staff":     return <StaffCardsGrid      staff={items as Staff_Small[]}           {...props} />
-    case "tag":       return <TagsCardsGrid       tags={items as Tag_Small[]}              {...props} />
-    case "trait":     return <TraitsCardsGrid     traits={items as Trait_Small[]}          {...props} />
+    case "vn":        return <VNsCardsGrid        vns={items as VN_Small[]}                sexualLevel={sexualLevel} violenceLevel={violenceLevel} {...rest} />
+    case "release":   return <ReleasesCardsGrid   releases={items as Release_Small[]}      {...rest} />
+    case "character": return <CharactersCardsGrid characters={items as Character_Small[]}  sexualLevel={sexualLevel} violenceLevel={violenceLevel} {...rest} />
+    case "producer":  return <ProducersCardsGrid  producers={items as Producer_Small[]}    {...rest} />
+    case "staff":     return <StaffCardsGrid      staff={items as Staff_Small[]}           {...rest} />
+    case "tag":       return <TagsCardsGrid       tags={items as Tag_Small[]}              {...rest} />
+    case "trait":     return <TraitsCardsGrid     traits={items as Trait_Small[]}          {...rest} />
     default:          return null
   }
 }
@@ -99,7 +104,9 @@ function CollectionContent() {
   const router = useRouter()
   const pathname = usePathname()
   const { updateMultipleKeys } = useUrlParams()
-  const { user, isLoading: authLoading } = useUserContext()
+  const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
 
   /* URL-driven filters */
   const type    = searchParams.get("type")  ?? "vn"
@@ -542,6 +549,12 @@ function CollectionContent() {
                 </h1>
               </div>
 
+              {/* Content level selectors */}
+              <div className="flex flex-row gap-2 mb-3">
+                <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={v => setSexualLevel(v as "safe" | "suggestive" | "explicit")} className="w-full" />
+                <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={v => setViolenceLevel(v as "tame" | "violent" | "brutal")} className="w-full" />
+              </div>
+
               {/* Search / sort / view bar */}
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {/* Search */}
@@ -665,6 +678,8 @@ function CollectionContent() {
                   ) : (
                     renderCollectionGrid(type, items, {
                       view,
+                      sexualLevel,
+                      violenceLevel,
                       onRemove: handleRemove,
                       onMove:   handleMove,
                       editMode,

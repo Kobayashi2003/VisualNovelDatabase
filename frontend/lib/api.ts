@@ -294,6 +294,8 @@ export const api = {
       fetchUserserve<{ access_token: string; username: string }>("login", "POST", { username, password }, abortSignal),
     register: (username: string, password: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ access_token: string; username: string }>("register", "POST", { username, password }, abortSignal),
+    changePassword: (oldPassword: string, newPassword: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
     get: (username: string, abortSignal?: AbortSignal) =>
       fetchUserserve<User>(`u${username}`, "GET", undefined, abortSignal),
   },

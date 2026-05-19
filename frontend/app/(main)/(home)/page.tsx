@@ -27,7 +27,7 @@ import { VNsCardsGrid } from "@/components/card/CardsGrid"
 function HomeContent() {
   const searchParams = useSearchParams()
   const { updateKey, updateMultipleKeys } = useUrlParams()
-  const { user, isLoading: authLoading } = useUserContext()
+  const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
 
   const itemsPerPage = 24
   const currentPage = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1
@@ -41,8 +41,8 @@ function HomeContent() {
   const [totalPages, setTotalPages] = useState(0)
   const [cardType, setCardType] = useState<"image" | "text">("image")
   const [layout, setLayout] = useState<"single" | "grid">("grid")
-  const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
-  const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
 
   const abortRef = useRef<AbortController | null>(null)
 

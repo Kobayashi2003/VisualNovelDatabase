@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react"
 
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useSearchContext } from "@/context/SearchContext"
+import { useUserContext } from "@/context/UserContext"
 import { api } from "@/lib/api"
 import type {
   VN_Small, Release_Small, Character_Small, Producer_Small,
@@ -45,6 +46,7 @@ function SearchResultsContent({ slug }: { slug: string }) {
   const searchParams = useSearchParams()
   const { updateKey } = useUrlParams()
   const { sortBy } = useSearchContext()
+  const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
 
   const itemsPerPage = 24
   const currentPage = parseInt(searchParams.get("page") || "1")
@@ -63,8 +65,8 @@ function SearchResultsContent({ slug }: { slug: string }) {
 
   const [cardType, setCardType] = useState<"image" | "text">("image")
   const [layout, setLayout] = useState<"single" | "grid">("grid")
-  const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
-  const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
 
   const abortRef = useRef<AbortController | null>(null)
 

@@ -6,6 +6,7 @@ import { api } from "@/lib/api"
 import { displayTitle } from "@/lib/original"
 import type { VN } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
+import { useUserContext } from "@/context/UserContext"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -27,8 +28,9 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
   const [vn, setVn] = useState<VN | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
-  const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 

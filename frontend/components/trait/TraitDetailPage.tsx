@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import type { Trait, Character_Small } from "@/lib/types"
+import { useUserContext } from "@/context/UserContext"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -100,8 +101,9 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
   const [trait, setTrait] = useState<Trait | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
-  const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
 
   useEffect(() => {
     const ctrl = new AbortController()

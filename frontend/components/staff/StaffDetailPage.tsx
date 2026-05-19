@@ -8,6 +8,7 @@ import { enumLabel } from "@/lib/enums"
 import { displayName } from "@/lib/original"
 import type { Staff } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
+import { useUserContext } from "@/context/UserContext"
 import { Loading } from "@/components/status/Loading"
 import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
@@ -103,8 +104,9 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
   const [staff, setStaff] = useState<Staff | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
-  const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
   const [activeTab, setActiveTab] = useState<"credits" | "characters">("credits")
   const [voicedCount, setVoicedCount] = useState(0)
   const [vnCreditsCount, setVnCreditsCount] = useState(0)

@@ -22,6 +22,7 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
   const LANGUAGE = enumMap('LANGUAGE')
   const RTYPE = enumMap('RTYPE')
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
+  const PLAT_ICON = ICON.PLATFORM as Record<string, string>
   const { showOriginal } = useSearchContext()
 
   // Group by primary language
@@ -124,6 +125,18 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
                       </p>
                     )}
                   </div>
+
+                  {r.platforms && r.platforms.length > 0 && (
+                    <div className="flex flex-wrap gap-1 shrink-0 justify-end pt-0.5">
+                      {r.platforms.map(plat => (
+                        <span
+                          key={plat}
+                          className={cn(PLAT_ICON[plat] ?? "", "text-muted text-sm")}
+                          title={plat}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}

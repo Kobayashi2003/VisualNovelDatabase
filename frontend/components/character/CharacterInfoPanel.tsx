@@ -90,11 +90,7 @@ export function CharacterInfoPanel({
                 <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
               </div>
             )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs bg-black/50 px-2 py-1 rounded">
-                Click to enlarge
-              </span>
-            </div>
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No image</div>

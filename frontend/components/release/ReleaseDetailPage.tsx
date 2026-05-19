@@ -16,6 +16,7 @@ import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { useSearchContext } from "@/context/SearchContext"
+import { useUserContext } from "@/context/UserContext"
 import { displayTitle, displayName } from "@/lib/original"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
 
@@ -414,8 +415,9 @@ export function ReleaseDetailPage({ id }: ReleaseDetailPageProps) {
   const [release, setRelease] = useState<Release | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sexualLevel, setSexualLevel] = useState<"safe" | "suggestive" | "explicit">("safe")
-  const [violenceLevel, setViolenceLevel] = useState<"tame" | "violent" | "brutal">("tame")
+  const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
+  const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel as "safe" | "suggestive" | "explicit")
+  const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel as "tame" | "violent" | "brutal")
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 

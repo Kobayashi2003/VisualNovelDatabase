@@ -164,6 +164,7 @@ export interface VN {
     title: string
     alttitle?: string
     released?: string
+    platforms?: string[]
     languages: Array<{
       lang: string
       title?: string

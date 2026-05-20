@@ -9,7 +9,7 @@ from flask.cli import with_appcontext
 from sqlalchemy import inspect
 
 from userserve import db
-from .models import MODEL_MAP 
+from .models import MODEL_MAP
 
 def register_commands(app):
     app.cli.add_command(init_db)
@@ -38,7 +38,7 @@ def drop_db(force):
     """Drop all tables in the database."""
     if not force:
         click.confirm('This operation will drop all tables in the database, do you want to continue?', abort=True)
-    
+
     db.drop_all()
     click.echo('All tables have been dropped.')
 
@@ -49,7 +49,7 @@ def clean_db(force):
     """Remove all data from the database tables without dropping the tables."""
     if not force:
         click.confirm('This operation will delete all data in the database, do you want to continue?', abort=True)
-    
+
     for model_name, model_class in MODEL_MAP.items():
         try:
             num_rows_deleted = db.session.query(model_class).delete()
@@ -58,7 +58,7 @@ def clean_db(force):
         except Exception as e:
             db.session.rollback()
             click.echo(f'Error cleaning {model_name}: {str(e)}')
-    
+
     click.echo('Database cleaned successfully.')
 
 @click.command('inspect-db')

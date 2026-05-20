@@ -3,12 +3,13 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from .config import Config
 from .extensions import (
-    ExtSQLAchemy, ExtJWT, ExtAPScheduler
+    ExtSQLAchemy, ExtJWT, ExtAPScheduler, ExtLimiter
 )
 
 import os
 import secrets
 import string
+import redis
 
 def create_app(config_class=Config, enable_scheduler=True):
     app = Flask(__name__)
@@ -23,6 +24,8 @@ def create_app(config_class=Config, enable_scheduler=True):
     global db
     global migrate
     global jwt
+    global limiter
+    global redis_client
     global scheduler
 
     # ----------------------------------------
@@ -40,10 +43,21 @@ def create_app(config_class=Config, enable_scheduler=True):
     db = ExtSQLAchemy(app)
     migrate = Migrate(app, db)
     jwt = ExtJWT(app)
+    limiter = ExtLimiter(app)
+    # Ephemeral store for email verification codes (TTL handles expiry).
+    redis_client = redis.Redis.from_url(app.config['USERSERVE_REDIS_URL'], decode_responses=True)
     if enable_scheduler:
         scheduler = ExtAPScheduler(app)
     else:
         scheduler = None
+
+    # Reject tokens that have been revoked (logout) or issued before a user's
+    # password-change cut-off.
+    from .operations import is_token_invalidated
+
+    @jwt.token_in_blocklist_loader
+    def _token_revoked(jwt_header, jwt_payload):
+        return is_token_invalidated(jwt_payload)
 
     # ---------------------------
     # Admin password from env or auto-generated

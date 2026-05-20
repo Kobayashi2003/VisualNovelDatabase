@@ -2,9 +2,11 @@ import time
 from abc import ABC, abstractmethod
 from functools import wraps
 
+from flask import request
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_apscheduler import APScheduler
+from flask_limiter import Limiter
 from sqlalchemy import text
 
 from .logger import logger
@@ -19,7 +21,6 @@ def error_handler(func):
             logger.error(str(e))
             return None
     return wrapper
-
 
 def wait_for_db(db, app, initial_delay=1.0, max_delay=30.0):
     delay = initial_delay
@@ -41,6 +42,14 @@ def wait_for_db(db, app, initial_delay=1.0, max_delay=30.0):
             print(msg)
             time.sleep(delay)
             delay = min(delay * 2, max_delay)
+
+def ratelimit_key():
+    """Rate-limit bucket key: the real client IP. The Next.js proxy forwards the
+    original address in X-Forwarded-For; fall back to the socket address."""
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr or '127.0.0.1'
 
 class Extension(ABC):
     def __init__(self, app):
@@ -91,3 +100,15 @@ class ExtAPScheduler(Extension):
                     return func(*a, **kw)
             return wrapper
         return decorator
+
+class ExtLimiter(Extension):
+    def create(self, app):
+        limiter = Limiter(
+            key_func=ratelimit_key,
+            app=app,
+            storage_uri=app.config.get('RATELIMIT_STORAGE_URI', 'memory://'),
+            strategy='fixed-window',
+            default_limits=[],
+            swallow_errors=True,
+        )
+        return limiter

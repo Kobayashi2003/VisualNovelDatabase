@@ -96,11 +96,61 @@ export class ApiError extends Error {
   }
 }
 
+// A 401 from userserve triggers one refresh attempt; the failed request is then
+// replayed once. Concurrent 401s share a single in-flight refresh.
+
+// Endpoints where a 401 is terminal and must never trigger a refresh-retry.
+const AUTH_ENDPOINTS = ["login", "register", "logout"]
+
+let refreshInFlight: Promise<string | null> | null = null
+let sessionExpiredHandler: (() => void) | null = null
+
+/** Registered by UserContext so the UI can react when the session ends. */
+export function setSessionExpiredHandler(handler: () => void) {
+  sessionExpiredHandler = handler
+}
+
+/** Drop the locally stored tokens and username. */
+export function clearStoredSession() {
+  if (typeof window === "undefined") return
+  localStorage.removeItem("access_token")
+  localStorage.removeItem("refresh_token")
+  localStorage.removeItem("username")
+}
+
+/** Exchange the refresh token for a new access token. Returns the new token,
+ *  or null when there is no refresh token / the refresh was rejected. */
+async function refreshAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null
+  const refreshToken = localStorage.getItem("refresh_token")
+  if (!refreshToken) return null
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${getBaseUrl("userserve")}/refresh`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${refreshToken}` },
+        })
+        if (!res.ok) return null
+        const data = await res.json()
+        localStorage.setItem("access_token", data.access_token)
+        return data.access_token as string
+      } catch {
+        return null
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+  }
+  return refreshInFlight
+}
+
 const fetchUserserve = async <T>(
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE",
   body?: unknown,
   abortSignal?: AbortSignal,
+  isRetry = false,
 ): Promise<T> => {
   const headers: HeadersInit = { 'Content-Type': 'application/json' }
   if (typeof window !== 'undefined') {
@@ -112,6 +162,23 @@ const fetchUserserve = async <T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal: abortSignal,
   })
+
+  // Access token expired → refresh once, then replay the original request.
+  if (
+    response.status === 401 && !isRetry &&
+    typeof window !== "undefined" &&
+    !AUTH_ENDPOINTS.includes(endpoint) &&
+    localStorage.getItem("refresh_token")
+  ) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      return fetchUserserve<T>(endpoint, method, body, abortSignal, true)
+    }
+    // Refresh was rejected → the session is over.
+    clearStoredSession()
+    sessionExpiredHandler?.()
+  }
+
   if (!response.ok) {
     // userserve reports failures as `{ error: code, message: text }`; fall back
     // to a generic message when the body is missing or not JSON.
@@ -326,11 +393,23 @@ export const api = {
   /* Userserve: auth */
   user: {
     login: (username: string, password: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ access_token: string; username: string }>("login", "POST", { username, password }, abortSignal),
-    register: (username: string, password: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ access_token: string; username: string }>("register", "POST", { username, password }, abortSignal),
+      fetchUserserve<{ access_token: string; refresh_token: string; username: string }>("login", "POST", { username, password }, abortSignal),
+    sendVerificationCode: (email: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>("send_verification_code", "POST", { email }, abortSignal),
+    register: (username: string, email: string, password: string, code: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ access_token: string; refresh_token: string; username: string }>("register", "POST", { username, email, password, code }, abortSignal),
     changePassword: (oldPassword: string, newPassword: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ message: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
+      fetchUserserve<{ message: string; access_token: string; refresh_token: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
+    forgotPassword: (email: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>("forgot_password", "POST", { email }, abortSignal),
+    resetPassword: (token: string, newPassword: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>("reset_password", "POST", { token, new_password: newPassword }, abortSignal),
+    logout: (abortSignal?: AbortSignal) => {
+      const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null
+      return fetchUserserve<{ message: string }>("logout", "POST", refreshToken ? { refresh_token: refreshToken } : {}, abortSignal)
+    },
+    me: (abortSignal?: AbortSignal) =>
+      fetchUserserve<User>("me", "GET", undefined, abortSignal),
     get: (username: string, abortSignal?: AbortSignal) =>
       fetchUserserve<User>(`u${username}`, "GET", undefined, abortSignal),
   },

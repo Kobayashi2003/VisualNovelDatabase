@@ -1,5 +1,25 @@
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
+from flask import Blueprint, jsonify, request, current_app
+from flask_jwt_extended import (
+    jwt_required, get_jwt_identity, get_jwt,
+    create_access_token, create_refresh_token, decode_token,
+)
+
+from userserve import limiter
+from .operations import (
+    ValidationError,
+    get_user, create_user, update_user, delete_user, change_password, get_user_by_username,
+    get_user_by_email, reset_user_password, check_email, create_verification_code,
+    revoke_token, revoke_all_user_tokens,
+    get_category, create_category, update_category, delete_category, clear_category,
+    search_categories, get_categories_by_mark, contains_mark, is_marked, are_marked,
+    add_mark_to_category, remove_mark_from_category,
+    add_marks_to_category, remove_marks_from_category,
+    move_marks_to_category, get_marks_from_category,
+    get_marks_from_category_without_pagination,
+    get_marks_for_user,
+)
+from .security import generate_reset_token, verify_reset_token, password_fingerprint
+from .mail import send_password_reset_email, send_verification_code_email
 
 api_bp = Blueprint('api', __name__, url_prefix='/')
 
@@ -15,31 +35,31 @@ def not_found(e):
 def server_error(e):
     return jsonify(error="An unexpected error occurred"), 500
 
-@api_bp.route('', methods=['GET', 'TRACE'])
-def hello_world():
-    return jsonify({"message": "USERSERVE"})
-
-
-from .operations import (
-    ValidationError,
-    get_user, create_user, update_user, delete_user, change_password, get_user_by_username,
-    get_category, create_category, update_category, delete_category, clear_category,
-    search_categories, get_categories_by_mark, contains_mark, is_marked, are_marked,
-    add_mark_to_category, remove_mark_from_category,
-    add_marks_to_category, remove_marks_from_category,
-    move_marks_to_category, get_marks_from_category,
-    get_marks_from_category_without_pagination,
-    get_marks_for_user,
-)
-
+@api_bp.errorhandler(429)
+def ratelimit_exceeded(e):
+    return jsonify(error="rate_limited", message="Too many requests. Please slow down and try again shortly."), 429
 
 @api_bp.errorhandler(ValidationError)
 def handle_validation_error(e):
     """Turn a validation failure into a structured 4xx response."""
     return jsonify(error=e.error_code, message=e.message), e.http_status
 
+@api_bp.route('', methods=['GET', 'TRACE'])
+def hello_world():
+    return jsonify({"message": "USERSERVE"})
+
+
+def _issue_tokens(user):
+    """Build the access + refresh token pair returned by login / register."""
+    return {
+        'access_token': create_access_token(identity=user.id),
+        'refresh_token': create_refresh_token(identity=user.id),
+        'username': user.username,
+    }
+
 
 @api_bp.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -50,26 +70,72 @@ def login():
         return jsonify(error="missing_fields", message="Username and password are required."), 400
     user = get_user_by_username(username.strip())
     if user and user.check_password(password):
-        access_token = create_access_token(identity=user.id)
-        return jsonify({'access_token': access_token, 'username': user.username}), 200
+        return jsonify(_issue_tokens(user)), 200
     return jsonify(error="invalid_credentials", message="Invalid username or password."), 401
 
+@api_bp.route('/send_verification_code', methods=['POST'])
+@limiter.limit("5 per hour")
+def send_verification_code_route():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    email = data.get('email')
+    if not isinstance(email, str):
+        return jsonify(error="missing_fields", message="Email is required."), 400
+    # Raises ValidationError for a bad format or an already-registered email.
+    check_email(email)
+    code = create_verification_code(email)
+    send_verification_code_email(email, code)
+    return jsonify(message="A verification code has been sent to your email."), 200
+
 @api_bp.route('/register', methods=['POST'])
+@limiter.limit("10 per hour")
 def register():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify(error="invalid_request", message="Request body must be JSON."), 400
     username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
-    if not isinstance(username, str) or not isinstance(password, str):
-        return jsonify(error="missing_fields", message="Username and password are required."), 400
-    # check_username / check_password raise ValidationError (handled above);
+    code = data.get('code')
+    if (not isinstance(username, str) or not isinstance(email, str)
+            or not isinstance(password, str) or not isinstance(code, str)):
+        return jsonify(error="missing_fields", message="Username, email, password and verification code are required."), 400
+    # check_* helpers / verify_email_code raise ValidationError (handled above);
     # a None return therefore means an unexpected DB-level failure.
-    user = create_user(username, password)
+    user = create_user(username, email, password, code)
     if not user:
         return jsonify(error="registration_failed", message="Registration failed. Please try again."), 500
-    access_token = create_access_token(identity=user.id)
-    return jsonify({'access_token': access_token, 'username': user.username}), 201
+    return jsonify(_issue_tokens(user)), 201
+
+@api_bp.route('/refresh', methods=['POST'])
+@limiter.limit("30 per minute")
+@jwt_required(refresh=True)
+def refresh():
+    user_id = get_jwt_identity()
+    return jsonify({'access_token': create_access_token(identity=user_id)}), 200
+
+@api_bp.route('/logout', methods=['POST'])
+@jwt_required(verify_type=False)
+def logout():
+    # Revoke the token used for this request (access or refresh)...
+    revoke_token(get_jwt())
+    # ...and the paired refresh token if the client sent it along.
+    data = request.get_json(silent=True)
+    if isinstance(data, dict) and isinstance(data.get('refresh_token'), str):
+        try:
+            revoke_token(decode_token(data['refresh_token']))
+        except Exception:
+            pass
+    return jsonify(message="Logged out"), 200
+
+@api_bp.route('/me', methods=['GET'])
+@jwt_required()
+def me():
+    user = get_user(get_jwt_identity())
+    if not user:
+        return jsonify(error="user_not_found", message="User not found."), 404
+    return jsonify(dict(user)), 200
 
 
 @api_bp.route('/u<username>', methods=['GET'])
@@ -112,6 +178,7 @@ def delete_user_route(username):
     return jsonify(message="User deleted"), 200
 
 @api_bp.route('/change_password', methods=['POST'])
+@limiter.limit("20 per hour")
 @jwt_required()
 def change_password_route():
     user_id = get_jwt_identity()
@@ -127,10 +194,55 @@ def change_password_route():
         return jsonify(error="missing_fields", message="Old and new passwords are required."), 400
     # An invalid old password / weak new password raises ValidationError;
     # a None return means an unexpected DB-level failure.
-    user = change_password(user_id, old_password, new_password)
-    if not user:
+    updated = change_password(user_id, old_password, new_password)
+    if not updated:
         return jsonify(error="password_change_failed", message="Password change failed."), 500
-    return jsonify(message="Password changed successfully"), 200
+    # Invalidate every existing session, then hand this device a fresh pair.
+    revoke_all_user_tokens(user_id)
+    return jsonify({
+        'message': "Password changed successfully",
+        'access_token': create_access_token(identity=user_id),
+        'refresh_token': create_refresh_token(identity=user_id),
+    }), 200
+
+@api_bp.route('/forgot_password', methods=['POST'])
+@limiter.limit("5 per hour")
+def forgot_password_route():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    email = data.get('email')
+    if not isinstance(email, str):
+        return jsonify(error="missing_fields", message="Email is required."), 400
+    user = get_user_by_email(email)
+    if user:
+        reset_url = f"{current_app.config['FRONTEND_BASE_URL']}/reset-password?token={generate_reset_token(user)}"
+        send_password_reset_email(user, reset_url)
+    # Always 200 — never reveal whether an email is registered.
+    return jsonify(message="If that email is registered, a reset link has been sent."), 200
+
+@api_bp.route('/reset_password', methods=['POST'])
+@limiter.limit("10 per hour")
+def reset_password_route():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    token = data.get('token')
+    new_password = data.get('new_password')
+    if not isinstance(token, str) or not isinstance(new_password, str):
+        return jsonify(error="missing_fields", message="Token and new password are required."), 400
+    payload = verify_reset_token(token, current_app.config['RESET_TOKEN_MAX_AGE'])
+    user = get_user(payload['uid']) if payload else None
+    # The fingerprint check rejects links that were already used (the password,
+    # and therefore the fingerprint, has since changed).
+    if not user or password_fingerprint(user) != payload.get('fp'):
+        return jsonify(error="invalid_reset_token", message="This reset link is invalid or has expired."), 400
+    # check_password raises ValidationError (handled above); None means DB failure.
+    updated = reset_user_password(user.id, new_password)
+    if not updated:
+        return jsonify(error="password_reset_failed", message="Password reset failed."), 500
+    revoke_all_user_tokens(user.id)
+    return jsonify(message="Your password has been reset. Please log in with your new password."), 200
 
 
 @api_bp.route('/<string:type>/c', methods=['GET'])

@@ -15,9 +15,13 @@ class User(db.Model):
     id = Column(Integer, primary_key=True)
     is_admin = Column(Boolean, default=False, nullable=False)
     username = Column(String(255), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String(255))
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    # Set on password change / "log out everywhere": any token issued before
+    # this instant is rejected by the JWT blocklist loader.
+    tokens_revoked_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     vn_categories = relationship("VNCategory", back_populates="user", cascade="all, delete-orphan")
@@ -37,6 +41,7 @@ class User(db.Model):
     def __iter__(self):
         yield 'id', self.id
         yield 'username', self.username
+        yield 'email', self.email
         yield 'is_admin', self.is_admin
         yield 'created_at', self.created_at.isoformat() if self.created_at else None
         yield 'updated_at', self.updated_at.isoformat() if self.updated_at else None
@@ -46,6 +51,21 @@ class User(db.Model):
 
     def __repr__(self):
         return f"User(id={self.id!r}, username={self.username!r}, is_admin={self.is_admin!r})"
+
+class TokenBlocklist(db.Model):
+    """Revoked JWT ids. A token whose `jti` is listed here is rejected by the
+    `token_in_blocklist_loader`. Rows are pruned once `expires_at` has passed."""
+    __tablename__ = 'token_blocklist'
+
+    id = Column(Integer, primary_key=True)
+    jti = Column(String(36), nullable=False, unique=True)
+    token_type = Column(String(16), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self):
+        return f"TokenBlocklist(jti={self.jti!r}, token_type={self.token_type!r})"
 
 class Category(db.Model):
     __abstract__ = True
@@ -171,7 +191,7 @@ CATEGORY_MODEL = {
 }
 
 ModelType = Union[
-    User, VNCategory, ReleaseCategory, CharacterCategory, 
+    User, VNCategory, ReleaseCategory, CharacterCategory,
     ProducerCategory, StaffCategory, TagCategory, TraitCategory
 ]
 
@@ -183,7 +203,8 @@ MODEL_MAP = {
     'producer': ProducerCategory,
     'staff': StaffCategory,
     'tag': TagCategory,
-    'trait': TraitCategory
+    'trait': TraitCategory,
+    'token_blocklist': TokenBlocklist,
 }
 
 def create_default_categories(mapper, connection, target):

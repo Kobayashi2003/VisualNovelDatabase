@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from flask import current_app
 from userserve import scheduler
+from .operations import prune_expired_blocklist
 
 def test_task(func):
     @wraps(func)
@@ -66,3 +67,9 @@ def backup_database_schedule():
         print(f"[UserServe] Database backup created successfully")
     except Exception as e:
         print(f"[UserServe] Error creating database backup: {str(e)}", err=True)
+
+
+@daily_task(hour=3, minute=30)
+def prune_token_blocklist_schedule():
+    deleted = prune_expired_blocklist()
+    print(f"[UserServe] Pruned {deleted} expired token blocklist row(s)")

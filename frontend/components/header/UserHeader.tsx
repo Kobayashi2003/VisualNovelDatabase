@@ -13,6 +13,7 @@ import { RegisterButton } from "@/components/button/RegisterButton"
 import { LogoutButton } from "@/components/button/LogoutButton"
 import { LoginDialog } from "@/components/dialog/LoginDialog"
 import { RegisterDialog } from "@/components/dialog/RegisterDialog"
+import { ForgotPasswordDialog } from "@/components/dialog/ForgotPasswordDialog"
 import { ConfirmDialog } from "@/components/dialog/ConfirmDialog"
 import { SettingsDialog } from "@/components/dialog/SettingsDialog"
 
@@ -27,6 +28,7 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
 
   const [loginDialogOpen, setLoginDialogOpen] = useState(false)
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false)
+  const [forgotDialogOpen, setForgotDialogOpen] = useState(false)
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -107,6 +109,7 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
             open={loginDialogOpen}
             setOpen={setLoginDialogOpen}
             handleLogin={login}
+            onForgotPassword={() => { setLoginDialogOpen(false); setForgotDialogOpen(true) }}
             disabled={hidden}
           />
           <RegisterDialog
@@ -114,6 +117,10 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
             setOpen={setRegisterDialogOpen}
             handleRegister={register}
             disabled={hidden}
+          />
+          <ForgotPasswordDialog
+            open={forgotDialogOpen}
+            setOpen={setForgotDialogOpen}
           />
         </>
       )}

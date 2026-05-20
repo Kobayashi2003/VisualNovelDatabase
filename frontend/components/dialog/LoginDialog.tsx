@@ -3,17 +3,19 @@
 
 import { useState } from "react"
 import { BaseDialog } from "./BaseDialog"
+import { PasswordInput } from "@/components/input/PasswordInput"
 import { Loader2, ArrowRight } from "lucide-react"
 
 interface LoginDialogProps {
   open: boolean
   setOpen: (open: boolean) => void
   handleLogin: (username: string, password: string) => Promise<void>
+  onForgotPassword?: () => void
   disabled?: boolean
   className?: string
 }
 
-export function LoginDialog({ open, setOpen, handleLogin, disabled, className }: LoginDialogProps) {
+export function LoginDialog({ open, setOpen, handleLogin, onForgotPassword, disabled, className }: LoginDialogProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -49,14 +51,7 @@ export function LoginDialog({ open, setOpen, handleLogin, disabled, className }:
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-muted">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-            required
-            className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
-          />
+          <PasswordInput value={password} onChange={setPassword} placeholder="Enter password" />
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
         <button
@@ -67,6 +62,15 @@ export function LoginDialog({ open, setOpen, handleLogin, disabled, className }:
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
           {loading ? "Logging in..." : "Login"}
         </button>
+        {onForgotPassword && (
+          <button
+            type="button"
+            onClick={onForgotPassword}
+            className="self-center text-xs text-muted hover:text-white transition-colors"
+          >
+            Forgot password?
+          </button>
+        )}
       </form>
     </BaseDialog>
   )

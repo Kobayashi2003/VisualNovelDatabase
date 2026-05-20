@@ -22,3 +22,13 @@ export function validatePassword(password: string): string | null {
   if (password.length > PASSWORD_MAX_LENGTH) return `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`
   return null
 }
+
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+/** Returns an error message, or `null` if the email is valid. */
+export function validateEmail(email: string): string | null {
+  const trimmed = email.trim()
+  if (!trimmed) return "Email cannot be empty."
+  if (trimmed.length > 255 || !EMAIL_PATTERN.test(trimmed)) return "Please enter a valid email address."
+  return null
+}

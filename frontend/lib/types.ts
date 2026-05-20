@@ -476,6 +476,7 @@ export interface User {
   id: number
   is_admin: boolean
   username: string
+  email: string
   created_at: string
   updated_at: string
 }

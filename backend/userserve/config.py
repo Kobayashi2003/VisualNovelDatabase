@@ -16,7 +16,30 @@ class Config:
     JWT_SECRET_KEY = os.environ['JWT_SECRET_KEY']
     JWT_VERIFY_SUB = False
     JWT_ALGORITHM = 'HS256'
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=int(os.environ.get('JWT_ACCESS_TOKEN_MINUTES', 30)))
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=int(os.environ.get('JWT_REFRESH_TOKEN_DAYS', 30)))
+
+    # Rate limiting (Flask-Limiter). Defaults to in-process memory storage; set
+    # USERSERVE_RATELIMIT_STORAGE_URI to a redis:// URL for multi-worker setups.
+    RATELIMIT_STORAGE_URI = os.environ.get('USERSERVE_RATELIMIT_STORAGE_URI', 'memory://')
+    RATELIMIT_HEADERS_ENABLED = True
+
+    # Mail (SMTP). Leave MAIL_SERVER empty to log reset links instead of sending
+    # them — lets the password-reset flow work in dev without a real SMTP account.
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', '')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', '')
+    MAIL_SUPPRESS_SEND = os.environ.get('MAIL_SUPPRESS_SEND', 'False').lower() in ('true', '1', 'yes')
+
+    # Password reset & email verification
+    FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost')
+    RESET_TOKEN_MAX_AGE = int(os.environ.get('RESET_TOKEN_MAX_AGE_SECONDS', 1800))
+    VERIFICATION_CODE_MAX_AGE = int(os.environ.get('VERIFICATION_CODE_MAX_AGE_SECONDS', 600))
+    USERSERVE_REDIS_URL = os.environ.get('USERSERVE_REDIS_URL', 'redis://localhost:6379/7')
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ['USERSERVE_DB_URL']

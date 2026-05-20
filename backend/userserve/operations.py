@@ -1,3 +1,6 @@
+import re
+import hashlib
+import secrets
 from typing import List, Dict, Callable
 from functools import wraps
 from operator import itemgetter
@@ -5,8 +8,8 @@ from datetime import datetime, timezone
 
 from flask import current_app
 
-from userserve import db
-from .models import User, CATEGORY_MODEL, CategoryType
+from userserve import db, redis_client
+from .models import User, TokenBlocklist, CATEGORY_MODEL, CategoryType
 
 class ValidationError(Exception):
     """Base for input-validation failures meant to be reported to the client.
@@ -71,6 +74,29 @@ class UsernameTooLongError(InvalidUsernameError):
     message = "Username must be at most 32 characters."
 
 
+class InvalidEmailError(ValidationError):
+    error_code = "invalid_email"
+    message = "Invalid email address."
+
+class EmailAlreadyExistsError(InvalidEmailError):
+    error_code = "email_taken"
+    message = "This email is already registered."
+    http_status = 409
+
+class EmptyEmailError(InvalidEmailError):
+    error_code = "email_empty"
+    message = "Email cannot be empty."
+
+class InvalidEmailFormatError(InvalidEmailError):
+    error_code = "email_invalid_format"
+    message = "Please enter a valid email address."
+
+
+class InvalidVerificationCodeError(ValidationError):
+    error_code = "invalid_verification_code"
+    message = "The verification code is invalid or has expired."
+
+
 class CategoryNotFoundError(Exception):
     pass
 
@@ -108,6 +134,18 @@ def check_password(password: str) -> bool:
         raise PasswordTooLongError
     return True
 
+EMAIL_PATTERN = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+def check_email(email: str) -> bool:
+    email = email.strip().lower()
+    if not email:
+        raise EmptyEmailError
+    if len(email) > 255 or not EMAIL_PATTERN.match(email):
+        raise InvalidEmailFormatError
+    if get_user_by_email(email):
+        raise EmailAlreadyExistsError
+    return True
+
 def check_category_name(category_name: str) -> bool:
     if len(category_name) > 32:
         raise CategoryNameTooLongError
@@ -138,11 +176,18 @@ def get_user_by_username(username: str) -> User | None:
     return User.query.filter_by(username=username).first()
 
 @save_db_operation
-def create_user(username: str, password: str) -> User | None:
+def get_user_by_email(email: str) -> User | None:
+    return User.query.filter_by(email=email.strip().lower()).first()
+
+@save_db_operation
+def create_user(username: str, email: str, password: str, code: str) -> User | None:
     username = username.strip()
+    email = email.strip().lower()
     check_username(username)
+    check_email(email)
     check_password(password)
-    user = User(username=username)
+    verify_email_code(email, code)
+    user = User(username=username, email=email)
     user.set_password(password)
     db.session.add(user)
     db.session.flush()
@@ -150,12 +195,15 @@ def create_user(username: str, password: str) -> User | None:
     return user
 
 @save_db_operation
-def create_admin(username: str, password: str, admin_password: str) -> User | None:
+def create_admin(username: str, email: str, password: str, admin_password: str) -> User | None:
     if admin_password != current_app.config['ADMIN_PASSWORD']:
         raise InvalidAdminPasswordError
+    username = username.strip()
+    email = email.strip().lower()
     check_username(username)
+    check_email(email)
     check_password(password)
-    user = User(username=username, is_admin=True)
+    user = User(username=username, email=email, is_admin=True)
     user.set_password(password)
     db.session.add(user)
     db.session.flush()
@@ -213,6 +261,19 @@ def change_password(user_id: int, old_password: str, new_password: str) -> User 
     return user
 
 @save_db_operation
+def reset_user_password(user_id: int, new_password: str) -> User | None:
+    """Set a new password without verifying the old one — used by the email
+    password-reset flow, where the user proves identity via the reset token."""
+    user = get_user(user_id)
+    if not user:
+        raise UserNotFoundError
+    check_password(new_password)
+    user.set_password(new_password)
+    db.session.flush()
+    db.session.commit()
+    return user
+
+@save_db_operation
 def delete_user(user_id: int) -> bool:
     user = get_user(user_id)
     if not user:
@@ -221,6 +282,91 @@ def delete_user(user_id: int) -> bool:
     db.session.flush()
     db.session.commit()
     return True
+
+
+def _code_key(email: str) -> str:
+    return f"userserve:verify:{email.strip().lower()}"
+
+def _hash_code(code: str) -> str:
+    return hashlib.sha256(code.strip().encode()).hexdigest()
+
+def create_verification_code(email: str) -> str:
+    """Generate a fresh 6-digit code for `email`, store it (hashed) in Redis
+    with a TTL, and return it in plaintext so the caller can email it. A new
+    code overwrites any previous one for the same email."""
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    redis_client.setex(
+        _code_key(email),
+        current_app.config['VERIFICATION_CODE_MAX_AGE'],
+        _hash_code(code),
+    )
+    return code
+
+def verify_email_code(email: str, code: str) -> bool:
+    """Raise InvalidVerificationCodeError unless `code` matches the active code
+    stored for `email`. Expiry is handled by the Redis key's TTL."""
+    stored = redis_client.get(_code_key(email))
+    if not stored or stored != _hash_code(code):
+        raise InvalidVerificationCodeError
+    return True
+
+
+def is_token_invalidated(jwt_payload: dict) -> bool:
+    """Blocklist check for the JWT loader: True if the token's `jti` has been
+    explicitly revoked, or if it was issued before the owning user's revocation
+    cut-off (set on password change). Not wrapped by `save_db_operation` — a
+    swallowed error must never make a revoked token look valid."""
+    jti = jwt_payload.get('jti')
+    if jti and TokenBlocklist.query.filter_by(jti=jti).first() is not None:
+        return True
+    user_id = jwt_payload.get('sub')
+    issued_at = jwt_payload.get('iat')
+    if user_id is not None and issued_at is not None:
+        user = User.query.get(user_id)
+        if user and user.tokens_revoked_at and issued_at < int(user.tokens_revoked_at.timestamp()):
+            return True
+    return False
+
+@save_db_operation
+def revoke_token(jwt_payload: dict) -> bool:
+    """Add a decoded token's `jti` to the blocklist. Idempotent: an already
+    blocklisted jti (e.g. logging out twice) is treated as success."""
+    jti = jwt_payload['jti']
+    if TokenBlocklist.query.filter_by(jti=jti).first() is not None:
+        return True
+    exp = jwt_payload.get('exp')
+    entry = TokenBlocklist(
+        jti=jti,
+        token_type=jwt_payload.get('type', 'access'),
+        user_id=jwt_payload.get('sub'),
+        expires_at=datetime.fromtimestamp(exp, tz=timezone.utc) if exp else None,
+    )
+    db.session.add(entry)
+    db.session.flush()
+    db.session.commit()
+    return True
+
+@save_db_operation
+def revoke_all_user_tokens(user_id: int) -> bool:
+    """Invalidate every token previously issued to a user by advancing their
+    revocation cut-off to now."""
+    user = get_user(user_id)
+    if not user:
+        raise UserNotFoundError
+    user.tokens_revoked_at = datetime.now(timezone.utc)
+    db.session.flush()
+    db.session.commit()
+    return True
+
+@save_db_operation
+def prune_expired_blocklist() -> int:
+    """Delete blocklist rows whose tokens have already expired naturally."""
+    deleted = TokenBlocklist.query.filter(
+        TokenBlocklist.expires_at.isnot(None),
+        TokenBlocklist.expires_at < datetime.now(timezone.utc),
+    ).delete(synchronize_session=False)
+    db.session.commit()
+    return deleted
 
 
 @save_db_operation

@@ -1,1 +1,0 @@
-2. release的producer需要区分为developer和publisher

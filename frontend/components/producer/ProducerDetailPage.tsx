@@ -4,9 +4,8 @@
 import { useEffect, useState, useRef } from "react"
 import { api } from "@/lib/api"
 import { enumLabel } from "@/lib/enums"
-import { PAGE_LIMIT } from "@/lib/constants"
 import { displayName } from "@/lib/original"
-import type { Producer, VN_Small } from "@/lib/types"
+import type { Producer } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
 import { Loading } from "@/components/status/Loading"
@@ -15,9 +14,10 @@ import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { InfoRow, Section } from "@/components/common/InfoPanel"
-import { VNsCardsGrid } from "@/components/card/CardsGrid"
-import { PaginationButtons } from "@/components/button/PaginationButtons"
+import { TabBar } from "@/components/common/TabBar"
 import { VNDescription } from "@/components/vn/VNDescription"
+import { ProducerVNs } from "@/components/producer/ProducerVNs"
+import { ProducerReleases } from "@/components/producer/ProducerReleases"
 
 /* ─── Sidebar info panel ───────────────────────────────────────────────────── */
 
@@ -81,50 +81,6 @@ function ProducerInfoPanel({ producer }: ProducerInfoPanelProps) {
   )
 }
 
-/* ─── VN list section ──────────────────────────────────────────────────────── */interface ProducerVNsProps {
-  producerId: string
-  sexualLevel: "safe" | "suggestive" | "explicit"
-  violenceLevel: "tame" | "violent" | "brutal"
-  onCountLoaded?: (count: number) => void
-}
-
-function ProducerVNs({ producerId, sexualLevel, violenceLevel, onCountLoaded }: ProducerVNsProps) {
-  const [vns, setVns] = useState<VN_Small[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-
-    api.small.vn({ developer: producerId, sort: "released", reverse: true, limit: PAGE_LIMIT, page })
-      .then(res => {
-        if (cancelled) return
-        setVns(res.results)
-        setTotalPages(Math.ceil(res.count / PAGE_LIMIT))
-        onCountLoaded?.(res.count)
-      })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-
-    return () => { cancelled = true }
-  }, [producerId, page])
-
-  if (loading) return <Loading message="Loading visual novels..." />
-  if (error) return <ErrorStatus message={error} />
-  if (vns.length === 0) return <p className="text-sm text-muted">No visual novels found.</p>
-
-  return (
-    <div className="flex flex-col gap-4">
-      <VNsCardsGrid vns={vns} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
-      <PaginationButtons totalPages={totalPages} currentPage={page} onPageChange={setPage} />
-    </div>
-  )
-}
-
 /* ─── Main page ────────────────────────────────────────────────────────────── */
 
 interface ProducerDetailPageProps {
@@ -139,6 +95,8 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
   const [vnCount, setVnCount] = useState(0)
+  const [releaseCount, setReleaseCount] = useState(0)
+  const [activeTab, setActiveTab] = useState<"vns" | "releases">("vns")
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 
@@ -151,7 +109,13 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
     setProducer(null)
 
     api.by_id.producer(id, {}, ctrl.signal)
-      .then(data => { if (!ctrl.signal.aborted) setProducer(data) })
+      .then(data => {
+        if (ctrl.signal.aborted) return
+        setProducer(data)
+        api.small.release({ producer: data.id, limit: 1 }, ctrl.signal)
+          .then(res => { if (!ctrl.signal.aborted) setReleaseCount(res.count) })
+          .catch(() => {})
+      })
       .catch(e => { if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
       .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
 
@@ -224,14 +188,32 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
             </Section>
           )}
 
-          <Section title="Visual Novels" count={vnCount || undefined}>
-            <ProducerVNs
-              producerId={producer.id}
-              sexualLevel={sexualLevel}
-              violenceLevel={violenceLevel}
-              onCountLoaded={setVnCount}
-            />
-          </Section>
+          <div>
+            <div className="mb-3">
+              <TabBar
+                tabs={[
+                  { value: "vns", label: "Visual Novels", count: vnCount || undefined },
+                  { value: "releases", label: "Releases", count: releaseCount || undefined },
+                ]}
+                active={activeTab}
+                onChange={v => setActiveTab(v as "vns" | "releases")}
+              />
+            </div>
+            {activeTab === "vns" ? (
+              <ProducerVNs
+                producerId={producer.id}
+                sexualLevel={sexualLevel}
+                violenceLevel={violenceLevel}
+                onCountLoaded={setVnCount}
+              />
+            ) : (
+              <ProducerReleases
+                producerId={producer.id}
+                producerLang={producer.lang}
+                onCountLoaded={setReleaseCount}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

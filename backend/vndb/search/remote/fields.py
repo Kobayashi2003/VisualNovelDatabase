@@ -223,6 +223,8 @@ SMALL_FIELDS_RELEASE: list[str] = [
     VNDBFields.Release.LANGUAGES.MAIN,
     VNDBFields.Release.VNS.ID,
     VNDBFields.Release.VNS.RTYPE,
+    VNDBFields.Release.VNS.TITLE,
+    VNDBFields.Release.VNS.ALTTITLE,
     VNDBFields.Release.PRODUCERS.ID,
     VNDBFields.Release.PRODUCERS.DEVELOPER,
     VNDBFields.Release.PRODUCERS.PUBLISHER,

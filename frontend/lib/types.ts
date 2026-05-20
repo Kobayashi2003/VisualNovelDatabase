@@ -401,6 +401,7 @@ export interface Release_Small {
   title: string
   alttitle?: string
   released: string
+  platforms?: string[]
   languages: Array<{
     lang: string
     title?: string
@@ -411,6 +412,8 @@ export interface Release_Small {
   vns: Array<{
     id: string
     rtype: string
+    title?: string
+    alttitle?: string
   }>
   producers: Array<{
     id: string

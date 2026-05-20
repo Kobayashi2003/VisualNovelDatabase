@@ -264,6 +264,7 @@ export function SearchPanel({
               type={localType}
               filterState={localFilterState}
               setFilterState={setLocalFilterState}
+              source={localFrom}
             />
           </div>
         </div>

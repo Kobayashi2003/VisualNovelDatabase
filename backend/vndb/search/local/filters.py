@@ -861,17 +861,14 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
         filters.append(create_comparison_filter(Character.age, age, int))
 
     if traits := params.get('trait'):
+        # NOTE: 'trait' and 'dtrait' behave identically in local search.
+        # The API distinction (parent trait traversal vs. direct only) requires trait
+        # hierarchy data which is not available locally. This matches the same
+        # limitation as local 'tag'/'dtag'.
         def process_trait(trait_value):
-            trait_group, trait_name = trait_value.split(':')
-            return and_(
-                or_(
-                    array_jsonb_exact_match(Character.traits, 'group_id', trait_group),
-                    array_jsonb_match(Character.traits, 'group_name', trait_group)
-                ),
-                or_(
-                    array_jsonb_exact_match(Character.traits, 'id', trait_name),
-                    array_jsonb_match(Character.traits, 'name', trait_name)
-                )
+            return or_(
+                array_jsonb_exact_match(Character.traits, 'id', trait_value),
+                array_jsonb_match(Character.traits, 'name', trait_value)
             )
         filters.append(process_multi_value_expression(traits, process_trait))
 

@@ -7,12 +7,12 @@ import { api } from "@/lib/api"
 
 interface UserContextType {
   user: User | null
-  register: (username: string, password: string) => Promise<void>
-  login: (username: string, password: string) => Promise<void>
-  logout: () => void
   isLoading: boolean
   defaultSexualLevel: SexualLevel
   defaultViolenceLevel: ViolenceLevel
+  register: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  logout: () => void
   updateDefaultSexualLevel: (v: SexualLevel) => void
   updateDefaultViolenceLevel: (v: ViolenceLevel) => void
 }

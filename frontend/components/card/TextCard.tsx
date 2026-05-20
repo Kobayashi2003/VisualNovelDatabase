@@ -8,11 +8,11 @@ interface TextCardProps {
   msgs?: string[]
   link?: string
   layout?: "single" | "grid"
-  className?: string
   tooltip?: string
+  className?: string
 }
 
-export function TextCard({ title, msgs, link, layout = "grid", className, tooltip }: TextCardProps) {
+export function TextCard({ title, msgs, link, layout = "grid", tooltip, className }: TextCardProps) {
   const card = (
     <div className={cn(
       "bg-surface hover:bg-elevated",

@@ -58,10 +58,11 @@ interface EntityFilterProps {
   label: string
   entityType: EntityType
   value: EntityItem[]
+  source?: string
   onChange: (items: EntityItem[]) => void
 }
 
-export function EntityFilter({ label, entityType, value, onChange }: EntityFilterProps) {
+export function EntityFilter({ label, entityType, value, source, onChange }: EntityFilterProps) {
   const [query, setQuery]             = useState("")
   const [results, setResults]         = useState<NormalizedResult[]>([])
   const [loading, setLoading]         = useState(false)
@@ -96,7 +97,7 @@ export function EntityFilter({ label, entityType, value, onChange }: EntityFilte
     setLoading(true)
     setOpen(true)
 
-    fetchByType(entityType, { search: q, limit: 10 }, abortRef.current.signal)
+    fetchByType(entityType, { search: q, limit: 10, ...(source && source !== "both" ? { from: source } : {}) }, abortRef.current.signal)
       .then(res => {
         setResults(res.results.map(r => normalize(entityType, r)))
         setLoading(false)

@@ -12,13 +12,13 @@ interface ImageCardProps {
   url: string
   msgs?: string[]
   link?: string
-  className?: string
   restricted?: boolean
   tooltip?: string
   layout?: "grid" | "list"
+  className?: string
 }
 
-export function ImageCard({ title, url, msgs, link, className, restricted, tooltip, layout = "grid" }: ImageCardProps) {
+export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout = "grid", className }: ImageCardProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [imgUrl, setImgUrl] = useState(url)

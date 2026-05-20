@@ -13,18 +13,18 @@ interface CompactRowProps {
   thumbnail?: string           // undefined = no thumbnail column; empty string = placeholder
   badges?: string[]
   markedAt?: string
-  onRemove?: () => void
-  onMove?: () => void
+  link?: string
   selected?: boolean
   editMode?: boolean
+  onRemove?: () => void
+  onMove?: () => void
   onToggleSelect?: () => void
-  link?: string
   className?: string
 }
 
 export function CompactRow({
   index, title, subtitle, thumbnail, badges, markedAt,
-  onRemove, onMove, selected, editMode, onToggleSelect, link, className
+  link, selected, editMode, onRemove, onMove, onToggleSelect, className
 }: CompactRowProps) {
   const rowClick = editMode ? (e: React.MouseEvent) => { e.preventDefault(); onToggleSelect?.() } : undefined
 

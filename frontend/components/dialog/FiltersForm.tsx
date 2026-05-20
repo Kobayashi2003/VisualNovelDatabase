@@ -192,10 +192,11 @@ function DateFilterComparable({ filter, value, onChange }: {
 interface FiltersFormProps {
   type: string
   filterState: FilterState
+  source?: string
   setFilterState: (s: FilterState) => void
 }
 
-export function FiltersForm({ type, filterState, setFilterState }: FiltersFormProps) {
+export function FiltersForm({ type, filterState, source, setFilterState }: FiltersFormProps) {
   const f = searchFilters[type] || {}
 
   const setText = (k: string, v: string) => setFilterState({ ...filterState, text: { ...filterState.text, [k]: v } })
@@ -222,6 +223,7 @@ export function FiltersForm({ type, filterState, setFilterState }: FiltersFormPr
           entityType={field.entityType}
           value={filterState.entity?.[field.value] ?? []}
           onChange={v => setEntity(field.value, v)}
+          source={source}
         />
       ))}
       {f.text?.map(field => (

@@ -28,16 +28,16 @@ type ImageProps = {
 }
 
 interface GenImageCardProps {
-  image?: ImageProps
   title: string
   msgs: string[]
+  image?: ImageProps
   link?: string
   sexualLevel?: "safe" | "suggestive" | "explicit"
   violenceLevel?: "tame" | "violent" | "brutal"
   layout?: "single" | "grid"
-  className?: string
   isGuest?: boolean
   tooltip?: string
+  className?: string
 }
 
 const BLUR = "blur-lg hover:blur-none"
@@ -52,9 +52,9 @@ function getBlurClass(
 }
 
 export function GenImageCard({
-  image, title, msgs, link,
+  title, msgs, image, link,
   sexualLevel = "safe", violenceLevel = "tame",
-  layout = "grid", className, isGuest, tooltip
+  layout = "grid", isGuest, tooltip, className
 }: GenImageCardProps) {
   const blurClass = getBlurClass(image, sexualLevel, violenceLevel)
   const imgUrl = image?.thumbnail || image?.url || ""
@@ -86,12 +86,12 @@ const gridClass = (layout: "single" | "grid") =>
 /* ─── Shared collection props + hover-action wrapper ──────────────────────── */
 export interface CollectionCardProps {
   view?: "grid" | "list" | "compact"
-  onRemove?: (id: string) => void
-  onMove?: (id: string) => void
   editMode?: boolean
   selectedIds?: Set<string>
-  onToggleSelect?: (id: string) => void
   markedAtMap?: Record<string, string>
+  onRemove?: (id: string) => void
+  onMove?: (id: string) => void
+  onToggleSelect?: (id: string) => void
 }
 
 // Adds hover-actions (remove/move), edit-mode checkbox, and a date-added badge

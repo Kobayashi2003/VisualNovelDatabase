@@ -355,25 +355,44 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
     return parse_logical_expression(new_expression, field)
 
 def parse_trait_expression(expression: str, directly: bool = False) -> dict[str, Any]:
+    from .search import api
+    url = "https://api.vndb.org/kana/trait"
+    client = api.client
 
     def get_trait_ids(trait: str) -> list[str]:
-        # Recently, there is no way to get trait ids from trait name and trait group name at the same time.
-        # So, we don't process the trait here.
-        return [trait]
+        """Get trait IDs from trait name or return as-is if already an ID."""
+        if re.match(r'^i\d+$', trait):
+            return [trait]
+        results = []
+        page = 1
+        more = True
+        while more:
+            payload = {
+                "filters": ["search", "=", trait],
+                "fields": "id",
+                "page": page,
+                "results": 100
+            }
+            response = client.post(url, json=payload)
+            results.extend(response.json().get('results', []))
+            more = response.json().get('more', False)
+            page += 1
+        return [result['id'] for result in results]
 
     def process_traits(expr: str) -> str:
-        # Split by operators and process each trait
+        """Extract and process traits from expression"""
         traits = re.split(r'[+,()]', expr)
         traits = [trait.strip() for trait in traits if trait.strip()]
 
-        # Create mapping of original traits to their IDs
         trait_map = {}
         for trait in traits:
             if trait not in trait_map:
                 ids = get_trait_ids(trait)
-                trait_map[trait] = f"({','.join(ids)})" if len(ids) > 1 else ids[0] if ids else "i0"
+                if ids:
+                    trait_map[trait] = f"({','.join(ids)})" if len(ids) > 1 else ids[0]
+                else:
+                    trait_map[trait] = "i0"  # Placeholder for non-existent trait
 
-        # Reconstruct expression with IDs
         new_expr = expr
         for trait, trait_ids in trait_map.items():
             new_expr = re.sub(r'\b' + re.escape(trait) + r'\b', trait_ids, new_expr)

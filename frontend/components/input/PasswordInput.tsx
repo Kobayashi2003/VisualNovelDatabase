@@ -8,9 +8,14 @@ interface PasswordInputProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  className?: string
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
 }
 
-export function PasswordInput({ value, onChange, placeholder }: PasswordInputProps) {
+const DEFAULT_CLASS =
+  "w-full px-4 py-2 pr-10 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
+
+export function PasswordInput({ value, onChange, placeholder, className, onKeyDown }: PasswordInputProps) {
   const [show, setShow] = useState(false)
 
   return (
@@ -19,9 +24,10 @@ export function PasswordInput({ value, onChange, placeholder }: PasswordInputPro
         type={show ? "text" : "password"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         required
-        className="w-full px-4 py-2 pr-10 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
+        className={className ?? DEFAULT_CLASS}
       />
       <button
         type="button"

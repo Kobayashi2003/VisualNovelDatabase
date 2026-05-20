@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 from flask_migrate import Migrate
+import redis
 from .config import Config
 from .extensions import (
     ExtSQLAchemy, ExtJWT, ExtAPScheduler, ExtLimiter
@@ -9,7 +10,6 @@ from .extensions import (
 import os
 import secrets
 import string
-import redis
 
 def create_app(config_class=Config, enable_scheduler=True):
     app = Flask(__name__)

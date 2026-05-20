@@ -16,6 +16,7 @@ interface BaseDialogProps {
 
 export function BaseDialog({ open, setOpen, title, children, className }: BaseDialogProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const mouseDownTarget = useRef<EventTarget | null>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
@@ -35,7 +36,15 @@ export function BaseDialog({ open, setOpen, title, children, className }: BaseDi
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
-      onClick={(e) => { if (e.target === overlayRef.current) setOpen(false) }}
+      // Dismiss only when both the press and the release land on the backdrop,
+      // so a drag that starts inside the dialog (e.g. selecting text) never
+      // closes it on release.
+      onMouseDown={(e) => { mouseDownTarget.current = e.target }}
+      onMouseUp={(e) => {
+        if (e.target === overlayRef.current && mouseDownTarget.current === overlayRef.current) {
+          setOpen(false)
+        }
+      }}
     >
       <div className={cn(
         "relative w-full max-w-md",

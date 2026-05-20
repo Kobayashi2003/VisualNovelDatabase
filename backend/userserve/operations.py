@@ -151,6 +151,32 @@ def check_category_name(category_name: str) -> bool:
         raise CategoryNameTooLongError
     return True
 
+def _code_key(email: str) -> str:
+    return f"userserve:verify:{email.strip().lower()}"
+
+def _hash_code(code: str) -> str:
+    return hashlib.sha256(code.strip().encode()).hexdigest()
+
+def create_verification_code(email: str) -> str:
+    """Generate a fresh 6-digit code for `email`, store it (hashed) in Redis
+    with a TTL, and return it in plaintext so the caller can email it. A new
+    code overwrites any previous one for the same email."""
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    redis_client.setex(
+        _code_key(email),
+        current_app.config['VERIFICATION_CODE_MAX_AGE'],
+        _hash_code(code),
+    )
+    return code
+
+def verify_email_code(email: str, code: str) -> bool:
+    """Raise InvalidVerificationCodeError unless `code` matches the active code
+    stored for `email`. Expiry is handled by the Redis key's TTL."""
+    stored = redis_client.get(_code_key(email))
+    if not stored or stored != _hash_code(code):
+        raise InvalidVerificationCodeError
+    return True
+
 def save_db_operation(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -281,33 +307,6 @@ def delete_user(user_id: int) -> bool:
     db.session.delete(user)
     db.session.flush()
     db.session.commit()
-    return True
-
-
-def _code_key(email: str) -> str:
-    return f"userserve:verify:{email.strip().lower()}"
-
-def _hash_code(code: str) -> str:
-    return hashlib.sha256(code.strip().encode()).hexdigest()
-
-def create_verification_code(email: str) -> str:
-    """Generate a fresh 6-digit code for `email`, store it (hashed) in Redis
-    with a TTL, and return it in plaintext so the caller can email it. A new
-    code overwrites any previous one for the same email."""
-    code = f"{secrets.randbelow(1_000_000):06d}"
-    redis_client.setex(
-        _code_key(email),
-        current_app.config['VERIFICATION_CODE_MAX_AGE'],
-        _hash_code(code),
-    )
-    return code
-
-def verify_email_code(email: str, code: str) -> bool:
-    """Raise InvalidVerificationCodeError unless `code` matches the active code
-    stored for `email`. Expiry is handled by the Redis key's TTL."""
-    stored = redis_client.get(_code_key(email))
-    if not stored or stored != _hash_code(code):
-        raise InvalidVerificationCodeError
     return True
 
 

@@ -7,12 +7,17 @@ import { useUserContext } from "@/context/UserContext"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { BaseDialog } from "@/components/dialog/BaseDialog"
+import { PasswordInput } from "@/components/input/PasswordInput"
 import { validatePassword } from "@/lib/validation"
 
 interface SettingsDialogProps {
   open: boolean
   setOpen: (open: boolean) => void
 }
+
+// Change-password fields keep the Settings dialog's own (more compact) styling.
+const PW_INPUT_CLASS =
+  "w-full px-3 py-2 pr-10 rounded-md bg-surface border border-white/8 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/25 transition-colors"
 
 export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
   const { defaultSexualLevel, defaultViolenceLevel, updateDefaultSexualLevel, updateDefaultViolenceLevel } = useUserContext()
@@ -84,27 +89,24 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
         <div className="flex flex-col gap-3">
           <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Change Password</p>
           <div className="flex flex-col gap-2">
-            <input
-              type="password"
-              placeholder="Current password"
+            <PasswordInput
               value={oldPassword}
-              onChange={e => { setOldPassword(e.target.value); setPwError(null); setPwSuccess(false) }}
-              className="w-full px-3 py-2 rounded-md bg-surface border border-white/8 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/25 transition-colors"
+              onChange={v => { setOldPassword(v); setPwError(null); setPwSuccess(false) }}
+              placeholder="Current password"
+              className={PW_INPUT_CLASS}
             />
-            <input
-              type="password"
-              placeholder="New password"
+            <PasswordInput
               value={newPassword}
-              onChange={e => { setNewPassword(e.target.value); setPwError(null); setPwSuccess(false) }}
-              className="w-full px-3 py-2 rounded-md bg-surface border border-white/8 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/25 transition-colors"
+              onChange={v => { setNewPassword(v); setPwError(null); setPwSuccess(false) }}
+              placeholder="New password"
+              className={PW_INPUT_CLASS}
             />
-            <input
-              type="password"
-              placeholder="Confirm new password"
+            <PasswordInput
               value={confirmPassword}
-              onChange={e => { setConfirmPassword(e.target.value); setPwError(null); setPwSuccess(false) }}
+              onChange={v => { setConfirmPassword(v); setPwError(null); setPwSuccess(false) }}
+              placeholder="Confirm new password"
+              className={PW_INPUT_CLASS}
               onKeyDown={e => e.key === "Enter" && !pwLoading && handleChangePassword()}
-              className="w-full px-3 py-2 rounded-md bg-surface border border-white/8 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/25 transition-colors"
             />
           </div>
 

@@ -1,7 +1,9 @@
-"""Minimal SMTP email sending, configured entirely via env vars (see config.py).
+"""SMTP email sending with support for multiple providers (QQ, Gmail).
 
-When MAIL_SERVER is unset (typical in development), emails are logged instead of
-sent so the password-reset flow still works without a real SMTP account.
+Each provider has a built-in host/port/security preset, so only credentials are
+taken from env vars (see config.py). send_email tries every configured provider
+in turn until one succeeds. When none is configured (typical in development),
+emails are logged to the console instead of being sent.
 """
 
 import smtplib
@@ -9,38 +11,59 @@ from email.message import EmailMessage
 
 from flask import current_app
 
-def send_email(to: str, subject: str, body: str) -> bool:
-    cfg = current_app.config
-    server = cfg.get('MAIL_SERVER')
+# Built-in SMTP presets for the supported providers.
+SMTP_PROVIDERS = {
+    'qq': {'host': 'smtp.qq.com', 'port': 465, 'use_ssl': True, 'use_tls': False},
+    'gmail': {'host': 'smtp.gmail.com', 'port': 587, 'use_ssl': False, 'use_tls': True},
+}
 
-    # Dev fallback: no SMTP configured → log the message instead of sending.
-    if not server or cfg.get('MAIL_SUPPRESS_SEND'):
+def _configured_accounts():
+    """Return [(provider, username, password), ...] for every supported provider
+    that has credentials configured, ordered by MAIL_PROVIDER_ORDER."""
+    cfg = current_app.config
+    accounts = []
+    for provider in cfg.get('MAIL_PROVIDER_ORDER', []):
+        username = cfg.get(f'MAIL_{provider.upper()}_USERNAME')
+        password = cfg.get(f'MAIL_{provider.upper()}_PASSWORD')
+        if provider in SMTP_PROVIDERS and username and password:
+            accounts.append((provider, username, password))
+    return accounts
+
+def _send_via(provider, username, password, to, subject, body):
+    """Send one message through a single provider. Raises on failure."""
+    preset = SMTP_PROVIDERS[provider]
+    message = EmailMessage()
+    message['Subject'] = subject
+    message['From'] = username
+    message['To'] = to
+    message.set_content(body)
+
+    smtp_class = smtplib.SMTP_SSL if preset['use_ssl'] else smtplib.SMTP
+    with smtp_class(preset['host'], preset['port'], timeout=10) as client:
+        if preset['use_tls']:
+            client.starttls()
+        client.login(username, password)
+        client.send_message(message)
+
+def send_email(to: str, subject: str, body: str) -> bool:
+    """Send an email via the first configured provider that succeeds. With no
+    provider configured (or MAIL_SUPPRESS_SEND set), the email is logged."""
+    accounts = _configured_accounts()
+
+    # Dev fallback: nothing configured → log the message instead of sending.
+    if not accounts or current_app.config.get('MAIL_SUPPRESS_SEND'):
         current_app.logger.info(f"[mail suppressed] to={to} subject={subject!r}\n{body}")
         print(f"[UserServe] [mail suppressed] to={to} subject={subject!r}\n{body}")
         return True
 
-    message = EmailMessage()
-    message['Subject'] = subject
-    message['From'] = cfg.get('MAIL_DEFAULT_SENDER') or cfg.get('MAIL_USERNAME')
-    message['To'] = to
-    message.set_content(body)
-
-    try:
-        port = cfg.get('MAIL_PORT', 587)
-        if cfg.get('MAIL_USE_SSL'):
-            client = smtplib.SMTP_SSL(server, port, timeout=10)
-        else:
-            client = smtplib.SMTP(server, port, timeout=10)
-        with client:
-            if cfg.get('MAIL_USE_TLS'):
-                client.starttls()
-            if cfg.get('MAIL_USERNAME'):
-                client.login(cfg['MAIL_USERNAME'], cfg['MAIL_PASSWORD'])
-            client.send_message(message)
-        return True
-    except Exception as e:
-        current_app.logger.error(f"Failed to send email to {to}: {e}")
-        return False
+    for provider, username, password in accounts:
+        try:
+            _send_via(provider, username, password, to, subject, body)
+            return True
+        except Exception as e:
+            current_app.logger.warning(f"Email send via {provider} failed: {e}")
+    current_app.logger.error(f"All configured mail providers failed for {to}")
+    return False
 
 def send_password_reset_email(user, reset_url: str) -> bool:
     subject = "Reset your VNDB account password"

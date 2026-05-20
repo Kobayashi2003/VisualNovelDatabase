@@ -24,15 +24,16 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get('USERSERVE_RATELIMIT_STORAGE_URI', 'memory://')
     RATELIMIT_HEADERS_ENABLED = True
 
-    # Mail (SMTP). Leave MAIL_SERVER empty to log reset links instead of sending
-    # them — lets the password-reset flow work in dev without a real SMTP account.
-    MAIL_SERVER = os.environ.get('MAIL_SERVER', '')
-    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
-    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
-    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', '')
+    # Mail (SMTP). Configure QQ and/or Gmail credentials; send_email tries each
+    # configured provider (in MAIL_PROVIDER_ORDER) until one succeeds. With none
+    # configured, emails are logged to the console instead of being sent.
+    MAIL_QQ_USERNAME = os.environ.get('MAIL_QQ_USERNAME', '')
+    MAIL_QQ_PASSWORD = os.environ.get('MAIL_QQ_PASSWORD', '')
+    MAIL_GMAIL_USERNAME = os.environ.get('MAIL_GMAIL_USERNAME', '')
+    MAIL_GMAIL_PASSWORD = os.environ.get('MAIL_GMAIL_PASSWORD', '')
+    MAIL_PROVIDER_ORDER = [
+        p.strip().lower() for p in os.environ.get('MAIL_PROVIDER_ORDER', 'qq,gmail').split(',') if p.strip()
+    ]
     MAIL_SUPPRESS_SEND = os.environ.get('MAIL_SUPPRESS_SEND', 'False').lower() in ('true', '1', 'yes')
 
     # Password reset & email verification

@@ -4,6 +4,7 @@
 import { useState } from "react"
 import { BaseDialog } from "./BaseDialog"
 import { Loader2, ArrowRight } from "lucide-react"
+import { validateUsername, validatePassword, PASSWORD_MIN_LENGTH } from "@/lib/validation"
 
 interface RegisterDialogProps {
   open: boolean
@@ -16,18 +17,26 @@ interface RegisterDialogProps {
 export function RegisterDialog({ open, setOpen, handleRegister, disabled, className }: RegisterDialogProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Mirror the backend rules so typos are caught before a round-trip.
+    const usernameError = validateUsername(username)
+    if (usernameError) { setError(usernameError); return }
+    const passwordError = validatePassword(password)
+    if (passwordError) { setError(passwordError); return }
+    if (password !== confirmPassword) { setError("Passwords do not match."); return }
+
     setLoading(true)
     setError("")
     try {
       await handleRegister(username, password)
       setOpen(false)
-    } catch {
-      setError("Registration failed. Username may already exist.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -54,6 +63,18 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Choose a password"
+            required
+            className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
+          />
+          <p className="text-xs text-muted">At least {PASSWORD_MIN_LENGTH} characters.</p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-muted">Confirm password</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter your password"
             required
             className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
           />

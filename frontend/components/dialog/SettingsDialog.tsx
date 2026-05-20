@@ -7,6 +7,7 @@ import { useUserContext } from "@/context/UserContext"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { BaseDialog } from "@/components/dialog/BaseDialog"
+import { validatePassword } from "@/lib/validation"
 
 interface SettingsDialogProps {
   open: boolean
@@ -28,12 +29,13 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
   const handleChangePassword = async () => {
     setPwError(null)
     setPwSuccess(false)
-    if (newPassword !== confirmPassword) {
-      setPwError("New passwords do not match")
+    const passwordError = validatePassword(newPassword)
+    if (passwordError) {
+      setPwError(passwordError)
       return
     }
-    if (!newPassword) {
-      setPwError("New password cannot be empty")
+    if (newPassword !== confirmPassword) {
+      setPwError("New passwords do not match")
       return
     }
     setPwLoading(true)
@@ -43,9 +45,9 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
       setOldPassword("")
       setNewPassword("")
       setConfirmPassword("")
-    } catch (e: any) {
-      const msg = e?.message || "Failed to change password"
-      setPwError(msg.includes("400") ? "Invalid current password" : msg)
+    } catch (e) {
+      // userserve returns a human-readable message in the error body.
+      setPwError(e instanceof Error ? e.message : "Failed to change password")
     } finally {
       setPwLoading(false)
     }

@@ -21,6 +21,7 @@ def hello_world():
 
 
 from .operations import (
+    ValidationError,
     get_user, create_user, update_user, delete_user, change_password, get_user_by_username,
     get_category, create_category, update_category, delete_category, clear_category,
     search_categories, get_categories_by_mark, contains_mark, is_marked, are_marked,
@@ -32,31 +33,43 @@ from .operations import (
 )
 
 
+@api_bp.errorhandler(ValidationError)
+def handle_validation_error(e):
+    """Turn a validation failure into a structured 4xx response."""
+    return jsonify(error=e.error_code, message=e.message), e.http_status
+
+
 @api_bp.route('/login', methods=['POST'])
 def login():
-    data = request.json
-    username = data['username'].strip()
-    password = data['password']
-    user = get_user_by_username(username)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    username = data.get('username')
+    password = data.get('password')
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify(error="missing_fields", message="Username and password are required."), 400
+    user = get_user_by_username(username.strip())
     if user and user.check_password(password):
         access_token = create_access_token(identity=user.id)
-        return jsonify({
-            'access_token':access_token,
-            'username': username
-        }), 200
-    return jsonify(error="Invalid username or password"), 401
+        return jsonify({'access_token': access_token, 'username': user.username}), 200
+    return jsonify(error="invalid_credentials", message="Invalid username or password."), 401
 
 @api_bp.route('/register', methods=['POST'])
 def register():
-    data = request.json
-    user = create_user(data['username'], data['password'])
-    if user:
-        access_token = create_access_token(identity=user.id)
-        return jsonify({
-            'access_token':access_token,
-            'username': data['username']
-        }), 201
-    return jsonify(error="Username already exists"), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    username = data.get('username')
+    password = data.get('password')
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify(error="missing_fields", message="Username and password are required."), 400
+    # check_username / check_password raise ValidationError (handled above);
+    # a None return therefore means an unexpected DB-level failure.
+    user = create_user(username, password)
+    if not user:
+        return jsonify(error="registration_failed", message="Registration failed. Please try again."), 500
+    access_token = create_access_token(identity=user.id)
+    return jsonify({'access_token': access_token, 'username': user.username}), 201
 
 
 @api_bp.route('/u<username>', methods=['GET'])
@@ -104,11 +117,19 @@ def change_password_route():
     user_id = get_jwt_identity()
     user = get_user(user_id)
     if not user:
-        return jsonify(error="User not found"), 400
-    data = request.json
-    user = change_password(user_id, data['old_password'], data['new_password'])
+        return jsonify(error="user_not_found", message="User not found."), 404
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    if not isinstance(old_password, str) or not isinstance(new_password, str):
+        return jsonify(error="missing_fields", message="Old and new passwords are required."), 400
+    # An invalid old password / weak new password raises ValidationError;
+    # a None return means an unexpected DB-level failure.
+    user = change_password(user_id, old_password, new_password)
     if not user:
-        return jsonify(error="Invalid old password"), 400
+        return jsonify(error="password_change_failed", message="Password change failed."), 500
     return jsonify(message="Password changed successfully"), 200
 
 

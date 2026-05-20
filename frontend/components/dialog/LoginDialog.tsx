@@ -26,8 +26,8 @@ export function LoginDialog({ open, setOpen, handleLogin, disabled, className }:
     try {
       await handleLogin(username, password)
       setOpen(false)
-    } catch {
-      setError("Invalid username or password")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.")
     } finally {
       setLoading(false)
     }

@@ -69,8 +69,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const register = async (username: string, password: string) => {
     const response = await api.user.register(username, password)
     localStorage.setItem("access_token", response.access_token)
-    localStorage.setItem("username", username)
-    const userData = await api.user.get(username)
+    // Use the server-normalised (trimmed) username so later lookups match.
+    localStorage.setItem("username", response.username)
+    const userData = await api.user.get(response.username)
     setUser(userData)
     window.location.reload()
   }
@@ -78,8 +79,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const login = async (username: string, password: string) => {
     const response = await api.user.login(username, password)
     localStorage.setItem("access_token", response.access_token)
-    localStorage.setItem("username", username)
-    const userData = await api.user.get(username)
+    localStorage.setItem("username", response.username)
+    const userData = await api.user.get(response.username)
     setUser(userData)
     window.location.reload()
   }

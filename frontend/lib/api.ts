@@ -81,6 +81,21 @@ const fetchVNDBById = async <T>(
 // Authenticated calls — attaches the bearer token from localStorage when
 // present, and serialises the request body as JSON.
 
+/** Error thrown by `fetchUserserve` for non-2xx responses. Carries the
+ *  backend's structured `code` (e.g. "password_too_short") alongside a
+ *  human-readable `message`, so callers can branch on `code` or simply surface
+ *  `message` to the user. */
+export class ApiError extends Error {
+  status: number
+  code?: string
+  constructor(message: string, status: number, code?: string) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+    this.code = code
+  }
+}
+
 const fetchUserserve = async <T>(
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE",
@@ -97,7 +112,18 @@ const fetchUserserve = async <T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal: abortSignal,
   })
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+  if (!response.ok) {
+    // userserve reports failures as `{ error: code, message: text }`; fall back
+    // to a generic message when the body is missing or not JSON.
+    let code: string | undefined
+    let message = `Request failed (${response.status})`
+    try {
+      const payload = await response.json()
+      if (payload?.message) message = payload.message
+      if (payload?.error) code = payload.error
+    } catch { /* error body was not JSON */ }
+    throw new ApiError(message, response.status, code)
+  }
   return await response.json()
 }
 

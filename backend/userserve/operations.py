@@ -8,44 +8,67 @@ from flask import current_app
 from userserve import db
 from .models import User, CATEGORY_MODEL, CategoryType
 
+class ValidationError(Exception):
+    """Base for input-validation failures meant to be reported to the client.
+
+    Each subclass carries a stable `error_code` (so the frontend can branch on
+    it) and a human-readable `message`. `save_db_operation` re-raises these
+    instead of swallowing them, and `routes` turns them into a structured 4xx
+    JSON response.
+    """
+    error_code = "validation_error"
+    message = "Invalid input."
+    http_status = 400
+
+
 class UserNotFoundError(Exception):
     pass
 
 class UserNotAdminError(Exception):
     pass
 
-class InvalidPasswordError(Exception):
-    pass
+
+class InvalidPasswordError(ValidationError):
+    error_code = "invalid_password"
+    message = "Invalid password."
 
 class InvalidAdminPasswordError(InvalidPasswordError):
-    pass
+    error_code = "invalid_admin_password"
+    message = "Invalid admin password."
 
 class InvalidOldPasswordError(InvalidPasswordError):
-    pass
+    error_code = "invalid_old_password"
+    message = "The current password is incorrect."
 
 class PasswordTooShortError(InvalidPasswordError):
-    pass
+    error_code = "password_too_short"
+    message = "Password must be at least 8 characters."
 
 class PasswordTooLongError(InvalidPasswordError):
-    pass
+    error_code = "password_too_long"
+    message = "Password must be at most 128 characters."
 
-class PasswordNotAlphanumericError(InvalidPasswordError):
-    pass
 
-class InvalidUsernameError(Exception):
-    pass
+class InvalidUsernameError(ValidationError):
+    error_code = "invalid_username"
+    message = "Invalid username."
 
 class UsernameAlreadyExistsError(InvalidUsernameError):
-    pass
+    error_code = "username_taken"
+    message = "This username is already taken."
+    http_status = 409
 
 class EmptyUsernameError(InvalidUsernameError):
-    pass
+    error_code = "username_empty"
+    message = "Username cannot be empty."
 
 class UsernameTooShortError(InvalidUsernameError):
-    pass
+    error_code = "username_too_short"
+    message = "Username must be at least 3 characters."
 
 class UsernameTooLongError(InvalidUsernameError):
-    pass
+    error_code = "username_too_long"
+    message = "Username must be at most 32 characters."
 
 
 class CategoryNotFoundError(Exception):
@@ -78,12 +101,11 @@ def check_username(username: str) -> bool:
     return True
 
 def check_password(password: str) -> bool:
+    # Length is the only hard rule; symbols are allowed (and encouraged).
     if len(password) < 8:
         raise PasswordTooShortError
     if len(password) > 128:
         raise PasswordTooLongError
-    if not password.isalnum():
-        raise PasswordNotAlphanumericError
     return True
 
 def check_category_name(category_name: str) -> bool:
@@ -96,6 +118,10 @@ def save_db_operation(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except ValidationError:
+            # Validation failures are surfaced to the client, not swallowed.
+            db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
             print(f"Error in {func.__name__}: {str(e)}")
@@ -113,6 +139,7 @@ def get_user_by_username(username: str) -> User | None:
 
 @save_db_operation
 def create_user(username: str, password: str) -> User | None:
+    username = username.strip()
     check_username(username)
     check_password(password)
     user = User(username=username)
@@ -165,6 +192,7 @@ def update_user(user_id: int, username: str = None) -> User | None:
     if not user:
         raise UserNotFoundError
     if username:
+        username = username.strip()
         check_username(username)
         user.username = username
     db.session.flush()

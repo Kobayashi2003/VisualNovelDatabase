@@ -113,6 +113,15 @@ function typeRoute(type: string): string {
 // Rewrite VNDB-hosted image URLs to go through our imgserve proxy. Leaves
 // unknown URL shapes untouched.
 function convertToImgserveUrl(url: string): string {
+  /* ─── TEMP imgserve login guard ─ delete this whole block to remove ────────── */
+  // While logged out, return a black placeholder instead of the imgserve URL so
+  // the browser never issues a request to imgserve. A 1x1 black PNG data URI is
+  // used so next/image renders it without a configured remote host.
+  if (typeof window !== "undefined" && !localStorage.getItem("access_token")) {
+    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC"
+  }
+  /* ─── END TEMP ─────────────────────────────────────────────────────────────── */
+
   const match = url.match(/^https?:\/\/[^/]+\/(cv|sf|ch|cv\.t|sf\.t|ch\.t)\/\d+\/(\d+)\.jpg$/)
   if (!match) return url
   const [, type, id] = match

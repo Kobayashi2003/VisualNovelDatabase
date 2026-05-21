@@ -45,11 +45,9 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
     }
     setPwLoading(true)
     try {
-      const res = await api.user.changePassword(oldPassword, newPassword)
-      // Changing the password revokes every prior token; adopt the fresh pair
-      // so this device stays signed in.
-      localStorage.setItem("access_token", res.access_token)
-      localStorage.setItem("refresh_token", res.refresh_token)
+      await api.user.changePassword(oldPassword, newPassword)
+      // Changing the password revokes every prior token; the server re-issues
+      // fresh auth cookies on the response so this device stays signed in.
       setPwSuccess(true)
       setOldPassword("")
       setNewPassword("")

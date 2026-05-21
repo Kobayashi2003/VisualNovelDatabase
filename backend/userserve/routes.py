@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
     create_access_token, create_refresh_token, decode_token,
+    set_access_cookies, set_refresh_cookies, unset_jwt_cookies,
 )
 
 from userserve import limiter
@@ -49,13 +50,12 @@ def hello_world():
     return jsonify({"message": "USERSERVE"})
 
 
-def _issue_tokens(user):
-    """Build the access + refresh token pair returned by login / register."""
-    return {
-        'access_token': create_access_token(identity=user.id),
-        'refresh_token': create_refresh_token(identity=user.id),
-        'username': user.username,
-    }
+def _issue_token_cookies(response, user):
+    """Attach a fresh access + refresh cookie pair (and their CSRF tokens) to a
+    response, starting an authenticated session for the given user."""
+    set_access_cookies(response, create_access_token(identity=user.id))
+    set_refresh_cookies(response, create_refresh_token(identity=user.id))
+    return response
 
 
 @api_bp.route('/login', methods=['POST'])
@@ -70,7 +70,7 @@ def login():
         return jsonify(error="missing_fields", message="Username and password are required."), 400
     user = get_user_by_username(username.strip())
     if user and user.check_password(password):
-        return jsonify(_issue_tokens(user)), 200
+        return _issue_token_cookies(jsonify(username=user.username), user), 200
     return jsonify(error="invalid_credentials", message="Invalid username or password."), 401
 
 @api_bp.route('/send_verification_code', methods=['POST'])
@@ -106,28 +106,34 @@ def register():
     user = create_user(username, email, password, code)
     if not user:
         return jsonify(error="registration_failed", message="Registration failed. Please try again."), 500
-    return jsonify(_issue_tokens(user)), 201
+    return _issue_token_cookies(jsonify(username=user.username), user), 201
 
 @api_bp.route('/refresh', methods=['POST'])
 @limiter.limit("30 per minute")
 @jwt_required(refresh=True)
 def refresh():
     user_id = get_jwt_identity()
-    return jsonify({'access_token': create_access_token(identity=user_id)}), 200
+    response = jsonify(message="Access token refreshed")
+    set_access_cookies(response, create_access_token(identity=user_id))
+    return response, 200
 
 @api_bp.route('/logout', methods=['POST'])
 @jwt_required(verify_type=False)
 def logout():
     # Revoke the token used for this request (access or refresh)...
     revoke_token(get_jwt())
-    # ...and the paired refresh token if the client sent it along.
-    data = request.get_json(silent=True)
-    if isinstance(data, dict) and isinstance(data.get('refresh_token'), str):
+    # ...and the paired refresh token, decoded straight from its cookie.
+    refresh_cookie = request.cookies.get(
+        current_app.config.get('JWT_REFRESH_COOKIE_NAME', 'refresh_token_cookie')
+    )
+    if refresh_cookie:
         try:
-            revoke_token(decode_token(data['refresh_token']))
+            revoke_token(decode_token(refresh_cookie))
         except Exception:
             pass
-    return jsonify(message="Logged out"), 200
+    response = jsonify(message="Logged out")
+    unset_jwt_cookies(response)
+    return response, 200
 
 @api_bp.route('/me', methods=['GET'])
 @jwt_required()
@@ -197,13 +203,10 @@ def change_password_route():
     updated = change_password(user_id, old_password, new_password)
     if not updated:
         return jsonify(error="password_change_failed", message="Password change failed."), 500
-    # Invalidate every existing session, then hand this device a fresh pair.
+    # Invalidate every existing session, then re-issue cookies so this device
+    # stays signed in.
     revoke_all_user_tokens(user_id)
-    return jsonify({
-        'message': "Password changed successfully",
-        'access_token': create_access_token(identity=user_id),
-        'refresh_token': create_refresh_token(identity=user_id),
-    }), 200
+    return _issue_token_cookies(jsonify(message="Password changed successfully"), user), 200
 
 @api_bp.route('/forgot_password', methods=['POST'])
 @limiter.limit("5 per hour")

@@ -19,6 +19,21 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=int(os.environ.get('JWT_ACCESS_TOKEN_MINUTES', 30)))
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=int(os.environ.get('JWT_REFRESH_TOKEN_DAYS', 30)))
 
+    # JWT transport — access & refresh tokens ride in httpOnly cookies, so they
+    # are never readable by browser JavaScript. Each cookie is paired with a
+    # readable CSRF token that clients must echo in the X-CSRF-TOKEN header on
+    # state-changing requests. Set JWT_COOKIE_SECURE=True when serving over HTTPS.
+    JWT_TOKEN_LOCATION = ['cookies']
+    JWT_COOKIE_SECURE = os.environ.get('JWT_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+    JWT_COOKIE_SAMESITE = os.environ.get('JWT_COOKIE_SAMESITE', 'Lax')
+    JWT_COOKIE_CSRF_PROTECT = True
+
+    # CORS — credentialed cookie requests cannot use a wildcard origin, so the
+    # allowed origins are pinned to an explicit list.
+    CORS_ORIGINS = [
+        o.strip() for o in os.environ.get('CORS_ORIGINS', 'http://localhost,http://localhost:3000').split(',') if o.strip()
+    ]
+
     # Rate limiting (Flask-Limiter). Defaults to in-process memory storage; set
     # USERSERVE_RATELIMIT_STORAGE_URI to a redis:// URL for multi-worker setups.
     RATELIMIT_STORAGE_URI = os.environ.get('USERSERVE_RATELIMIT_STORAGE_URI', 'memory://')

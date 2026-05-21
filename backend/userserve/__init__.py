@@ -33,12 +33,12 @@ def create_app(config_class=Config, enable_scheduler=True):
     # This section sets up the CORS (Cross-Origin Resource Sharing) mechanism for cross-domain communication
     # ----------------------------------------
     CORS(app, resources={r"/*": {
-        "origins": app.config.get('CORS_ORIGINS', '*'),
+        "origins": app.config['CORS_ORIGINS'],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "expose_headers": ["Content-Type", "X-CSRFToken"],
+        "allow_headers": ["Content-Type", "X-CSRF-TOKEN"],
+        "expose_headers": ["Content-Type"],
         "max_age": 600
-    }})
+    }}, supports_credentials=True)
 
     db = ExtSQLAchemy(app)
     migrate = Migrate(app, db)

@@ -78,8 +78,9 @@ const fetchVNDBById = async <T>(
 
 
 /* ─── Userserve fetcher ────────────────────────────────────────────────────── */
-// Authenticated calls — attaches the bearer token from localStorage when
-// present, and serialises the request body as JSON.
+// Authenticated calls — auth tokens ride in httpOnly cookies sent via
+// `credentials: include`; state-changing requests echo the CSRF token, and the
+// request body is serialised as JSON.
 
 /** Error thrown by `fetchUserserve` for non-2xx responses. Carries the
  *  backend's structured `code` (e.g. "password_too_short") alongside a
@@ -102,7 +103,7 @@ export class ApiError extends Error {
 // Endpoints where a 401 is terminal and must never trigger a refresh-retry.
 const AUTH_ENDPOINTS = ["login", "register", "logout"]
 
-let refreshInFlight: Promise<string | null> | null = null
+let refreshInFlight: Promise<boolean> | null = null
 let sessionExpiredHandler: (() => void) | null = null
 
 /** Registered by UserContext so the UI can react when the session ends. */
@@ -110,33 +111,37 @@ export function setSessionExpiredHandler(handler: () => void) {
   sessionExpiredHandler = handler
 }
 
-/** Drop the locally stored tokens and username. */
+/** Drop the cached session hint. The auth tokens themselves live in httpOnly
+ *  cookies and are cleared by the server's logout / refresh-failure response. */
 export function clearStoredSession() {
   if (typeof window === "undefined") return
-  localStorage.removeItem("access_token")
-  localStorage.removeItem("refresh_token")
   localStorage.removeItem("username")
 }
 
-/** Exchange the refresh token for a new access token. Returns the new token,
- *  or null when there is no refresh token / the refresh was rejected. */
-async function refreshAccessToken(): Promise<string | null> {
-  if (typeof window === "undefined") return null
-  const refreshToken = localStorage.getItem("refresh_token")
-  if (!refreshToken) return null
+/** Read a non-httpOnly cookie value — used to fetch the JWT CSRF tokens that
+ *  flask-jwt-extended issues alongside the access / refresh cookies. */
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+/** Exchange the refresh cookie for a fresh access cookie. Returns whether the
+ *  refresh succeeded; concurrent callers share one in-flight request. */
+async function refreshAccessToken(): Promise<boolean> {
+  if (typeof window === "undefined") return false
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
+        const csrf = readCookie("csrf_refresh_token")
         const res = await fetch(`${getBaseUrl("userserve")}/refresh`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${refreshToken}` },
+          credentials: "include",
+          headers: csrf ? { "X-CSRF-TOKEN": csrf } : {},
         })
-        if (!res.ok) return null
-        const data = await res.json()
-        localStorage.setItem("access_token", data.access_token)
-        return data.access_token as string
+        return res.ok
       } catch {
-        return null
+        return false
       } finally {
         refreshInFlight = null
       }
@@ -153,12 +158,15 @@ const fetchUserserve = async <T>(
   isRetry = false,
 ): Promise<T> => {
   const headers: HeadersInit = { 'Content-Type': 'application/json' }
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('access_token')
-    if (token) headers['Authorization'] = `Bearer ${token}`
+  // State-changing requests must echo the CSRF token from the cookie that
+  // flask-jwt-extended issued alongside the access cookie.
+  if (method !== "GET") {
+    const csrf = readCookie("csrf_access_token")
+    if (csrf) headers['X-CSRF-TOKEN'] = csrf
   }
   const response = await fetch(`${getBaseUrl("userserve")}/${endpoint}`, {
     method, headers,
+    credentials: "include",
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal: abortSignal,
   })
@@ -167,11 +175,10 @@ const fetchUserserve = async <T>(
   if (
     response.status === 401 && !isRetry &&
     typeof window !== "undefined" &&
-    !AUTH_ENDPOINTS.includes(endpoint) &&
-    localStorage.getItem("refresh_token")
+    !AUTH_ENDPOINTS.includes(endpoint)
   ) {
-    const newToken = await refreshAccessToken()
-    if (newToken) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
       return fetchUserserve<T>(endpoint, method, body, abortSignal, true)
     }
     // Refresh was rejected → the session is over.
@@ -210,7 +217,7 @@ function convertToImgserveUrl(url: string): string {
   // While logged out, return a black placeholder instead of the imgserve URL so
   // the browser never issues a request to imgserve. A 1x1 black PNG data URI is
   // used so next/image renders it without a configured remote host.
-  if (typeof window !== "undefined" && !localStorage.getItem("access_token")) {
+  if (typeof window !== "undefined" && !localStorage.getItem("username")) {
     return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC"
   }
   /* ─── END TEMP ─────────────────────────────────────────────────────────────── */
@@ -393,21 +400,19 @@ export const api = {
   /* Userserve: auth */
   user: {
     login: (username: string, password: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ access_token: string; refresh_token: string; username: string }>("login", "POST", { username, password }, abortSignal),
+      fetchUserserve<{ username: string }>("login", "POST", { username, password }, abortSignal),
     sendVerificationCode: (email: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("send_verification_code", "POST", { email }, abortSignal),
     register: (username: string, email: string, password: string, code: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ access_token: string; refresh_token: string; username: string }>("register", "POST", { username, email, password, code }, abortSignal),
+      fetchUserserve<{ username: string }>("register", "POST", { username, email, password, code }, abortSignal),
     changePassword: (oldPassword: string, newPassword: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ message: string; access_token: string; refresh_token: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
+      fetchUserserve<{ message: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
     forgotPassword: (email: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("forgot_password", "POST", { email }, abortSignal),
     resetPassword: (token: string, newPassword: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("reset_password", "POST", { token, new_password: newPassword }, abortSignal),
-    logout: (abortSignal?: AbortSignal) => {
-      const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null
-      return fetchUserserve<{ message: string }>("logout", "POST", refreshToken ? { refresh_token: refreshToken } : {}, abortSignal)
-    },
+    logout: (abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>("logout", "POST", undefined, abortSignal),
     me: (abortSignal?: AbortSignal) =>
       fetchUserserve<User>("me", "GET", undefined, abortSignal),
     get: (username: string, abortSignal?: AbortSignal) =>

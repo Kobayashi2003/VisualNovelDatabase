@@ -44,13 +44,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setDefaultViolenceLevel(v)
   }
 
-  // Re-establish the session on mount. An expired access token is transparently
-  // refreshed by the API layer; a fully stale session is discarded.
+  // Re-establish the session on mount. The username hint marks a session that
+  // may still be alive; the API layer transparently refreshes an expired access
+  // cookie, and a fully stale session is discarded.
   useEffect(() => {
     setSessionExpiredHandler(() => setUser(null))
     const initializeUser = async () => {
-      const token = localStorage.getItem("access_token")
-      if (token) {
+      if (localStorage.getItem("username")) {
         try {
           const userData = await api.user.me()
           setUser(userData)
@@ -63,13 +63,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     initializeUser()
   }, [])
 
-  // Auth transitions reload the page so every Server Component re-renders
-  // with the new token (simpler than threading it through context everywhere).
+  // Auth transitions reload the page so every Server Component re-renders for
+  // the new session. The auth tokens are set as httpOnly cookies by the server;
+  // only the (non-sensitive) username is cached, as a hint that a session is
+  // active — and server-normalised (trimmed) so later lookups match.
   const register = async (username: string, email: string, password: string, code: string) => {
     const response = await api.user.register(username, email, password, code)
-    localStorage.setItem("access_token", response.access_token)
-    localStorage.setItem("refresh_token", response.refresh_token)
-    // Use the server-normalised (trimmed) username so later lookups match.
     localStorage.setItem("username", response.username)
     const userData = await api.user.me()
     setUser(userData)
@@ -78,8 +77,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     const response = await api.user.login(username, password)
-    localStorage.setItem("access_token", response.access_token)
-    localStorage.setItem("refresh_token", response.refresh_token)
     localStorage.setItem("username", response.username)
     const userData = await api.user.me()
     setUser(userData)

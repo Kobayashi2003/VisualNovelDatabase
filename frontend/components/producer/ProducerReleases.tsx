@@ -20,7 +20,6 @@ type GroupBy = "all" | "language" | "vn"
 interface ProducerReleasesProps {
   producerId: string
   producerLang?: string
-  onCountLoaded?: (count: number) => void
 }
 
 /* ─── Individual release row ───────────────────────────────────────────────── */
@@ -142,7 +141,7 @@ function GroupSection({ groupKey, header, count, releases, producerId, showOrigi
 
 /* ─── Main component ───────────────────────────────────────────────────────── */
 
-export function ProducerReleases({ producerId, producerLang, onCountLoaded }: ProducerReleasesProps) {
+export function ProducerReleases({ producerId, producerLang }: ProducerReleasesProps) {
   const [releases, setReleases] = useState<Release_Small[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -169,7 +168,6 @@ export function ProducerReleases({ producerId, producerLang, onCountLoaded }: Pr
     async function fetchAll() {
       const first = await api.small.release({ producer: producerId, sort: "released", reverse: true, limit: PAGE_LIMIT, page: 1 })
       if (cancelled) return
-      onCountLoaded?.(first.count)
       const totalPages = Math.ceil(first.count / PAGE_LIMIT)
       if (totalPages <= 1) { setReleases(first.results); return }
       const rest = await Promise.all(

@@ -11,7 +11,7 @@ import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { ICON } from "@/lib/icons"
-import { InfoRow } from "@/components/common/InfoPanel"
+import { InfoRow, InlineList } from "@/components/common/InfoPanel"
 import type { Character } from "@/lib/types"
 
 const MONTH_NAMES = [
@@ -64,6 +64,12 @@ export function CharacterInfoPanel({
         character.hips ? `${character.hips}` : "?",
       ].join("-") + (character.cup ? `, ${character.cup} cup` : "")
     : null
+
+  // Whether the physical-info card has any row worth showing.
+  const hasPhysical =
+    !!sexApparent || !!birthday || character.age != null ||
+    character.height != null || character.weight != null ||
+    !!measurements || !!character.blood_type || character.aliases.length > 0
 
   const infoContent = (
     <div className="flex flex-col gap-0">
@@ -123,6 +129,7 @@ export function CharacterInfoPanel({
       )}
 
       {/* Physical info */}
+      {hasPhysical && (
       <div className="rounded-lg bg-surface border border-white/5 px-3 py-1 mb-3">
         {sexApparent && (
           <InfoRow label="Sex">
@@ -165,10 +172,11 @@ export function CharacterInfoPanel({
         )}
         {character.aliases.length > 0 && (
           <InfoRow label="Aliases">
-            <span className="text-white/70">{character.aliases.join(", ")}</span>
+            <InlineList className="text-white/70" items={character.aliases} />
           </InfoRow>
         )}
       </div>
+      )}
 
       {/* Voiced by */}
       {character.seiyuu.length > 0 && (

@@ -14,7 +14,7 @@ import { VNDescription } from "@/components/vn/VNDescription"
 import { CharactersCardsGrid } from "@/components/card/CardsGrid"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { PAGE_LIMIT } from "@/lib/constants"
-import { InfoRow, Section } from "@/components/common/InfoPanel"
+import { InfoRow, Section, InlineList } from "@/components/common/InfoPanel"
 
 /* ─── Sidebar info panel ───────────────────────────────────────────────────── */
 
@@ -28,13 +28,7 @@ function TraitInfoPanel({ trait }: { trait: Trait }) {
         <InfoRow label="Characters">{trait.char_count.toLocaleString()}</InfoRow>
         {trait.aliases.length > 0 && (
           <InfoRow label="Aliases">
-            <div className="flex flex-col gap-1 w-full">
-              {trait.aliases.map((alias, i) => (
-                <span key={i} className="text-xs px-2 py-1 rounded bg-white/5 border border-white/10 text-white/80 w-full">
-                  {alias}
-                </span>
-              ))}
-            </div>
+            <InlineList className="text-white/70" items={trait.aliases} />
           </InfoRow>
         )}
       </div>

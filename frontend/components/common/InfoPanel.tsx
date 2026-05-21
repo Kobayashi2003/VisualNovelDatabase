@@ -9,6 +9,28 @@ export function InfoRow({ label, children }: { label: string; children: React.Re
   )
 }
 
+/** Renders a list of values inline, joined by a separator that is dimmer than
+ *  the values themselves — the standard way to show a multi-value field in an
+ *  info panel (no background boxes). */
+export function InlineList({
+  items, separator = ", ", className,
+}: {
+  items: React.ReactNode[]
+  separator?: string
+  className?: string
+}) {
+  return (
+    <span className={className}>
+      {items.map((item, i) => (
+        <span key={i}>
+          {i > 0 && <span className="text-white/30">{separator}</span>}
+          {item}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
     <div>

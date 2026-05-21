@@ -5,23 +5,18 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { createPortal } from "react-dom"
-import { Eye, EyeOff, ExternalLink, X } from "lucide-react"
+import { Eye, EyeOff, X } from "lucide-react"
 import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
-import { InfoRow } from "@/components/common/InfoPanel"
+import { InfoRow, InlineList } from "@/components/common/InfoPanel"
+import { LanguageIcons } from "@/components/common/LanguageIcons"
+import { PlatformIcons } from "@/components/common/PlatformIcons"
+import { ExtLinks } from "@/components/common/ExtLinks"
 import type { VN } from "@/lib/types"
-
-function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-white/10 text-white/80", className)}>
-      {children}
-    </span>
-  )
-}
 
 
 /* ─── Main panel ───────────────────────────────────────────────────────────── */
@@ -43,14 +38,12 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
   useEffect(() => { setCoverMounted(true) }, [])
 
   const DEVSTATUS = enumMap('DEVSTATUS')
-  const PLATFORM = enumMap('PLATFORM')
-  const LANGUAGE = enumMap('LANGUAGE')
   const LENGTH = enumMap('LENGTH')
   const RELATION = enumMap('RELATION')
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
-  const PLAT_ICON = ICON.PLATFORM as Record<string, string>
   const { showOriginal } = useSearchContext()
 
+  const devstatusLabel = DEVSTATUS[vn.devstatus]
   const devstatusColor =
     vn.devstatus === 0 ? "bg-green-500/20 text-green-400" :
     vn.devstatus === 1 ? "bg-yellow-500/20 text-yellow-400" :
@@ -63,6 +56,14 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
     acc[key].push(r)
     return acc
   }, {})
+
+  // Whether the metadata card has any row worth showing.
+  const hasMetaInfo =
+    !!vn.released ||
+    vn.length != null || vn.length_minutes != null ||
+    vn.developers.length > 0 || vn.publishers.length > 0 ||
+    vn.platforms.length > 0 || vn.languages.length > 0 ||
+    vn.aliases.length > 0
 
   const infoContent = (
     <div className="flex flex-col gap-0">
@@ -152,89 +153,76 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
         </div>
       </div>
 
-      <div className="mb-3 px-1">
-        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", devstatusColor)}>
-          {DEVSTATUS[vn.devstatus] ?? "Unknown"}
-        </span>
-      </div>
+      {devstatusLabel && (
+        <div className="mb-3 px-1">
+          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", devstatusColor)}>
+            {devstatusLabel}
+          </span>
+        </div>
+      )}
 
-      <div className="rounded-lg bg-surface border border-white/5 px-3 py-1 mb-3">
-        {vn.released && (
-          <InfoRow label="Released">{vn.released}</InfoRow>
-        )}
-        {(vn.length != null || vn.length_minutes != null) && (
-          <InfoRow label="Length">
-            {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
-            {vn.length_minutes != null && vn.length_minutes > 0 && (
-              <span className="text-muted">
-                {vn.length != null && " "}
-                {vn.length != null ? "(" : ""}
-                {formatPlaytime(vn.length_minutes)}
-                {vn.length_votes > 0 && ` from ${vn.length_votes} votes`}
-                {vn.length != null ? ")" : ""}
-              </span>
-            )}
-          </InfoRow>
-        )}
-        {vn.developers.length > 0 && (
-          <InfoRow label="Developer">
-            {vn.developers.map(d => (
-              <Link key={d.id} href={`/${d.id}`} className="hover:text-accent transition-colors">
-                {displayName(d, showOriginal)}
-              </Link>
-            ))}
-          </InfoRow>
-        )}
-        {vn.publishers.length > 0 && (
-          <InfoRow label="Publisher">
-            <div className="flex flex-col gap-1 w-full">
-              {vn.publishers.map(pub => (
-                <Link key={pub.id} href={`/${pub.id}`}
-                  className="flex items-center gap-1.5 hover:text-accent transition-colors">
-                  <div className="flex gap-0.5 shrink-0">
-                    {pub.languages.slice(0, 3).map(l =>
-                      LANG_ICON[l] ? <span key={l} className={LANG_ICON[l]} /> : null
-                    )}
-                  </div>
-                  <span className="truncate">{displayName(pub, showOriginal)}</span>
+      {hasMetaInfo && (
+        <div className="rounded-lg bg-surface border border-white/5 px-3 py-1 mb-3">
+          {vn.released && (
+            <InfoRow label="Released">{vn.released}</InfoRow>
+          )}
+          {(vn.length != null || vn.length_minutes != null) && (
+            <InfoRow label="Length">
+              {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
+              {vn.length_minutes != null && vn.length_minutes > 0 && (
+                <span className="text-muted">
+                  {vn.length != null && " "}
+                  {vn.length != null ? "(" : ""}
+                  {formatPlaytime(vn.length_minutes)}
+                  {vn.length_votes > 0 && ` from ${vn.length_votes} votes`}
+                  {vn.length != null ? ")" : ""}
+                </span>
+              )}
+            </InfoRow>
+          )}
+          {vn.developers.length > 0 && (
+            <InfoRow label="Developer">
+              <InlineList items={vn.developers.map(d => (
+                <Link key={d.id} href={`/${d.id}`} className="text-white/90 hover:text-accent transition-colors">
+                  {displayName(d, showOriginal)}
                 </Link>
-              ))}
-            </div>
-          </InfoRow>
-        )}
-        {vn.platforms.length > 0 && (
-          <InfoRow label="Platforms">
-            <div className="flex flex-wrap gap-1.5">
-              {vn.platforms.map(p => (
-                PLAT_ICON[p]
-                  ? <span key={p} className={PLAT_ICON[p]} title={PLATFORM[p] ?? p} />
-                  : <Badge key={p}>{PLATFORM[p] ?? p}</Badge>
-              ))}
-            </div>
-          </InfoRow>
-        )}
-        {vn.languages.length > 0 && (
-          <InfoRow label="Languages">
-            {vn.languages.map(l => (
-              <Badge
-                key={l}
-                className={cn(
-                  "gap-1",
-                  l === vn.olang && "ring-1 ring-accent text-white bg-accent/10"
-                )}
-              >
-                {LANG_ICON[l] && <span className={LANG_ICON[l]} />}
-                {LANGUAGE[l] ?? l}
-              </Badge>
-            ))}
-          </InfoRow>
-        )}
-        {vn.aliases.length > 0 && (
-          <InfoRow label="Aliases">
-            <span className="text-white/70">{vn.aliases.join(", ")}</span>
-          </InfoRow>
-        )}
-      </div>
+              ))} />
+            </InfoRow>
+          )}
+          {vn.publishers.length > 0 && (
+            <InfoRow label="Publisher">
+              <div className="flex flex-col gap-1 w-full">
+                {vn.publishers.map(pub => (
+                  <Link key={pub.id} href={`/${pub.id}`}
+                    className="flex items-center gap-1.5 hover:text-accent transition-colors">
+                    <div className="flex gap-0.5 shrink-0">
+                      {pub.languages.slice(0, 3).map(l =>
+                        LANG_ICON[l] ? <span key={l} className={LANG_ICON[l]} /> : null
+                      )}
+                    </div>
+                    <span className="truncate">{displayName(pub, showOriginal)}</span>
+                  </Link>
+                ))}
+              </div>
+            </InfoRow>
+          )}
+          {vn.platforms.length > 0 && (
+            <InfoRow label="Platforms">
+              <PlatformIcons platforms={vn.platforms} />
+            </InfoRow>
+          )}
+          {vn.languages.length > 0 && (
+            <InfoRow label="Languages">
+              <LanguageIcons langs={vn.languages} olang={vn.olang} />
+            </InfoRow>
+          )}
+          {vn.aliases.length > 0 && (
+            <InfoRow label="Aliases">
+              <InlineList className="text-white/70" items={vn.aliases} />
+            </InfoRow>
+          )}
+        </div>
+      )}
 
       {Object.keys(relationGroups).length > 0 && (
         <div className="rounded-lg bg-surface border border-white/5 px-3 py-2 mb-3">
@@ -255,22 +243,8 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
       )}
 
       {vn.extlinks.length > 0 && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-2 mb-3">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Links</p>
-          <div className="flex flex-wrap gap-1.5">
-            {vn.extlinks.map((link, i) => (
-              <a
-                key={i}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-white/70 hover:text-accent transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" />
-                {link.label}
-              </a>
-            ))}
-          </div>
+        <div className="mb-3">
+          <ExtLinks links={vn.extlinks} />
         </div>
       )}
 
@@ -305,9 +279,11 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
               {ratingHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium w-fit", devstatusColor)}>
-            {DEVSTATUS[vn.devstatus]}
-          </span>
+          {devstatusLabel && (
+            <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium w-fit", devstatusColor)}>
+              {devstatusLabel}
+            </span>
+          )}
           {vn.released && <span className="text-xs text-muted">{vn.released}</span>}
           {(vn.length != null || (vn.length_minutes != null && vn.length_minutes > 0)) && (
             <span className="text-xs text-muted">

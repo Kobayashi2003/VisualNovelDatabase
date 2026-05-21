@@ -2,9 +2,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
-import { enumLabel } from "@/lib/enums"
 import { displayName } from "@/lib/original"
 import type { Staff } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
@@ -14,7 +12,9 @@ import { Error as ErrorStatus } from "@/components/status/Error"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { CollectionButton } from "@/components/category/CollectionButton"
-import { InfoRow, Section } from "@/components/common/InfoPanel"
+import { InfoRow, Section, InlineList } from "@/components/common/InfoPanel"
+import { LanguageIcons } from "@/components/common/LanguageIcons"
+import { ExtLinks } from "@/components/common/ExtLinks"
 import { TabBar } from "@/components/common/TabBar"
 import { VNDescription } from "@/components/vn/VNDescription"
 import { StaffVNCredits } from "@/components/staff/StaffVNCredits"
@@ -30,7 +30,9 @@ interface StaffInfoPanelProps {
 
 function StaffInfoPanel({ staff }: StaffInfoPanelProps) {
   const hasInfo = staff.gender || staff.lang || staff.aliases.length > 0
-  const hasExtlinks = staff.extlinks.length > 0
+
+  // Main alias first, then highlight it; latin names are dropped (option 1).
+  const sortedAliases = [...staff.aliases].sort((a, b) => Number(b.is_main) - Number(a.is_main))
 
   return (
     <div className="flex flex-col gap-3">
@@ -38,7 +40,7 @@ function StaffInfoPanel({ staff }: StaffInfoPanelProps) {
         <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
           {staff.lang && (
             <InfoRow label="Language">
-              {enumLabel('LANGUAGE', staff.lang)}
+              <LanguageIcons langs={[staff.lang]} />
             </InfoRow>
           )}
           {staff.gender && (
@@ -46,48 +48,21 @@ function StaffInfoPanel({ staff }: StaffInfoPanelProps) {
               {GENDER_LABEL[staff.gender] ?? staff.gender}
             </InfoRow>
           )}
-          {staff.aliases.length > 0 && (
+          {sortedAliases.length > 0 && (
             <InfoRow label="Aliases">
-              <div className="flex flex-col gap-1 w-full">
-                {staff.aliases.map((alias) => (
-                  <div key={alias.aid} className="flex flex-col gap-0.5 w-full px-2 py-1 rounded bg-white/5 border border-white/10">
-                    <div className="flex items-center gap-1.5">
-                      <span className={cn("text-xs", alias.is_main ? "text-accent font-medium" : "text-white/90")}>
-                        {alias.name}
-                      </span>
-                      {alias.is_main && (
-                        <span className="text-xs text-accent/70">(main)</span>
-                      )}
-                    </div>
-                    {alias.latin && (
-                      <span className="text-xs text-muted">{alias.latin}</span>
-                    )}
-                  </div>
+              <InlineList
+                items={sortedAliases.map(alias => (
+                  <span key={alias.aid} className={alias.is_main ? "text-accent" : "text-white/70"}>
+                    {alias.name}
+                  </span>
                 ))}
-              </div>
+              />
             </InfoRow>
           )}
         </div>
       )}
 
-      {hasExtlinks && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-2">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Links</p>
-          <div className="flex flex-wrap gap-1.5">
-            {staff.extlinks.map((link, i) => (
-              <a
-                key={i}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs px-2 py-1 rounded bg-white/5 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      <ExtLinks links={staff.extlinks} />
 
       <CollectionButton type="staff" id={staff.id} />
     </div>
@@ -100,6 +75,8 @@ interface StaffDetailPageProps {
   id: number
 }
 
+type StaffTab = "credits" | "characters"
+
 export function StaffDetailPage({ id }: StaffDetailPageProps) {
   const [staff, setStaff] = useState<Staff | null>(null)
   const [loading, setLoading] = useState(true)
@@ -107,9 +84,10 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
-  const [activeTab, setActiveTab] = useState<"credits" | "characters">("credits")
-  const [voicedCount, setVoicedCount] = useState(0)
-  const [vnCreditsCount, setVnCreditsCount] = useState(0)
+  const [activeTab, setActiveTab] = useState<StaffTab>("credits")
+  // null = count not loaded yet; a number once the eager count query resolves.
+  const [vnCreditsCount, setVnCreditsCount] = useState<number | null>(null)
+  const [voicedCount, setVoicedCount] = useState<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const { showOriginal } = useSearchContext()
 
@@ -120,15 +98,25 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
     setLoading(true)
     setError(null)
     setStaff(null)
+    setVnCreditsCount(null)
+    setVoicedCount(null)
 
     api.by_id.staff(id, {}, ctrl.signal)
       .then(data => {
-        if (!ctrl.signal.aborted) {
-          setStaff(data)
-          api.small.character({ seiyuu: data.id, limit: 1 })
-            .then(res => { if (!ctrl.signal.aborted) setVoicedCount(res.count) })
-            .catch(() => {})
-        }
+        if (ctrl.signal.aborted) return
+        setStaff(data)
+        // Eagerly fetch every tab's count together, so the tab bar is
+        // consistent and empty tabs can be hidden.
+        Promise.all([
+          api.small.vn({ staff: data.id, limit: 1 }, ctrl.signal),
+          api.small.character({ seiyuu: data.id, limit: 1 }, ctrl.signal),
+        ])
+          .then(([vnRes, charRes]) => {
+            if (ctrl.signal.aborted) return
+            setVnCreditsCount(vnRes.count)
+            setVoicedCount(charRes.count)
+          })
+          .catch(() => {})
       })
       .catch(e => { if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
       .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
@@ -151,6 +139,17 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
       </main>
     )
   }
+
+  // Tab bar: a tab with a known count of 0 is hidden; a tab still loading
+  // (count null) stays visible without a badge.
+  const tabDefs: { value: StaffTab; label: string; count: number | null }[] = [
+    { value: "credits", label: "VN Credits", count: vnCreditsCount },
+    { value: "characters", label: "Voiced Characters", count: voicedCount },
+  ]
+  const visibleTabs = tabDefs.filter(t => t.count == null || t.count > 0)
+  const effectiveTab = visibleTabs.some(t => t.value === activeTab)
+    ? activeTab
+    : visibleTabs[0]?.value
 
   return (
     <div
@@ -208,29 +207,29 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
           )}
 
           <div>
-            <div className="mb-3">
-              <TabBar
-                tabs={[
-                  { value: "credits", label: "VN Credits", count: vnCreditsCount || undefined },
-                  ...(voicedCount > 0 ? [{ value: "characters", label: "Voiced Characters", count: voicedCount }] : [])
-                ]}
-                active={activeTab}
-                onChange={v => setActiveTab(v as "credits" | "characters")}
-              />
-            </div>
-            {activeTab === "credits" ? (
+            {visibleTabs.length > 0 && (
+              <div className="mb-3">
+                <TabBar
+                  tabs={visibleTabs.map(t => ({ value: t.value, label: t.label, count: t.count ?? undefined }))}
+                  active={effectiveTab ?? ""}
+                  onChange={v => setActiveTab(v as StaffTab)}
+                />
+              </div>
+            )}
+            {effectiveTab === "credits" ? (
               <StaffVNCredits
                 staffId={staff.id}
                 sexualLevel={sexualLevel}
                 violenceLevel={violenceLevel}
-                onCountLoaded={setVnCreditsCount}
               />
-            ) : (
+            ) : effectiveTab === "characters" ? (
               <StaffVoicedCharacters
                 staffId={staff.id}
                 sexualLevel={sexualLevel}
                 violenceLevel={violenceLevel}
               />
+            ) : (
+              <p className="text-sm text-muted">No credits or voiced characters found.</p>
             )}
           </div>
         </div>

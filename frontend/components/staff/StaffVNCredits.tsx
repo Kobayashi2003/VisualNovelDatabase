@@ -14,10 +14,9 @@ interface StaffVNCreditsProps {
   staffId: string
   sexualLevel: "safe" | "suggestive" | "explicit"
   violenceLevel: "tame" | "violent" | "brutal"
-  onCountLoaded?: (count: number) => void
 }
 
-export function StaffVNCredits({ staffId, sexualLevel, violenceLevel, onCountLoaded }: StaffVNCreditsProps) {
+export function StaffVNCredits({ staffId, sexualLevel, violenceLevel }: StaffVNCreditsProps) {
   const [vns, setVns] = useState<VN_Small[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +33,6 @@ export function StaffVNCredits({ staffId, sexualLevel, violenceLevel, onCountLoa
         if (cancelled) return
         setVns(res.results)
         setTotalPages(Math.ceil(res.count / PAGE_LIMIT))
-        onCountLoaded?.(res.count)
       })
       .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)) })
       .finally(() => { if (!cancelled) setLoading(false) })

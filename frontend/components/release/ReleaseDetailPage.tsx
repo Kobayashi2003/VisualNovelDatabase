@@ -18,7 +18,10 @@ import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelect
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
 import { displayTitle, displayName } from "@/lib/original"
-import { InfoRow, Section } from "@/components/common/InfoPanel"
+import { InfoRow, Section, InlineList } from "@/components/common/InfoPanel"
+import { LanguageIcons } from "@/components/common/LanguageIcons"
+import { PlatformIcons } from "@/components/common/PlatformIcons"
+import { ExtLinks } from "@/components/common/ExtLinks"
 
 
 /* ─── Image gallery ────────────────────────────────────────────────────────── */
@@ -164,10 +167,8 @@ function ReleaseImages({
 function ReleaseInfoPanel({ release }: { release: Release }) {
   const rtypes = [...new Set(release.vns.map(v => v.rtype))]
   const ageLabel = release.minage == null ? null : release.minage === 0 ? "All Ages" : `${release.minage}+`
-  const PLATFORM = enumMap('PLATFORM')
   const VOICED = enumMap('VOICED')
   const MEDIUM = enumMap('MEDIUM')
-  const PLAT_ICON = ICON.PLATFORM as Record<string, string>
   const MEDIA_ICON = ICON.RELEASE_MEDIA as Record<string, string>
   const VOICED_ICON = ICON.RELEASE_VOICED as Record<number, string>
 
@@ -190,10 +191,16 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
     }
   }
 
-  const LANG_ICON = ICON.LANGUAGE as Record<string, string>
+  const hasInfo =
+    !!release.released || rtypes.length > 0 || !!ageLabel ||
+    release.platforms.length > 0 || release.languages.length > 0 ||
+    release.media.length > 0 || !!resoDisplay || !!release.engine ||
+    release.voiced != null || release.freeware != null ||
+    !!release.gtin || !!release.catalog
 
   return (
     <div className="flex flex-col gap-3">
+      {hasInfo && (
       <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
         {release.released && (
           <InfoRow label="Released">{release.released}</InfoRow>
@@ -232,49 +239,25 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
 
         {release.platforms.length > 0 && (
           <InfoRow label="Platforms">
-            <div className="flex flex-wrap gap-1.5">
-              {release.platforms.map(p => (
-                PLAT_ICON[p]
-                  ? <span key={p} className={PLAT_ICON[p]} title={PLATFORM[p] ?? p} />
-                  : <span key={p} className="text-xs px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/80">{PLATFORM[p] ?? p}</span>
-              ))}
-            </div>
+            <PlatformIcons platforms={release.platforms} />
           </InfoRow>
         )}
 
         {release.languages.length > 0 && (
           <InfoRow label="Languages">
-            <div className="flex flex-col gap-1.5 w-full">
-              {release.languages.map((lang, i) => (
-                <div key={i} className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {LANG_ICON[lang.lang] && <span className={LANG_ICON[lang.lang]} />}
-                    <span className={cn(
-                      "text-xs",
-                      lang.main ? "text-white/90 font-medium" : "text-white/70"
-                    )}>
-                      {enumLabel('LANGUAGE', lang.lang)}
-                    </span>
-                    {lang.mtl && (
-                      <span className="text-xs text-amber-400/80">[MTL]</span>
-                    )}
-                  </div>
-
-                </div>
-              ))}
-            </div>
+            <LanguageIcons langs={release.languages} />
           </InfoRow>
         )}
 
         {release.media.length > 0 && (
           <InfoRow label="Media">
-            {release.media.map((m, i) => (
-              <span key={i} className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/80">
+            <InlineList items={release.media.map((m, i) => (
+              <span key={i} className="inline-flex items-center gap-1">
                 {MEDIA_ICON[m.medium] && <span className={MEDIA_ICON[m.medium]} />}
                 {MEDIUM[m.medium] ?? m.medium}
                 {m.qty ? ` ×${m.qty}` : ""}
               </span>
-            ))}
+            ))} />
           </InfoRow>
         )}
 
@@ -319,25 +302,9 @@ function ReleaseInfoPanel({ release }: { release: Release }) {
           <InfoRow label="Catalog">{release.catalog}</InfoRow>
         )}
       </div>
-
-      {release.extlinks.length > 0 && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-2">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Links</p>
-          <div className="flex flex-wrap gap-1.5">
-            {release.extlinks.map((link, i) => (
-              <a
-                key={i}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs px-2 py-1 rounded bg-white/5 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </div>
       )}
+
+      <ExtLinks links={release.extlinks} />
     </div>
   )
 }

@@ -53,6 +53,29 @@ function FieldLabel({ label }: { label: string }) {
   return <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">{label}</p>
 }
 
+// Small on/off pill — used for the spoiler / lie toggles on entity filters.
+function MiniToggle({ label, on, disabled, onToggle }: {
+  label: string; on: boolean; disabled?: boolean; onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onToggle}
+      className={cn(
+        "px-2 py-0.5 rounded-full text-xs border transition-colors",
+        disabled
+          ? "border-white/5 text-muted/40 cursor-not-allowed"
+          : on
+            ? "border-accent/40 bg-accent/15 text-accent"
+            : "border-white/10 text-muted hover:text-white hover:border-white/30",
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
 
 /* ─── Per-field renderers (one per filter kind, with comparable variant) ───── */
 
@@ -211,20 +234,45 @@ export function FiltersForm({ type, filterState, source, setFilterState }: Filte
     setFilterState({ ...filterState, dateComparable: { ...filterState.dateComparable, [k]: v } })
   const setEntity = (k: string, v: EntityItem[]) =>
     setFilterState({ ...filterState, entity: { ...filterState.entity, [k]: v } })
+  const entityOpt = (k: string) => filterState.entityOptions?.[k] ?? { spoil: false, lie: false }
+  const setEntityOption = (k: string, patch: Partial<{ spoil: boolean; lie: boolean }>) =>
+    setFilterState({
+      ...filterState,
+      entityOptions: { ...filterState.entityOptions, [k]: { ...entityOpt(k), ...patch } },
+    })
 
   const hasAny = f.text?.length || f.number?.length || f.select?.length || f.date?.length || f.entity?.length
 
   return (
     <div className="flex flex-col gap-4">
       {f.entity?.map(field => (
-        <EntityFilter
-          key={field.value}
-          label={field.label}
-          entityType={field.entityType}
-          value={filterState.entity?.[field.value] ?? []}
-          onChange={v => setEntity(field.value, v)}
-          source={source}
-        />
+        <div key={field.value} className="flex flex-col gap-1.5">
+          <EntityFilter
+            label={field.label}
+            entityType={field.entityType}
+            value={filterState.entity?.[field.value] ?? []}
+            onChange={v => setEntity(field.value, v)}
+            source={source}
+          />
+          {field.spoilable && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <MiniToggle
+                label="Include spoilers"
+                on={entityOpt(field.value).spoil}
+                onToggle={() => setEntityOption(field.value, { spoil: !entityOpt(field.value).spoil })}
+              />
+              {/* `exclude lies` is local-only — the Kana API can't filter lies. */}
+              {source === "local" && (
+                <MiniToggle
+                  label="Exclude lies"
+                  on={entityOpt(field.value).lie}
+                  disabled={!entityOpt(field.value).spoil}
+                  onToggle={() => setEntityOption(field.value, { lie: !entityOpt(field.value).lie })}
+                />
+              )}
+            </div>
+          )}
+        </div>
       ))}
       {f.text?.map(field => (
         <TextFilter key={field.value} filter={field}

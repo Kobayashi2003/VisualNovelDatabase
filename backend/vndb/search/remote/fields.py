@@ -59,11 +59,11 @@ class VNDBFields:
 
         class IMAGE(FieldGroup):
             _prefix = "image."
-            _fields = ['ID', 'URL', 'DIMS', 'SEXUAL', 'VIOLENCE', 'THUMBNAIL', 'THUMBNAIL_DIMS']
+            _fields = ['ID', 'URL', 'DIMS', 'SEXUAL', 'VIOLENCE', 'VOTECOUNT', 'THUMBNAIL', 'THUMBNAIL_DIMS']
 
         class SCREENSHOTS(FieldGroup):
             _prefix = "screenshots."
-            _fields = ['URL', 'DIMS', 'SEXUAL', 'VIOLENCE', 'THUMBNAIL', 'THUMBNAIL_DIMS']
+            _fields = ['ID', 'URL', 'DIMS', 'SEXUAL', 'VIOLENCE', 'VOTECOUNT', 'THUMBNAIL', 'THUMBNAIL_DIMS']
 
             class RELEASE(FieldGroup):
                 _prefix = "release."
@@ -132,7 +132,7 @@ class VNDBFields:
         class IMAGES(FieldGroup):
             _prefix = "images."
             _fields = ['ID', 'TYPE', 'VN', 'LANGUAGES', 'PHOTO', 'URL', 'DIMS', 'SEXUAL',
-                       'VIOLENCE', 'THUMBNAIL', 'THUMBNAIL_DIMS']
+                       'VIOLENCE', 'VOTECOUNT', 'THUMBNAIL', 'THUMBNAIL_DIMS']
 
         class EXTLINKS(FieldGroup):
             _prefix = "extlinks."
@@ -145,7 +145,7 @@ class VNDBFields:
 
         class IMAGE(FieldGroup):
             _prefix = "image."
-            _fields = ['ID', 'URL', 'DIMS', 'SEXUAL', 'VIOLENCE']
+            _fields = ['ID', 'URL', 'DIMS', 'SEXUAL', 'VIOLENCE', 'VOTECOUNT']
 
         class VNS(FieldGroup):
             _prefix = "vns."

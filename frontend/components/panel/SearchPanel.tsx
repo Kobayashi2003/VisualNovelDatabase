@@ -98,13 +98,13 @@ export function SearchPanel({
   const sortOptions = getSortOptions(localType, localFrom)
 
   const handleApply = () => {
-    const filterParams = buildFilterParams(localType, localFilterState)
+    const filterParams = buildFilterParams(localType, localFilterState, localFrom)
     onApply(localFrom, localType, localSortBy, localOrder, filterParams)
     setOpen(false)
   }
 
   const handleApplyOnly = () => {
-    const filterParams = buildFilterParams(localType, localFilterState)
+    const filterParams = buildFilterParams(localType, localFilterState, localFrom)
     onSave?.(localFrom, localType, localSortBy, localOrder, filterParams)
     setOpen(false)
   }

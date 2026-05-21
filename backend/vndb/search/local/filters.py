@@ -47,6 +47,30 @@ def array_string_match(column: Any, value: str) -> BinaryExpression:
         .where(text(f"array_item ILIKE :{param_value}"))
     ).params({param_value: f"%{value}%"})
 
+def array_jsonb_tag_match(column: Any, value: str, max_spoiler: int,
+                          exclude_lies: bool = False) -> BinaryExpression:
+    """
+    Match a tag/trait inside a JSONB-array column (`VN.tags` / `Character.traits`).
+
+    An array item matches when its `id` equals `value` or its `name` contains
+    `value` (ILIKE), and its spoiler level is at most `max_spoiler`. When
+    `exclude_lies` is set, items flagged as a 'lie' are skipped.
+    """
+    param_id = generate_unique_param_name("id")
+    param_like = generate_unique_param_name("like")
+    param_spoiler = generate_unique_param_name("spoiler")
+    condition = (
+        f"(tag_item->>'id' = :{param_id} OR tag_item->>'name' ILIKE :{param_like}) "
+        f"AND COALESCE((tag_item->>'spoiler')::int, 0) <= :{param_spoiler}"
+    )
+    if exclude_lies:
+        condition += " AND COALESCE((tag_item->>'lie')::boolean, false) = false"
+    return exists(
+        select(1)
+        .select_from(func.unnest(column).alias('tag_item'))
+        .where(text(condition))
+    ).params({param_id: value, param_like: f"%{value}%", param_spoiler: max_spoiler})
+
 def process_multi_value_expression(expression: str, value_processor: Callable[[str], BinaryExpression]) -> BinaryExpression:
     """
     Process a multi-value expression with OR/AND logic and parentheses using two stacks.
@@ -621,23 +645,20 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if devstatus := params.get('devstatus'):
         filters.append(VN.devstatus == devstatus)
 
-    if tags := params.get('tag'):
-        # TODO: there is no good way to get the parent of a tag, need to wait for the official api update
-        # currently this filter works as the same as dtags
-        def process_tag(tag_value):
-            return or_(
-                array_jsonb_exact_match(VN.tags, 'id', tag_value),
-                array_jsonb_match(VN.tags, 'name', tag_value)
-            )
-        filters.append(process_multi_value_expression(tags, process_tag))
-
-    if dtags := params.get('dtag'):
-        def process_dtag(dtag_value):
-            return or_(
-                array_jsonb_exact_match(VN.tags, 'id', dtag_value),
-                array_jsonb_match(VN.tags, 'name', dtag_value)
-            )
-        filters.append(process_multi_value_expression(dtags, process_dtag))
+    # tag / dtag and their spoiler-aware variants. Locally there is no tag
+    # hierarchy, so `tag` and `dtag` match directly-applied tags identically.
+    # Plain variants cap at spoiler 0; `_spoil` allows up to Major (2);
+    # `_spoil_exclude_lies` additionally drops lie-flagged applications.
+    for tag_param, max_spoiler, exclude_lies in (
+        ('tag', 0, False), ('dtag', 0, False),
+        ('tag_spoil', 2, False), ('dtag_spoil', 2, False),
+        ('tag_spoil_exclude_lies', 2, True), ('dtag_spoil_exclude_lies', 2, True),
+    ):
+        if tag_value := params.get(tag_param):
+            filters.append(process_multi_value_expression(
+                tag_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
+            ))
 
     if anime_id := params.get('anime_id'): #TODO
         raise ValueError("The 'anime_id' search field is not available for local searches.")
@@ -860,25 +881,20 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if age := params.get('age'):
         filters.append(create_comparison_filter(Character.age, age, int))
 
-    if traits := params.get('trait'):
-        # NOTE: 'trait' and 'dtrait' behave identically in local search.
-        # The API distinction (parent trait traversal vs. direct only) requires trait
-        # hierarchy data which is not available locally. This matches the same
-        # limitation as local 'tag'/'dtag'.
-        def process_trait(trait_value):
-            return or_(
-                array_jsonb_exact_match(Character.traits, 'id', trait_value),
-                array_jsonb_match(Character.traits, 'name', trait_value)
-            )
-        filters.append(process_multi_value_expression(traits, process_trait))
-
-    if dtraits := params.get('dtrait'):
-        def process_dtrait(dtrait_value):
-            return or_(
-                array_jsonb_exact_match(Character.traits, 'id', dtrait_value),
-                array_jsonb_match(Character.traits, 'name', dtrait_value)
-            )
-        filters.append(process_multi_value_expression(dtraits, process_dtrait))
+    # trait / dtrait and their spoiler-aware variants. As with tags, local
+    # search has no trait hierarchy, so `trait` and `dtrait` are identical.
+    # Plain variants cap at spoiler 0; `_spoil` allows up to Major (2);
+    # `_spoil_exclude_lies` additionally drops lie-flagged applications.
+    for trait_param, max_spoiler, exclude_lies in (
+        ('trait', 0, False), ('dtrait', 0, False),
+        ('trait_spoil', 2, False), ('dtrait_spoil', 2, False),
+        ('trait_spoil_exclude_lies', 2, True), ('dtrait_spoil_exclude_lies', 2, True),
+    ):
+        if trait_value := params.get(trait_param):
+            filters.append(process_multi_value_expression(
+                trait_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+            ))
 
     if birthday := params.get('birthday'):
         filters.append(create_birthday_comparison_filter(birthday))

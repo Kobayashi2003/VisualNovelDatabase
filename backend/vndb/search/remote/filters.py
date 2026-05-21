@@ -1,6 +1,6 @@
 import re
 import httpx
-from typing import Any
+from typing import Any, Callable
 from enum import Enum, auto
 from ..parse import validate_logical_expression
 
@@ -156,10 +156,17 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
         return [key, "=", nested_filters]
 
     if filter_def.filter_type == FilterType.ARRAY:
-        if key == 'tag' or key == 'dtag':
-            ...
-        elif key == 'trait' or key == 'dtrait':
-            ...
+        if key in ('tag', 'dtag'):
+            # Either a bare tag id ("g505"), or the spoiler-aware array form
+            # [id, max_spoiler (0-2), min_tag_level (0-3)] that the Kana API
+            # accepts. The array is built upstream by parse_tag_expression.
+            if isinstance(filter_value, list) and len(filter_value) != 3:
+                raise ValueError(f"Invalid value: {value}")
+        elif key in ('trait', 'dtrait'):
+            # Either a bare trait id ("i123"), or the array form
+            # [id, max_spoiler (0-2)].
+            if isinstance(filter_value, list) and len(filter_value) != 2:
+                raise ValueError(f"Invalid value: {value}")
         elif not isinstance(filter_value, list):
             raise ValueError(f"Invalid value: {value}")
 
@@ -218,13 +225,19 @@ def build_filters(filter_set: dict[str, VNDBFilter], filters: dict[str, Any]) ->
     return [] if not result else result[0] if len(result) == 1 else ["and"] + result
 
 
-def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
+def parse_logical_expression(expression: str, field: str,
+                             value_wrapper: Callable[[str], Any] | None = None) -> dict[str, Any]:
     """
     Parse logical expression using two stacks.
     Operators: OR (',', lower precedence) and AND ('+', higher precedence)
+
+    `value_wrapper`, when given, transforms each leaf value before it is stored
+    (e.g. wrapping a bare tag id into the `[id, spoiler, level]` array form).
     """
     if not validate_logical_expression(expression):
         raise ValueError(f"Invalid expression: {expression}")
+
+    wrap = value_wrapper if value_wrapper is not None else (lambda v: v)
 
     def or_operation(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
         """Merge OR operations"""
@@ -270,7 +283,7 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
             ops.append(char)
         elif char == ')':
             if current:
-                vals.append({field: current.strip()})
+                vals.append({field: wrap(current.strip())})
                 current = ""
             while ops and ops[-1] != '(':
                 evaluate(ops, vals)
@@ -278,7 +291,7 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
                 ops.pop()
         elif char in '+,':
             if current:
-                vals.append({field: current.strip()})
+                vals.append({field: wrap(current.strip())})
                 current = ""
             while ops and ops[-1] != '(' and char == ',' and ops[-1] == '+':
                 evaluate(ops, vals)
@@ -287,20 +300,23 @@ def parse_logical_expression(expression: str, field: str) -> dict[str, Any]:
             current += char
 
     if current:
-        vals.append({field: current.strip()})
+        vals.append({field: wrap(current.strip())})
 
     while ops:
         evaluate(ops, vals)
 
     return vals[0] if vals else {}
 
-def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, Any]:
+def parse_tag_expression(expression: str, directly: bool = False, spoil: bool = False) -> dict[str, Any]:
     from .search import api
     url = "https://api.vndb.org/kana/tag"
     client = api.client
 
     def get_tag_ids(tag: str) -> list[str]:
-        """Get tag IDs from tag name using unpaginated search"""
+        """Resolve a tag name to tag IDs, or return it as-is when already an
+        id (`g<number>`) so no extra request to the Kana API is needed."""
+        if re.match(r'^g\d+$', tag):
+            return [tag]
         results = []
         page =1
         more = True
@@ -340,7 +356,7 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
                     # If multiple IDs found, combine them with OR
                     tag_map[tag] = f"({','.join(ids)})" if len(ids) > 1 else ids[0]
                 else:
-                    tag_map[tag] = "t0"  # Placeholder for non-existent tag
+                    tag_map[tag] = "g0"  # Placeholder for non-existent tag
 
         # Reconstruct expression with IDs
         new_expr = expr
@@ -352,9 +368,12 @@ def parse_tag_expression(expression: str, directly: bool = False) -> dict[str, A
     new_expression = process_tags(expression.strip())
 
     field = 'dtag' if directly else 'tag'
-    return parse_logical_expression(new_expression, field)
+    # Spoiler-aware variants request at the Major spoiler level (2); the bare
+    # form keeps the Kana API default (spoiler 0). Min tag level stays 0.
+    wrapper = (lambda tag_id: [tag_id, 2, 0]) if spoil else None
+    return parse_logical_expression(new_expression, field, wrapper)
 
-def parse_trait_expression(expression: str, directly: bool = False) -> dict[str, Any]:
+def parse_trait_expression(expression: str, directly: bool = False, spoil: bool = False) -> dict[str, Any]:
     from .search import api
     url = "https://api.vndb.org/kana/trait"
     client = api.client
@@ -402,7 +421,10 @@ def parse_trait_expression(expression: str, directly: bool = False) -> dict[str,
     new_expression = process_traits(expression.strip())
 
     field = 'dtrait' if directly else 'trait'
-    return parse_logical_expression(new_expression, field)
+    # Spoiler-aware variants request at the Major spoiler level (2); the bare
+    # form keeps the Kana API default (spoiler 0). Traits have no level field.
+    wrapper = (lambda trait_id: [trait_id, 2]) if spoil else None
+    return parse_logical_expression(new_expression, field, wrapper)
 
 def parse_int(value: str | None, comparable: bool = False) -> str | None:
     value = value.replace(" ", "")
@@ -503,6 +525,12 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if dtag := params.get('dtag'):
         filters.append(parse_tag_expression(dtag, directly=True))
+
+    if tag_spoil := params.get('tag_spoil'):
+        filters.append(parse_tag_expression(tag_spoil, spoil=True))
+
+    if dtag_spoil := params.get('dtag_spoil'):
+        filters.append(parse_tag_expression(dtag_spoil, directly=True, spoil=True))
 
     # Handle fields that may contain multiple values
     multi_value_fields = ['lang', 'platform', 'released', 'olang']
@@ -649,6 +677,12 @@ def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if dtrait := params.get('dtrait'):
         filters.append(parse_trait_expression(dtrait, directly=True))
+
+    if trait_spoil := params.get('trait_spoil'):
+        filters.append(parse_trait_expression(trait_spoil, spoil=True))
+
+    if dtrait_spoil := params.get('dtrait_spoil'):
+        filters.append(parse_trait_expression(dtrait_spoil, directly=True, spoil=True))
 
     multi_value_fields = ['role']
     for field in multi_value_fields:

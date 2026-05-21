@@ -14,7 +14,7 @@ export interface SelectField extends BaseField { default?: string; comparable?: 
 export interface DateField extends BaseField { availableFormats: string[]; comparable?: boolean; placeholder?: string }
 export type EntityType = "tag" | "trait" | "staff" | "producer"
 export interface EntityItem { id: string; label: string }
-export interface EntityField extends BaseField { entityType: EntityType }
+export interface EntityField extends BaseField { entityType: EntityType; spoilable?: boolean }
 
 // Controlled state for the search panel form, grouped by field kind.
 // `*Comparable` variants pair an operator with the user-entered value.
@@ -27,6 +27,9 @@ export interface FilterState {
   date: Record<string, string>
   dateComparable: Record<string, { operator: string; date: string }>
   entity: Record<string, EntityItem[]>
+  // Per-entity-filter toggles for tag/dtag/trait/dtrait: `spoil` raises the
+  // match to the Major spoiler level, `lie` (local only) drops lie-flagged tags.
+  entityOptions: Record<string, { spoil: boolean; lie: boolean }>
 }
 
 /* ─── Validation ───────────────────────────────────────────────────────────── */
@@ -109,8 +112,8 @@ export const isValidSelect = (value: string, comparable = false): boolean => {
 export const searchFilters: Record<string, { text?: TextField[]; number?: NumberField[]; select?: SelectField[]; date?: DateField[]; entity?: EntityField[] }> = {
   v: {
     entity: [
-      { value: "tag",       label: "Tag",          entityType: "tag" },
-      { value: "dtag",     label: "Directed Tag",  entityType: "tag" },
+      { value: "tag",       label: "Tag",          entityType: "tag",      spoilable: true },
+      { value: "dtag",     label: "Directed Tag",  entityType: "tag",      spoilable: true },
       { value: "staff",     label: "Staff",         entityType: "staff" },
       { value: "developer", label: "Developer",     entityType: "producer" },
     ],
@@ -161,8 +164,8 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
   },
   c: {
     entity: [
-      { value: "trait",  label: "Trait",          entityType: "trait" },
-      { value: "dtrait", label: "Directed Trait",  entityType: "trait" },
+      { value: "trait",  label: "Trait",          entityType: "trait", spoilable: true },
+      { value: "dtrait", label: "Directed Trait",  entityType: "trait", spoilable: true },
       { value: "seiyuu", label: "Seiyuu",          entityType: "staff" },
     ],
     text: [
@@ -224,12 +227,15 @@ export function buildInitialState(type: string): FilterState {
     date: Object.fromEntries((f.date || []).filter(x => !x.comparable).map(x => [x.value, ""])),
     dateComparable: Object.fromEntries((f.date || []).filter(x => x.comparable).map(x => [x.value, { operator: "=", date: "" }])),
     entity: Object.fromEntries((f.entity || []).map(x => [x.value, []])),
+    entityOptions: Object.fromEntries(
+      (f.entity || []).filter(x => x.spoilable).map(x => [x.value, { spoil: false, lie: false }])
+    ),
   }
 }
 
 // Reduces a `FilterState` to a flat `{ field: value }` map suitable for the
 // API query string. Invalid / empty entries are dropped silently.
-export function buildFilterParams(type: string, state: FilterState): Record<string, string> {
+export function buildFilterParams(type: string, state: FilterState, source?: string): Record<string, string> {
   const f = searchFilters[type] || {}
   const result: Record<string, string> = {}
 
@@ -262,7 +268,16 @@ export function buildFilterParams(type: string, state: FilterState): Record<stri
     if (field && field.availableFormats.some(fmt => isValidDate(combined, fmt, true))) result[k] = combined
   }
   for (const [k, v] of Object.entries(state.entity || {})) {
-    if (v.length > 0) result[k] = v.map(item => item.id).join(",")
+    if (v.length === 0) continue
+    const ids = v.map(item => item.id).join(",")
+    const opt = state.entityOptions?.[k]
+    if (opt?.spoil) {
+      // `exclude lies` is a local-only refinement — the Kana API can't filter
+      // lie-flagged tags — so only emit it when the local backend is queried.
+      result[opt.lie && source === "local" ? `${k}_spoil_exclude_lies` : `${k}_spoil`] = ids
+    } else {
+      result[k] = ids
+    }
   }
 
   return result

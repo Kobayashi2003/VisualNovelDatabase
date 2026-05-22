@@ -66,7 +66,7 @@ def backup_database_schedule():
         subprocess.run(command, env=env, check=True, capture_output=True, text=True)
         print(f"[UserServe] Database backup created successfully")
     except Exception as e:
-        print(f"[UserServe] Error creating database backup: {str(e)}", err=True)
+        print(f"[UserServe] Error creating database backup: {str(e)}")
 
 
 @daily_task(hour=3, minute=30)

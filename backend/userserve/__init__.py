@@ -40,27 +40,61 @@ def create_app(config_class=Config, enable_scheduler=True):
         "max_age": 600
     }}, supports_credentials=True)
 
+    # ----------------------------------------
+    # Database Initialization
+    # This section sets up the SQLAlchemy database connection and creates all tables
+    # ----------------------------------------
     db = ExtSQLAchemy(app)
+
+    # ----------------------------------------
+    # Migrate Initialization
+    # This section sets up the Flask-Migrate extension for database migration management
+    # ----------------------------------------
     migrate = Migrate(app, db)
+
+    # ----------------------------------------
+    # JWT Initialization
+    # This section sets up Flask-JWT-Extended for cookie-based authentication
+    # ----------------------------------------
     jwt = ExtJWT(app)
+
+    # ----------------------------------------
+    # Limiter Initialization
+    # This section sets up Flask-Limiter for request rate limiting
+    # ----------------------------------------
     limiter = ExtLimiter(app)
-    # Ephemeral store for email verification codes (TTL handles expiry).
+
+    # ----------------------------------------
+    # Redis Initialization
+    # Ephemeral store for email verification codes (TTL handles expiry)
+    # ----------------------------------------
     redis_client = redis.Redis.from_url(app.config['USERSERVE_REDIS_URL'], decode_responses=True)
+
+    # ----------------------------------------
+    # Scheduler Initialization
+    # This section sets up the APScheduler for running scheduled tasks
+    # ----------------------------------------
     if enable_scheduler:
         scheduler = ExtAPScheduler(app)
+        from .schedule import backup_database_schedule, prune_token_blocklist_schedule
     else:
         scheduler = None
 
-    # Reject tokens that have been revoked (logout) or issued before a user's
-    # password-change cut-off.
+    # ----------------------------------------
+    # JWT Blocklist Registration
+    # This section rejects tokens that have been revoked (logout) or issued
+    # before a user's password-change cut-off
+    # ----------------------------------------
     from .operations import is_token_invalidated
 
     @jwt.token_in_blocklist_loader
     def _token_revoked(jwt_header, jwt_payload):
         return is_token_invalidated(jwt_payload)
 
-    # ---------------------------
-    # Admin password from env or auto-generated
+    # ----------------------------------------
+    # Admin Password Configuration
+    # This section loads the admin password from env or auto-generates one
+    # ----------------------------------------
     admin_password = os.environ.get('ADMIN_PASSWORD')
     if not admin_password:
         alphabet = string.ascii_letters + string.digits
@@ -68,25 +102,26 @@ def create_app(config_class=Config, enable_scheduler=True):
     app.config['ADMIN_PASSWORD'] = admin_password
     app.logger.info(f"Admin password configured (auto-generated: {os.environ.get('ADMIN_PASSWORD') is None})")
 
-    # ---------------------------
-    # Register routes
+    # ----------------------------------------
+    # Blueprint Registration
+    # This section registers all the blueprints (modular components) of the application
+    # ----------------------------------------
+
     @app.errorhandler(Exception)
     def handle_exception(e):
         app.logger.error(f"Unhandled exception: {e}", exc_info=True)
         return jsonify(error="Internal server error"), 500
 
-    app.add_url_rule('/test', 'test', lambda: render_template('test.html'), methods=['GET'])
-
     from .routes import api_bp
     app.register_blueprint(api_bp)
+    app.add_url_rule('/test', 'test', lambda: render_template('test.html'), methods=['GET'])
 
-    # ---------------------------
-    # Register tasks
-    from .schedule import backup_database_schedule
-
-    # ---------------------------
-    # Register CLI commands
+    # ----------------------------------------
+    # CLI Command Registration
+    # This section adds custom CLI commands for database operations
+    # ----------------------------------------
     from .cli import register_commands
+
     register_commands(app)
 
     return app

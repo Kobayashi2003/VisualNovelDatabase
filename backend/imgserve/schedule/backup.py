@@ -37,4 +37,4 @@ def backup_database_schedule():
         subprocess.run(command, env=env, check=True, capture_output=True, text=True)
         print(f"[ImgServe] Database backup created successfully")
     except Exception as e:
-        print(f"[ImgServe] Error creating database backup: {str(e)}", err=True)
+        print(f"[ImgServe] Error creating database backup: {str(e)}")

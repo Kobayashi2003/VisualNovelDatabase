@@ -108,7 +108,7 @@ def backup_db(filename):
         '-h', db_host,
         '-p', db_port,
         '-U', db_user,
-        '-F', 'c',  # plain text format
+        '-F', 'c',  # custom (compressed) format
         '-f', backup_path,
         db_name
     ]

@@ -30,4 +30,4 @@ def setup_logger(name, log_file, level=logging.INFO):
 
     return logger
 
-logger = setup_logger('logger', 'imgserve/logs/info.log')
+logger = setup_logger('logger', 'userserve/logs/info.log')

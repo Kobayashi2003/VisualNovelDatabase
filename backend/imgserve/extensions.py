@@ -102,10 +102,6 @@ class ExtCelery(Extension):
         return celery
 
 class ExtAPScheduler(Extension):
-    def __init__(self, app, enable_scheduler=True):
-        super().__init__(app)
-        self.enable_scheduler = enable_scheduler
-    
     def __getattr__(self, name):
         if name == 'task':
             return self.scheduled_task

@@ -35,7 +35,7 @@ import time
 
 from flask import current_app
 
-from .common import hourly_task
+from .common import crawl_task
 from vndb import db
 from vndb.database import MODEL_MAP, create
 from vndb.search import convert_remote_to_local
@@ -109,7 +109,7 @@ def _ingest(resource_type, ids):
 # Schedules
 # ----------------------------------------
 
-@hourly_task()
+@crawl_task()
 def fetch_new_schedule():
     """Ingest entries newer than anything currently held locally."""
     summary = {}
@@ -140,7 +140,7 @@ def _fetch_new(resource_type):
         time.sleep(REQUEST_DELAY)
     return created
 
-@hourly_task(minute=30)
+@crawl_task(minute=30)
 def fetch_backfill_schedule():
     """Sweep the full id space to fill historical gaps, a few pages per run."""
     state = _load_state()

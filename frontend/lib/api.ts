@@ -222,6 +222,13 @@ function convertToImgserveUrl(url: string): string {
   }
   /* ─── END TEMP ─────────────────────────────────────────────────────────────── */
 
+  // "direct" image source (Settings) — bypass imgserve and hand the VNDB CDN
+  // URL straight to the browser. Read from localStorage, like the guard above,
+  // so this plain function need not be a hook.
+  if (typeof window !== "undefined" && localStorage.getItem("imageSource") === "direct") {
+    return url
+  }
+
   const match = url.match(/^https?:\/\/[^/]+\/(cv|sf|ch|cv\.t|sf\.t|ch\.t)\/\d+\/(\d+)\.jpg$/)
   if (!match) return url
   const [, type, id] = match

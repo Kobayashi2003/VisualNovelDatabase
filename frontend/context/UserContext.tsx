@@ -2,7 +2,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
-import type { User, SexualLevel, ViolenceLevel } from "@/lib/types"
+import type { User, SexualLevel, ViolenceLevel, ImageSource } from "@/lib/types"
 import { api, setSessionExpiredHandler, clearStoredSession } from "@/lib/api"
 
 interface UserContextType {
@@ -10,12 +10,14 @@ interface UserContextType {
   isLoading: boolean
   defaultSexualLevel: SexualLevel
   defaultViolenceLevel: ViolenceLevel
+  imageSource: ImageSource
   register: (username: string, email: string, password: string, code: string, invitationCode: string) => Promise<void>
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   changeEmail: (newEmail: string, code: string, password: string) => Promise<void>
   updateDefaultSexualLevel: (v: SexualLevel) => void
   updateDefaultViolenceLevel: (v: ViolenceLevel) => void
+  updateImageSource: (v: ImageSource) => void
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -35,6 +37,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [defaultViolenceLevel, setDefaultViolenceLevel] = useState<ViolenceLevel>(
     () => (typeof window !== "undefined" ? (localStorage.getItem("defaultViolenceLevel") as ViolenceLevel) || "tame" : "tame")
   )
+  const [imageSource, setImageSource] = useState<ImageSource>(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("imageSource") as ImageSource) || "imgserve" : "imgserve")
+  )
 
   const updateDefaultSexualLevel = (v: SexualLevel) => {
     localStorage.setItem("defaultSexualLevel", v)
@@ -43,6 +48,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const updateDefaultViolenceLevel = (v: ViolenceLevel) => {
     localStorage.setItem("defaultViolenceLevel", v)
     setDefaultViolenceLevel(v)
+  }
+  // Read at image-fetch time by `convertToImgserveUrl`; already-loaded images
+  // keep their URLs until the next fetch/navigation.
+  const updateImageSource = (v: ImageSource) => {
+    localStorage.setItem("imageSource", v)
+    setImageSource(v)
   }
 
   // Re-establish the session on mount. The username hint marks a session that
@@ -103,7 +114,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <UserContext.Provider value={{ user, register, login, logout, changeEmail, isLoading, defaultSexualLevel, defaultViolenceLevel, updateDefaultSexualLevel, updateDefaultViolenceLevel }}>
+    <UserContext.Provider value={{ user, register, login, logout, changeEmail, isLoading, defaultSexualLevel, defaultViolenceLevel, imageSource, updateDefaultSexualLevel, updateDefaultViolenceLevel, updateImageSource }}>
       {children}
     </UserContext.Provider>
   )

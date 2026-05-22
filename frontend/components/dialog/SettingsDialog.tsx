@@ -6,6 +6,7 @@ import { api } from "@/lib/api"
 import { useUserContext } from "@/context/UserContext"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
+import { ImageSourceSelector } from "@/components/selector/ImageSourceSelector"
 import { BaseDialog } from "@/components/dialog/BaseDialog"
 import { PasswordInput } from "@/components/input/PasswordInput"
 import { validatePassword, validateEmail } from "@/lib/validation"
@@ -28,6 +29,7 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
     user, changeEmail,
     defaultSexualLevel, defaultViolenceLevel,
     updateDefaultSexualLevel, updateDefaultViolenceLevel,
+    imageSource, updateImageSource,
   } = useUserContext()
 
   /* ─── Change Email ────────────────────────────────────────────────────────── */
@@ -150,6 +152,20 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
               setViolenceLevel={updateDefaultViolenceLevel}
             />
           </div>
+        </div>
+
+        <div className="border-t border-white/8" />
+
+        {/* ─── Image Source ─────────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Image Source</p>
+          <div className="grid grid-cols-[5rem_1fr] items-center gap-x-5">
+            <span className="text-sm text-white/70">Source</span>
+            <ImageSourceSelector imageSource={imageSource} setImageSource={updateImageSource} />
+          </div>
+          <p className="text-xs text-muted">
+            Proxy loads images through the imgserve cache. Direct fetches them straight from VNDB.
+          </p>
         </div>
 
         <div className="border-t border-white/8" />

@@ -4,6 +4,10 @@
 export type SexualLevel = "safe" | "suggestive" | "explicit"
 export type ViolenceLevel = "tame" | "violent" | "brutal"
 
+// Where the browser loads VNDB images from: "imgserve" routes them through
+// our caching proxy; "direct" requests them straight from t.vndb.org.
+export type ImageSource = "imgserve" | "direct"
+
 
 /* ─── Pagination & query parameters ────────────────────────────────────────── */
 

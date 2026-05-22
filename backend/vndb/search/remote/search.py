@@ -1,3 +1,4 @@
+import time
 import httpx
 from typing import Any, Callable
 from enum import Enum
@@ -7,6 +8,11 @@ from .fields import get_remote_fields, validate_sort
 
 
 VNDB_API_URL = "https://api.vndb.org/kana"
+
+# Exponential-backoff settings for VNDB Kana API rate limiting (HTTP 429).
+RATE_LIMIT_MAX_RETRIES = 5
+RATE_LIMIT_BASE_DELAY = 1.0   # seconds; doubles each retry
+RATE_LIMIT_MAX_DELAY = 60.0   # seconds; backoff ceiling
 
 class VNDBEndpoint(Enum):
     VN = "vn"
@@ -27,6 +33,22 @@ class VNDBAPIWrapper:
         if api_token:
             self.client.headers.update({"Authorization": f"Token {api_token}"})
 
+    def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
+        """Send a request to the Kana API, backing off exponentially when it
+        replies 429 (rate limited). The API's Retry-After header is honoured
+        when present; otherwise the delay doubles each attempt. The final
+        response is returned for the caller to `raise_for_status()`."""
+        delay = RATE_LIMIT_BASE_DELAY
+        for attempt in range(RATE_LIMIT_MAX_RETRIES):
+            response = self.client.request(method, url, **kwargs)
+            if response.status_code != 429 or attempt == RATE_LIMIT_MAX_RETRIES - 1:
+                return response
+            retry_after = response.headers.get("Retry-After", "")
+            wait = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else delay
+            time.sleep(wait)
+            delay = min(delay * 2, RATE_LIMIT_MAX_DELAY)
+        return response
+
     def query(self, endpoint: VNDBEndpoint, filters: list, fields: list[str],
               sort: str = "id", reverse: bool = False, results: int = 10, page: int = 1, count: bool = True) -> dict[str, Any]:
         url = f"{VNDB_API_URL}/{endpoint.value}"
@@ -41,7 +63,7 @@ class VNDBAPIWrapper:
             "count": count
         }
 
-        response = self.client.post(url, json=payload)
+        response = self._request("POST", url, json=payload)
 
         # TODO:DEBUG
         from vndb.logger import add_log_entry
@@ -91,27 +113,27 @@ class VNDBAPIWrapper:
 
     def update_user_list(self, vn_id: str, data: dict[str, Any]) -> None:
         url = f"{VNDB_API_URL}/ulist/{vn_id}"
-        response = self.client.patch(url, json=data)
+        response = self._request("PATCH", url, json=data)
         response.raise_for_status()
 
     def update_release_list(self, release_id: str, status: int) -> None:
         url = f"{VNDB_API_URL}/rlist/{release_id}"
-        response = self.client.patch(url, json={"status": status})
+        response = self._request("PATCH", url, json={"status": status})
         response.raise_for_status()
 
     def remove_from_user_list(self, vn_id: str) -> None:
         url = f"{VNDB_API_URL}/ulist/{vn_id}"
-        response = self.client.delete(url)
+        response = self._request("DELETE", url)
         response.raise_for_status()
 
     def remove_from_release_list(self, release_id: str) -> None:
         url = f"{VNDB_API_URL}/rlist/{release_id}"
-        response = self.client.delete(url)
+        response = self._request("DELETE", url)
         response.raise_for_status()
 
     def get_auth_info(self) -> dict[str, Any]:
         url = f"{VNDB_API_URL}/authinfo"
-        response = self.client.get(url)
+        response = self._request("GET", url)
         response.raise_for_status()
         return response.json()
 
@@ -312,7 +334,7 @@ def search_resources_by_release_id(release_id: str, related_resource_type: str, 
         "results": 100
     }
 
-    response = api.client.post(url, json=payload)
+    response = api._request("POST", url, json=payload)
     response.raise_for_status()
     api_results = response.json().get('results', [])
     if not api_results:
@@ -342,7 +364,7 @@ def search_resources_by_charid(charid: str, related_resource_type: str, response
         "results": 100
     }
 
-    response = api.client.post(url, json=payload)
+    response = api._request("POST", url, json=payload)
     response.raise_for_status()
     api_results = response.json().get('results', [])
     if not api_results:
@@ -374,7 +396,7 @@ def search_resources_by_vnid(vnid: str, related_resource_type: str, response_siz
         "results": 100
     }
 
-    response = api.client.post(url, json=payload)
+    response = api._request("POST", url, json=payload)
     response.raise_for_status()
     api_results = response.json().get('results', [])
     if not api_results:
@@ -412,7 +434,7 @@ def search_releases_by_resource_id(resource_type: str, resource_id: str, respons
         "count": count
     }
 
-    response = api.client.post(url, json=payload)
+    response = api._request("POST", url, json=payload)
     response.raise_for_status()
 
     return response.json()
@@ -439,7 +461,7 @@ def search_characters_by_resource_id(resource_type: str, resource_id: str, respo
         "count": count
     }
 
-    response = api.client.post(url, json=payload)
+    response = api._request("POST", url, json=payload)
     response.raise_for_status()
 
     return response.json()
@@ -470,7 +492,7 @@ def search_vns_by_resource_id(resource_type: str, resource_id: str, response_siz
         "count": count
     }
 
-    response = api.client.post(url, json=payload)
+    response = api._request("POST", url, json=payload)
     response.raise_for_status()
     results = response.json()
 

@@ -38,7 +38,9 @@ class Config:
 
     # Scheduler configuration
     SCHEDULER_API_ENABLED = True
-    # SCHEDULER_TIMEZONE = "UTC"
+    # Timezone the cron schedules (incl. the CRAWL_HOURS off-peak window) are
+    # interpreted in. Set to the user base's timezone so "off-peak" is real.
+    SCHEDULER_TIMEZONE = os.environ.get('SCHEDULER_TIMEZONE', 'Asia/Shanghai')
 
     # Data folder configuration
     DATA_FOLDER = os.environ['DATA_FOLDER']

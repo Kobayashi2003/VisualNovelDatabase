@@ -27,7 +27,7 @@ Efficiency notes
 
 import time
 
-from .common import hourly_task
+from .common import crawl_task
 from imgserve.database import IMAGE_MODEL, exists, create
 
 # Full-size image types probed by the frontier crawl.
@@ -51,7 +51,7 @@ def _all_ids(image_type):
     return {row[0] for row in model.query.with_entities(model.id).all()}
 
 
-@hourly_task()
+@crawl_task()
 def fetch_new_images_schedule():
     """Discover new images by probing ids beyond each type's current maximum."""
     summary = {}
@@ -71,7 +71,7 @@ def fetch_new_images_schedule():
         summary[image_type] = created
     print(f"[ImgServe] fetch_new_images created: {summary}")
 
-@hourly_task(minute=30)
+@crawl_task(minute=30)
 def fetch_thumbnail_images_schedule():
     """Create the missing '.t' thumbnail for every full-size image."""
     summary = {}

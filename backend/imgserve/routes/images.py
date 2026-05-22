@@ -1,11 +1,11 @@
 import os
-from flask import Blueprint, send_file, abort, request
-from imgserve.database import exists, create
+from flask import Blueprint, abort, request
 from imgserve.tasks.images import (
-    create_image_task, update_image_task, delete_image_task, download_images_task
+    ensure_image_task, create_image_task, update_image_task,
+    delete_image_task, download_images_task
 )
 from imgserve.utils import get_image_path
-from .common import execute_task
+from .common import execute_task, send_cached_image, send_placeholder
 
 image_bp = Blueprint('images', __name__, url_prefix='/')
 
@@ -24,12 +24,13 @@ def download_images():
 @image_bp.route('/<string:type>/<int:_>/<int:id>', methods=['GET'])
 @image_bp.route('/<string:type>/<int:id>', methods=['GET'])
 def get_image(type, id, _=None):
-    if not exists(type, id):
-        create(type, id)
     image_path = get_image_path(type, id)
-    if not os.path.exists(image_path):
-        abort(404)
-    return send_file(image_path, mimetype='image/jpeg')
+    if os.path.exists(image_path):
+        return send_cached_image(image_path)
+    # Cache miss: fetch in the background and serve a placeholder meanwhile, so
+    # the request never blocks on a download from t.vndb.org.
+    ensure_image_task.delay(type, id)
+    return send_placeholder()
 
 @image_bp.route('/<string:type>/<int:_>/<int:id>.jpg', methods=['POST'])
 @image_bp.route('/<string:type>/<int:_>/<int:id>', methods=['POST'])

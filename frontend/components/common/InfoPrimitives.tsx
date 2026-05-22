@@ -1,4 +1,4 @@
-/** Shared layout primitives for detail-side info panels (label row + section heading). */
+/** Layout primitives for detail-page info panels: label row, inline list, section heading. */
 
 export function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (

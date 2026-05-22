@@ -1,19 +1,15 @@
 /** Tag chips on the VN page, grouped by content / sexual / technical with spoiler reveal. */
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { enumLabel } from "@/lib/enums"
+import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import type { VN } from "@/lib/types"
 
 type VNTag = VN["tags"][number]
 
 const CATEGORY_ORDER = ["cont", "ero", "tech"] as const
-const CATEGORY_LABEL: Record<string, string> = {
-  cont: "Content",
-  ero: "Sexual Content",
-  tech: "Technical",
-}
 
 interface VNTagsProps {
   tags: VNTag[]
@@ -21,7 +17,10 @@ interface VNTagsProps {
 }
 
 export function VNTags({ tags, sexualLevel }: VNTagsProps) {
-  const [spoilerLevel, setSpoilerLevel] = useState<0 | 1 | 2>(0)
+  const spoiler = useSpoilerLevel(
+    tags.some(t => t.spoiler === 1),
+    tags.some(t => t.spoiler === 2),
+  )
 
   // Group by category, sort by rating desc within each group
   const grouped = CATEGORY_ORDER.reduce<Record<string, VNTag[]>>((acc, cat) => {
@@ -31,30 +30,14 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
     return acc
   }, {})
 
-  const hasMinorSpoilers = tags.some(t => t.spoiler === 1)
-  const hasMajorSpoilers = tags.some(t => t.spoiler === 2)
-  const hasAnySpoilers = hasMinorSpoilers || hasMajorSpoilers
-
-  function nextSpoilerLevel(): 0 | 1 | 2 {
-    if (spoilerLevel === 0) return hasMinorSpoilers ? 1 : 2
-    if (spoilerLevel === 1) return hasMajorSpoilers ? 2 : 0
-    return 0
-  }
-
-  function spoilerButtonLabel(): string {
-    if (spoilerLevel === 0) return "Show minor spoilers"
-    if (spoilerLevel === 1) return hasMajorSpoilers ? "Show major spoilers" : "Hide spoilers"
-    return "Hide spoilers"
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      {hasAnySpoilers && (
+      {spoiler.hasAnySpoilers && (
         <button
-          onClick={() => setSpoilerLevel(nextSpoilerLevel())}
+          onClick={spoiler.cycle}
           className="text-xs text-muted hover:text-white transition-colors self-start"
         >
-          {spoilerButtonLabel()}
+          {spoiler.buttonLabel}
         </button>
       )}
 
@@ -67,7 +50,7 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
           return (
             <div key={cat}>
               <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                {CATEGORY_LABEL[cat]}
+                {enumLabel('CATEGORY', cat)}
               </p>
               <p className="text-xs text-muted italic">
                 Set Sexual filter to Explicit to view sexual content tags.
@@ -77,14 +60,14 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
         }
 
         // Filter by current spoiler level
-        const visibleTags = catTags.filter(t => t.spoiler <= spoilerLevel)
-        const hiddenMinor = catTags.filter(t => t.spoiler === 1 && spoilerLevel < 1).length
-        const hiddenMajor = catTags.filter(t => t.spoiler === 2 && spoilerLevel < 2).length
+        const visibleTags = catTags.filter(t => t.spoiler <= spoiler.spoilerLevel)
+        const hiddenMinor = catTags.filter(t => t.spoiler === 1 && spoiler.spoilerLevel < 1).length
+        const hiddenMajor = catTags.filter(t => t.spoiler === 2 && spoiler.spoilerLevel < 2).length
 
         return (
           <div key={cat}>
             <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-              {CATEGORY_LABEL[cat]}
+              {enumLabel('CATEGORY', cat)}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {visibleTags.map(tag => (
@@ -113,7 +96,7 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
               {/* Minor spoiler hint */}
               {hiddenMinor > 0 && (
                 <button
-                  onClick={() => setSpoilerLevel(1)}
+                  onClick={() => spoiler.setSpoilerLevel(1)}
                   className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors border border-yellow-500/20"
                 >
                   +{hiddenMinor} minor spoiler{hiddenMinor !== 1 ? "s" : ""}
@@ -123,7 +106,7 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
               {/* Major spoiler hint */}
               {hiddenMajor > 0 && (
                 <button
-                  onClick={() => setSpoilerLevel(2)}
+                  onClick={() => spoiler.setSpoilerLevel(2)}
                   className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors border border-orange-500/20"
                 >
                   +{hiddenMajor} major spoiler{hiddenMajor !== 1 ? "s" : ""}

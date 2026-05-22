@@ -5,13 +5,10 @@ import { useCallback, useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useUserContext } from "@/context/UserContext"
+import { COLLECTION_TYPE_MAP } from "@/lib/constants"
 import type { Category } from "@/lib/types"
 
 type ResourceType = "vn" | "release" | "character" | "producer" | "staff" | "tag" | "trait"
-
-const PREFIX: Record<ResourceType, string> = {
-  vn: "v", release: "r", character: "c", producer: "p", staff: "s", tag: "g", trait: "i",
-}
 
 interface CollectionButtonProps {
   type: ResourceType
@@ -23,7 +20,7 @@ export function CollectionButton({ type, id }: CollectionButtonProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [open, setOpen] = useState(false)
   const [markedCatIds, setMarkedCatIds] = useState<Set<number>>(new Set())
-  const markId = parseInt(id.replace(new RegExp(`^${PREFIX[type]}`), ""), 10)
+  const markId = parseInt(id.replace(new RegExp(`^${COLLECTION_TYPE_MAP[type].route}`), ""), 10)
 
   const refresh = useCallback(async () => {
     const cats = await api.category.get(type)

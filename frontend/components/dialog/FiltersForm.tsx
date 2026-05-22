@@ -4,7 +4,7 @@
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
 import {
-  FilterState, TextField, NumberField, SelectField, DateField, EntityField, EntityItem,
+  FilterState, TextField, NumberField, SelectField, DateField, EntityItem,
   OPERATORS, searchFilters,
   isValidNumberInput, isValidDateInput, isValidDate,
 } from "@/lib/config"

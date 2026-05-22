@@ -1,18 +1,18 @@
 /** Character detail page: info panel sidebar + description / traits / VNs sections. */
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useState } from "react"
 import { api } from "@/lib/api"
 import { displayName } from "@/lib/original"
 import type { Character } from "@/lib/types"
+import { useEntity } from "@/hooks/useEntity"
+import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { Loading } from "@/components/status/Loading"
-import { Error as ErrorStatus } from "@/components/status/Error"
-import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
-import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { Section } from "@/components/common/InfoPanel"
-import { VNDescription } from "@/components/vn/VNDescription"
+import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
+import { Section } from "@/components/common/InfoPrimitives"
+import { BBCodeText } from "@/components/common/BBCodeText"
 import { CharacterInfoPanel } from "./CharacterInfoPanel"
 import { CharacterTraits } from "./CharacterTraits"
 import { CharacterVNs } from "./CharacterVNs"
@@ -22,156 +22,87 @@ interface CharacterDetailPageProps {
 }
 
 export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
-  const [character, setCharacter] = useState<Character | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: character, loading, error } = useEntity<Character>(id, api.by_id.character)
+  const { showOriginal } = useSearchContext()
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
-  const [spoilerLevel, setSpoilerLevel] = useState<0 | 1 | 2>(0)
-  const abortRef = useRef<AbortController | null>(null)
-  const { showOriginal } = useSearchContext()
 
-  useEffect(() => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setLoading(true)
-    setError(null)
-    setCharacter(null)
+  const traits = character?.traits ?? []
+  const spoiler = useSpoilerLevel(
+    traits.some(t => t.spoiler === 1),
+    traits.some(t => t.spoiler === 2),
+  )
 
-    api.by_id.character(id, {}, ctrl.signal)
-      .then(data => { if (!ctrl.signal.aborted) setCharacter(data) })
-      .catch(e => { if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
+  if (loading || error || !character) return <DetailStatus loading={loading} error={error} />
 
-    return () => ctrl.abort()
-  }, [id])
+  const levelSelectors = (direction: "row" | "col") => (
+    <ContentLevelSelectors
+      direction={direction}
+      sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+      violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+    />
+  )
 
-  const hasMinorSpoilers = character?.traits.some(t => t.spoiler === 1) ?? false
-  const hasMajorSpoilers = character?.traits.some(t => t.spoiler === 2) ?? false
-  const hasAnySpoilers = hasMinorSpoilers || hasMajorSpoilers
-
-  function nextSpoilerLevel(): 0 | 1 | 2 {
-    if (spoilerLevel === 0) return hasMinorSpoilers ? 1 : 2
-    if (spoilerLevel === 1) return hasMajorSpoilers ? 2 : 0
-    return 0
-  }
-
-  function spoilerButtonLabel(): string {
-    if (spoilerLevel === 0) return "Show minor spoilers"
-    if (spoilerLevel === 1) return hasMajorSpoilers ? "Show major spoilers" : "Hide spoilers"
-    return "Hide spoilers"
-  }
-
-  if (loading) {
-    return (
-      <main className="container mx-auto flex-1 flex items-center justify-center p-4">
-        <Loading message="Loading..." />
-      </main>
-    )
-  }
-
-  if (error || !character) {
-    return (
-      <main className="container mx-auto flex-1 flex items-center justify-center p-4">
-        <ErrorStatus message={error ?? "Not found"} />
-      </main>
-    )
-  }
+  const infoPanel = (mobile?: boolean) => (
+    <CharacterInfoPanel
+      character={character}
+      sexualLevel={sexualLevel}
+      violenceLevel={violenceLevel}
+      spoilerLevel={spoiler.spoilerLevel}
+      mobile={mobile}
+    />
+  )
 
   return (
-    <div
-      className="container mx-auto flex gap-6 px-4 overflow-hidden"
-      style={{ height: "calc(100vh - var(--header-h, 4rem))" }}
+    <DetailLayout
+      asideWidth="lg"
+      aside={<>{levelSelectors("col")}{infoPanel()}</>}
+      mobileAside={<>{levelSelectors("row")}{infoPanel(true)}</>}
     >
-      <aside className="hidden lg:flex flex-col gap-3 w-64 xl:w-72 shrink-0 overflow-y-auto py-4 pr-1">
-        <div className="flex flex-col gap-2">
-          <SexualLevelSelector
-            sexualLevel={sexualLevel}
-            setSexualLevel={setSexualLevel}
-          />
-          <ViolenceLevelSelector
-            violenceLevel={violenceLevel}
-            setViolenceLevel={setViolenceLevel}
-          />
+      <div className="flex flex-col gap-6">
+        {/* Title + spoiler toggle */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-white leading-tight">
+              {displayName(character, showOriginal)}
+            </h1>
+          </div>
+          {spoiler.hasAnySpoilers && (
+            <button
+              onClick={spoiler.cycle}
+              className="text-xs text-muted hover:text-white transition-colors shrink-0 pt-1"
+            >
+              {spoiler.buttonLabel}
+            </button>
+          )}
         </div>
-        <CharacterInfoPanel
-          character={character}
-          sexualLevel={sexualLevel}
-          violenceLevel={violenceLevel}
-          spoilerLevel={spoilerLevel}
-        />
-      </aside>
 
-      <div className="flex-1 min-w-0 overflow-y-auto py-4 pb-12">
-        {/* Mobile: level controls + info panel */}
-        <div className="lg:hidden flex flex-col gap-3 mb-6">
-          <div className="flex flex-row gap-2">
-            <SexualLevelSelector
+        {character.description && (
+          <Section title="Description">
+            <BBCodeText text={character.description} />
+          </Section>
+        )}
+
+        {character.traits.length > 0 && (
+          <Section title="Traits" count={character.traits.length}>
+            <CharacterTraits
+              traits={character.traits}
+              spoilerLevel={spoiler.spoilerLevel}
               sexualLevel={sexualLevel}
-              setSexualLevel={setSexualLevel}
-              className="flex-1"
+              sex={character.sex?.[0]}
+              onRevealMinor={() => spoiler.setSpoilerLevel(1)}
+              onRevealMajor={() => spoiler.setSpoilerLevel(2)}
             />
-            <ViolenceLevelSelector
-              violenceLevel={violenceLevel}
-              setViolenceLevel={setViolenceLevel}
-              className="flex-1"
-            />
-          </div>
-          <CharacterInfoPanel
-            character={character}
-            sexualLevel={sexualLevel}
-            violenceLevel={violenceLevel}
-            spoilerLevel={spoilerLevel}
-            mobile
-          />
-        </div>
+          </Section>
+        )}
 
-        <div className="flex flex-col gap-6">
-          {/* Title + spoiler toggle */}
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-white leading-tight">
-                {displayName(character, showOriginal)}
-              </h1>
-            </div>
-            {hasAnySpoilers && (
-              <button
-                onClick={() => setSpoilerLevel(nextSpoilerLevel())}
-                className="text-xs text-muted hover:text-white transition-colors shrink-0 pt-1"
-              >
-                {spoilerButtonLabel()}
-              </button>
-            )}
-          </div>
-
-          {character.description && (
-            <Section title="Description">
-              <VNDescription text={character.description} />
-            </Section>
-          )}
-
-          {character.traits.length > 0 && (
-            <Section title="Traits" count={character.traits.length}>
-              <CharacterTraits
-                traits={character.traits}
-                spoilerLevel={spoilerLevel}
-                sexualLevel={sexualLevel}
-                sex={character.sex?.[0]}
-                onRevealMinor={() => setSpoilerLevel(hasMinorSpoilers && spoilerLevel < 1 ? 1 : spoilerLevel)}
-                onRevealMajor={() => setSpoilerLevel(2)}
-              />
-            </Section>
-          )}
-
-          {character.vns.length > 0 && (
-            <Section title="Visual Novels" count={character.vns.length}>
-              <CharacterVNs vns={character.vns} />
-            </Section>
-          )}
-        </div>
+        {character.vns.length > 0 && (
+          <Section title="Visual Novels" count={character.vns.length}>
+            <CharacterVNs vns={character.vns} />
+          </Section>
+        )}
       </div>
-    </div>
+    </DetailLayout>
   )
 }

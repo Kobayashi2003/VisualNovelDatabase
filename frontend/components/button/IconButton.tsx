@@ -1,55 +1,38 @@
-/** Icon-only button with an optional hover tooltip. */
+/** Round icon-only button — the shared base for every circular icon button.
+ *  An optional `tooltip` is rendered through the portalled `Tooltip`. */
+"use client"
 
 import { cn } from "@/lib/utils"
-import { useState } from "react"
+import { Tooltip } from "@/components/common/Tooltip"
 
 interface IconButtonProps {
   icon: React.ReactNode
   onClick?: () => void
   disabled?: boolean
   tooltip?: string
-  tooltipPosition?: "top" | "bottom" | "left" | "right"
+  /** Accessible label; falls back to `tooltip` when omitted. */
+  ariaLabel?: string
   className?: string
 }
 
-export function IconButton({ icon, onClick, disabled, tooltip, tooltipPosition = "top", className }: IconButtonProps) {
-  const [showTooltip, setShowTooltip] = useState(false)
-
-  const tooltipClasses = {
-    top: "bottom-full left-1/2 -translate-x-1/2 mb-1",
-    bottom: "top-full left-1/2 -translate-x-1/2 mt-1",
-    left: "right-full top-1/2 -translate-y-1/2 mr-1",
-    right: "left-full top-1/2 -translate-y-1/2 ml-1",
-  }
-
-  return (
-    <div className="relative inline-flex">
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        className={cn(
-          "p-2 rounded-full",
-          "text-muted hover:text-white",
-          "hover:bg-white/10",
-          "transition-all duration-200",
-          "disabled:opacity-40 disabled:cursor-not-allowed",
-          className
-        )}
-      >
-        {icon}
-      </button>
-      {tooltip && showTooltip && (
-        <div className={cn(
-          "absolute z-50 whitespace-nowrap",
-          "px-2 py-1 text-xs rounded",
-          "bg-elevated text-white border border-white/10",
-          tooltipClasses[tooltipPosition]
-        )}>
-          {tooltip}
-        </div>
+export function IconButton({ icon, onClick, disabled, tooltip, ariaLabel, className }: IconButtonProps) {
+  const button = (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel ?? tooltip}
+      className={cn(
+        "p-2 rounded-full",
+        "text-muted hover:text-white",
+        "hover:bg-white/10",
+        "transition-all duration-200",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
+        className
       )}
-    </div>
+    >
+      {icon}
+    </button>
   )
+
+  return tooltip ? <Tooltip label={tooltip}>{button}</Tooltip> : button
 }

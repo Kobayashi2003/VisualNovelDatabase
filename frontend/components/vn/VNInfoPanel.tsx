@@ -1,21 +1,21 @@
 /** VN detail sidebar: cover, hidden-by-default rating, metadata rows, relations, links, collection button. */
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { createPortal } from "react-dom"
-import { Eye, EyeOff, X } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
-import { InfoRow, InlineList } from "@/components/common/InfoPanel"
+import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { PlatformIcons } from "@/components/common/PlatformIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
+import { Lightbox } from "@/components/common/Lightbox"
 import type { VN } from "@/lib/types"
 
 
@@ -31,11 +31,8 @@ interface VNInfoPanelProps {
 export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPanelProps) {
   const [ratingHidden, setRatingHidden] = useState(true)
   const [coverOpen, setCoverOpen] = useState(false)
-  const [coverMounted, setCoverMounted] = useState(false)
   const blur = vn.image ? shouldBlur(vn.image.sexual, vn.image.violence, sexualLevel, violenceLevel) : false
   const [imgLoaded, setImgLoaded] = useState(false)
-
-  useEffect(() => { setCoverMounted(true) }, [])
 
   const DEVSTATUS = enumMap('DEVSTATUS')
   const LENGTH = enumMap('LENGTH')
@@ -97,28 +94,13 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
       </div>
 
       {/* Cover lightbox */}
-      {coverMounted && coverOpen && vn.image && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={() => setCoverOpen(false)}
-        >
-          <button
-            onClick={() => setCoverOpen(false)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-          <img
-            src={vn.image.url}
-            alt={vn.title}
-            className={cn(
-              "max-w-[90vw] max-h-[90vh] object-contain rounded-lg",
-              blur && "blur-xl"
-            )}
-            onClick={e => e.stopPropagation()}
-          />
-        </div>,
-        document.body
+      {coverOpen && vn.image && (
+        <Lightbox
+          images={[{ url: vn.image.url, blurred: blur }]}
+          index={0}
+          onClose={() => setCoverOpen(false)}
+          onIndexChange={() => {}}
+        />
       )}
 
       <div className="flex items-center justify-between mb-2 px-1">

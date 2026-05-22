@@ -1,75 +1,21 @@
-/** Staff detail page: info sidebar + description + paginated VN credits. */
+/** Staff detail page: info sidebar + description + paginated credits / voiced characters. */
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { displayName } from "@/lib/original"
 import type { Staff } from "@/lib/types"
+import { useEntity } from "@/hooks/useEntity"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { Loading } from "@/components/status/Loading"
-import { Error as ErrorStatus } from "@/components/status/Error"
-import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
-import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { InfoRow, Section, InlineList } from "@/components/common/InfoPanel"
-import { LanguageIcons } from "@/components/common/LanguageIcons"
-import { ExtLinks } from "@/components/common/ExtLinks"
+import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
+import { Section } from "@/components/common/InfoPrimitives"
+import { BBCodeText } from "@/components/common/BBCodeText"
+import { EntityCardSection } from "@/components/common/EntityCardSection"
 import { TabBar } from "@/components/common/TabBar"
-import { VNDescription } from "@/components/vn/VNDescription"
-import { StaffVNCredits } from "@/components/staff/StaffVNCredits"
-import { StaffVoicedCharacters } from "@/components/staff/StaffVoicedCharacters"
-
-const GENDER_LABEL: Record<string, string> = { m: "Male", f: "Female" }
-
-/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
-
-interface StaffInfoPanelProps {
-  staff: Staff
-}
-
-function StaffInfoPanel({ staff }: StaffInfoPanelProps) {
-  const hasInfo = staff.gender || staff.lang || staff.aliases.length > 0
-
-  // Main alias first, then highlight it; latin names are dropped (option 1).
-  const sortedAliases = [...staff.aliases].sort((a, b) => Number(b.is_main) - Number(a.is_main))
-
-  return (
-    <div className="flex flex-col gap-3">
-      {hasInfo && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
-          {staff.lang && (
-            <InfoRow label="Language">
-              <LanguageIcons langs={[staff.lang]} />
-            </InfoRow>
-          )}
-          {staff.gender && (
-            <InfoRow label="Gender">
-              {GENDER_LABEL[staff.gender] ?? staff.gender}
-            </InfoRow>
-          )}
-          {sortedAliases.length > 0 && (
-            <InfoRow label="Aliases">
-              <InlineList
-                items={sortedAliases.map(alias => (
-                  <span key={alias.aid} className={alias.is_main ? "text-accent" : "text-white/70"}>
-                    {alias.name}
-                  </span>
-                ))}
-              />
-            </InfoRow>
-          )}
-        </div>
-      )}
-
-      <ExtLinks links={staff.extlinks} />
-
-      <CollectionButton type="staff" id={staff.id} />
-    </div>
-  )
-}
-
-/* ─── Main page ────────────────────────────────────────────────────────────── */
+import { VNsCardsGrid, CharactersCardsGrid } from "@/components/card/CardsGrid"
+import { StaffInfoPanel } from "./StaffInfoPanel"
 
 interface StaffDetailPageProps {
   id: number
@@ -78,9 +24,8 @@ interface StaffDetailPageProps {
 type StaffTab = "credits" | "characters"
 
 export function StaffDetailPage({ id }: StaffDetailPageProps) {
-  const [staff, setStaff] = useState<Staff | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: staff, loading, error } = useEntity<Staff>(id, api.by_id.staff)
+  const { showOriginal } = useSearchContext()
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
@@ -88,57 +33,28 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
   // null = count not loaded yet; a number once the eager count query resolves.
   const [vnCreditsCount, setVnCreditsCount] = useState<number | null>(null)
   const [voicedCount, setVoicedCount] = useState<number | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
-  const { showOriginal } = useSearchContext()
 
+  // Eagerly fetch every tab's count together, so the tab bar is consistent
+  // and empty tabs can be hidden.
   useEffect(() => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setLoading(true)
-    setError(null)
-    setStaff(null)
+    if (!staff) return
+    let cancelled = false
     setVnCreditsCount(null)
     setVoicedCount(null)
-
-    api.by_id.staff(id, {}, ctrl.signal)
-      .then(data => {
-        if (ctrl.signal.aborted) return
-        setStaff(data)
-        // Eagerly fetch every tab's count together, so the tab bar is
-        // consistent and empty tabs can be hidden.
-        Promise.all([
-          api.small.vn({ staff: data.id, limit: 1 }, ctrl.signal),
-          api.small.character({ seiyuu: data.id, limit: 1 }, ctrl.signal),
-        ])
-          .then(([vnRes, charRes]) => {
-            if (ctrl.signal.aborted) return
-            setVnCreditsCount(vnRes.count)
-            setVoicedCount(charRes.count)
-          })
-          .catch(() => {})
+    Promise.all([
+      api.small.vn({ staff: staff.id, limit: 1 }),
+      api.small.character({ seiyuu: staff.id, limit: 1 }),
+    ])
+      .then(([vnRes, charRes]) => {
+        if (cancelled) return
+        setVnCreditsCount(vnRes.count)
+        setVoicedCount(charRes.count)
       })
-      .catch(e => { if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [staff])
 
-    return () => ctrl.abort()
-  }, [id])
-
-  if (loading) {
-    return (
-      <main className="container mx-auto flex-1 flex items-center justify-center p-4">
-        <Loading message="Loading..." />
-      </main>
-    )
-  }
-
-  if (error || !staff) {
-    return (
-      <main className="container mx-auto flex-1 flex items-center justify-center p-4">
-        <ErrorStatus message={error ?? "Not found"} />
-      </main>
-    )
-  }
+  if (loading || error || !staff) return <DetailStatus loading={loading} error={error} />
 
   // Tab bar: a tab with a known count of 0 is hidden; a tab still loading
   // (count null) stays visible without a badge.
@@ -151,89 +67,75 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
     ? activeTab
     : visibleTabs[0]?.value
 
+  const levelSelectors = (direction: "row" | "col") => (
+    <ContentLevelSelectors
+      direction={direction}
+      sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+      violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+    />
+  )
+
   return (
-    <div
-      className="container mx-auto flex gap-6 px-4 overflow-hidden"
-      style={{ height: "calc(100vh - var(--header-h, 4rem))" }}
+    <DetailLayout
+      aside={<>{levelSelectors("col")}<StaffInfoPanel staff={staff} /></>}
+      mobileAside={<>{levelSelectors("row")}<StaffInfoPanel staff={staff} /></>}
     >
-      <aside className="hidden lg:flex flex-col gap-3 w-56 xl:w-64 shrink-0 overflow-y-auto py-4 pr-1">
-        <div className="flex flex-col gap-2">
-          <SexualLevelSelector
-            sexualLevel={sexualLevel}
-            setSexualLevel={setSexualLevel}
-          />
-          <ViolenceLevelSelector
-            violenceLevel={violenceLevel}
-            setViolenceLevel={setViolenceLevel}
-          />
-        </div>
-        <StaffInfoPanel staff={staff} />
-      </aside>
-
-      <div className="flex-1 min-w-0 overflow-y-auto py-4 pb-12">
-        {/* Mobile: level controls + info panel */}
-        <div className="lg:hidden flex flex-col gap-3 mb-6">
-          <div className="flex flex-row gap-2">
-            <SexualLevelSelector
-              sexualLevel={sexualLevel}
-              setSexualLevel={setSexualLevel}
-              className="flex-1"
-            />
-            <ViolenceLevelSelector
-              violenceLevel={violenceLevel}
-              setViolenceLevel={setViolenceLevel}
-              className="flex-1"
-            />
-          </div>
-          <StaffInfoPanel staff={staff} />
-        </div>
-
-        <div className="flex flex-col gap-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white leading-tight">
-              {displayName(staff, showOriginal)}
-            </h1>
-            {!staff.ismain && (
-              <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                Alias entry
-              </span>
-            )}
-          </div>
-
-          {staff.description && (
-            <Section title="Description">
-              <VNDescription text={staff.description} />
-            </Section>
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white leading-tight">
+            {displayName(staff, showOriginal)}
+          </h1>
+          {!staff.ismain && (
+            <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">
+              Alias entry
+            </span>
           )}
+        </div>
 
-          <div>
-            {visibleTabs.length > 0 && (
-              <div className="mb-3">
-                <TabBar
-                  tabs={visibleTabs.map(t => ({ value: t.value, label: t.label, count: t.count ?? undefined }))}
-                  active={effectiveTab ?? ""}
-                  onChange={v => setActiveTab(v as StaffTab)}
+        {staff.description && (
+          <Section title="Description">
+            <BBCodeText text={staff.description} />
+          </Section>
+        )}
+
+        <div>
+          {visibleTabs.length > 0 && (
+            <div className="mb-3">
+              <TabBar
+                tabs={visibleTabs.map(t => ({ value: t.value, label: t.label, count: t.count ?? undefined }))}
+                active={effectiveTab ?? ""}
+                onChange={v => setActiveTab(v as StaffTab)}
+              />
+            </div>
+          )}
+          {effectiveTab === "credits" ? (
+            <EntityCardSection
+              query={{ staff: staff.id, sort: "released", reverse: true }}
+              fetcher={api.small.vn}
+              renderGrid={vns => (
+                <VNsCardsGrid vns={vns} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
+              )}
+              loadingMessage="Loading visual novels..."
+              emptyMessage="No visual novels found."
+            />
+          ) : effectiveTab === "characters" ? (
+            <EntityCardSection
+              query={{ seiyuu: staff.id, sort: "name" }}
+              fetcher={api.small.character}
+              renderGrid={characters => (
+                <CharactersCardsGrid
+                  characters={characters}
+                  sexualLevel={sexualLevel} violenceLevel={violenceLevel}
                 />
-              </div>
-            )}
-            {effectiveTab === "credits" ? (
-              <StaffVNCredits
-                staffId={staff.id}
-                sexualLevel={sexualLevel}
-                violenceLevel={violenceLevel}
-              />
-            ) : effectiveTab === "characters" ? (
-              <StaffVoicedCharacters
-                staffId={staff.id}
-                sexualLevel={sexualLevel}
-                violenceLevel={violenceLevel}
-              />
-            ) : (
-              <p className="text-sm text-muted">No credits or voiced characters found.</p>
-            )}
-          </div>
+              )}
+              loadingMessage="Loading characters..."
+              emptyMessage="No voiced characters found."
+            />
+          ) : (
+            <p className="text-sm text-muted">No credits or voiced characters found.</p>
+          )}
         </div>
       </div>
-    </div>
+    </DetailLayout>
   )
 }

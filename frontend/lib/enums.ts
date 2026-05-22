@@ -212,6 +212,16 @@ export const ENUMS = {
     tech: "Technical",
   },
 
+  /* Character sex (VNDB `character.sex`; incl. spoiler-variant codes) */
+  "CHARACTER_SEX": {
+    m: "Male",
+    f: "Female",
+    b: "Both",
+    n: "Unknown",
+    o: "Other",
+    u: "Unknown",
+  },
+
 } as const
 
 
@@ -231,10 +241,11 @@ type RType = keyof typeof ENUMS.RTYPE
 type CharacterRole = keyof typeof ENUMS.CHARACTER_ROLE
 type Type = keyof typeof ENUMS.TYPE
 type Category = keyof typeof ENUMS.CATEGORY
+type CharacterSex = keyof typeof ENUMS.CHARACTER_SEX
 
 export type {
   StaffRole, Medium, Language, Platform, Length, DevStatus,
-  Voiced, RType, CharacterRole, Type, Category,
+  Voiced, RType, CharacterRole, Type, Category, CharacterSex,
 }
 
 

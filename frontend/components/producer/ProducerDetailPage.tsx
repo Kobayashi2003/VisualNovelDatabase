@@ -1,65 +1,22 @@
-/** Producer detail page: info sidebar + description + paginated VN catalog. */
+/** Producer detail page: info sidebar + description + paginated VN / release catalog. */
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { enumLabel } from "@/lib/enums"
 import { displayName } from "@/lib/original"
 import type { Producer } from "@/lib/types"
+import { useEntity } from "@/hooks/useEntity"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { Loading } from "@/components/status/Loading"
-import { Error as ErrorStatus } from "@/components/status/Error"
-import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
-import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { InfoRow, Section, InlineList } from "@/components/common/InfoPanel"
-import { LanguageIcons } from "@/components/common/LanguageIcons"
-import { ExtLinks } from "@/components/common/ExtLinks"
+import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
+import { Section } from "@/components/common/InfoPrimitives"
+import { BBCodeText } from "@/components/common/BBCodeText"
+import { EntityCardSection } from "@/components/common/EntityCardSection"
 import { TabBar } from "@/components/common/TabBar"
-import { VNDescription } from "@/components/vn/VNDescription"
-import { ProducerVNs } from "@/components/producer/ProducerVNs"
-import { ProducerReleases } from "@/components/producer/ProducerReleases"
-
-/* ─── Sidebar info panel ───────────────────────────────────────────────────── */
-
-interface ProducerInfoPanelProps {
-  producer: Producer
-}
-
-function ProducerInfoPanel({ producer }: ProducerInfoPanelProps) {
-  const hasInfo = producer.type || producer.lang || producer.aliases.length > 0
-
-  return (
-    <div className="flex flex-col gap-3">
-      {hasInfo && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
-          {producer.type && (
-            <InfoRow label="Type">
-              {enumLabel('TYPE', producer.type)}
-            </InfoRow>
-          )}
-          {producer.lang && (
-            <InfoRow label="Language">
-              <LanguageIcons langs={[producer.lang]} />
-            </InfoRow>
-          )}
-          {producer.aliases.length > 0 && (
-            <InfoRow label="Aliases">
-              <InlineList className="text-white/70" items={producer.aliases} />
-            </InfoRow>
-          )}
-        </div>
-      )}
-
-      <ExtLinks links={producer.extlinks} />
-
-      <CollectionButton type="producer" id={producer.id} />
-    </div>
-  )
-}
-
-/* ─── Main page ────────────────────────────────────────────────────────────── */
+import { VNsCardsGrid } from "@/components/card/CardsGrid"
+import { ProducerInfoPanel } from "./ProducerInfoPanel"
+import { ProducerReleases } from "./ProducerReleases"
 
 interface ProducerDetailPageProps {
   id: number
@@ -68,67 +25,37 @@ interface ProducerDetailPageProps {
 type ProducerTab = "vns" | "releases"
 
 export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
-  const [producer, setProducer] = useState<Producer | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: producer, loading, error } = useEntity<Producer>(id, api.by_id.producer)
+  const { showOriginal } = useSearchContext()
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
+  const [activeTab, setActiveTab] = useState<ProducerTab>("vns")
   // null = count not loaded yet; a number once the eager count query resolves.
   const [vnCount, setVnCount] = useState<number | null>(null)
   const [releaseCount, setReleaseCount] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<ProducerTab>("vns")
-  const abortRef = useRef<AbortController | null>(null)
-  const { showOriginal } = useSearchContext()
 
+  // Eagerly fetch every tab's count together, so the tab bar is consistent
+  // and empty tabs can be hidden.
   useEffect(() => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setLoading(true)
-    setError(null)
-    setProducer(null)
+    if (!producer) return
+    let cancelled = false
     setVnCount(null)
     setReleaseCount(null)
-
-    api.by_id.producer(id, {}, ctrl.signal)
-      .then(data => {
-        if (ctrl.signal.aborted) return
-        setProducer(data)
-        // Eagerly fetch every tab's count together, so the tab bar is
-        // consistent and empty tabs can be hidden.
-        Promise.all([
-          api.small.vn({ developer: data.id, limit: 1 }, ctrl.signal),
-          api.small.release({ producer: data.id, limit: 1 }, ctrl.signal),
-        ])
-          .then(([vnRes, relRes]) => {
-            if (ctrl.signal.aborted) return
-            setVnCount(vnRes.count)
-            setReleaseCount(relRes.count)
-          })
-          .catch(() => {})
+    Promise.all([
+      api.small.vn({ developer: producer.id, limit: 1 }),
+      api.small.release({ producer: producer.id, limit: 1 }),
+    ])
+      .then(([vnRes, relRes]) => {
+        if (cancelled) return
+        setVnCount(vnRes.count)
+        setReleaseCount(relRes.count)
       })
-      .catch(e => { if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [producer])
 
-    return () => ctrl.abort()
-  }, [id])
-
-  if (loading) {
-    return (
-      <main className="container mx-auto flex-1 flex items-center justify-center p-4">
-        <Loading message="Loading..." />
-      </main>
-    )
-  }
-
-  if (error || !producer) {
-    return (
-      <main className="container mx-auto flex-1 flex items-center justify-center p-4">
-        <ErrorStatus message={error ?? "Not found"} />
-      </main>
-    )
-  }
+  if (loading || error || !producer) return <DetailStatus loading={loading} error={error} />
 
   // Tab bar: a tab with a known count of 0 is hidden; a tab still loading
   // (count null) stays visible without a badge.
@@ -141,83 +68,59 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
     ? activeTab
     : visibleTabs[0]?.value
 
+  const levelSelectors = (direction: "row" | "col") => (
+    <ContentLevelSelectors
+      direction={direction}
+      sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+      violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+    />
+  )
+
   return (
-    <div
-      className="container mx-auto flex gap-6 px-4 overflow-hidden"
-      style={{ height: "calc(100vh - var(--header-h, 4rem))" }}
+    <DetailLayout
+      aside={<>{levelSelectors("col")}<ProducerInfoPanel producer={producer} /></>}
+      mobileAside={<>{levelSelectors("row")}<ProducerInfoPanel producer={producer} /></>}
     >
-      <aside className="hidden lg:flex flex-col gap-3 w-56 xl:w-64 shrink-0 overflow-y-auto py-4 pr-1">
-        <div className="flex flex-col gap-2">
-          <SexualLevelSelector
-            sexualLevel={sexualLevel}
-            setSexualLevel={setSexualLevel}
-          />
-          <ViolenceLevelSelector
-            violenceLevel={violenceLevel}
-            setViolenceLevel={setViolenceLevel}
-          />
-        </div>
-        <ProducerInfoPanel producer={producer} />
-      </aside>
-
-      <div className="flex-1 min-w-0 overflow-y-auto py-4 pb-12">
-        {/* Mobile: level controls + info panel */}
-        <div className="lg:hidden flex flex-col gap-3 mb-6">
-          <div className="flex flex-row gap-2">
-            <SexualLevelSelector
-              sexualLevel={sexualLevel}
-              setSexualLevel={setSexualLevel}
-              className="flex-1"
-            />
-            <ViolenceLevelSelector
-              violenceLevel={violenceLevel}
-              setViolenceLevel={setViolenceLevel}
-              className="flex-1"
-            />
-          </div>
-          <ProducerInfoPanel producer={producer} />
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white leading-tight">
+            {displayName(producer, showOriginal)}
+          </h1>
         </div>
 
-        <div className="flex flex-col gap-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white leading-tight">
-              {displayName(producer, showOriginal)}
-            </h1>
-          </div>
+        {producer.description && (
+          <Section title="Description">
+            <BBCodeText text={producer.description} />
+          </Section>
+        )}
 
-          {producer.description && (
-            <Section title="Description">
-              <VNDescription text={producer.description} />
-            </Section>
+        <div>
+          {visibleTabs.length > 0 && (
+            <div className="mb-3">
+              <TabBar
+                tabs={visibleTabs.map(t => ({ value: t.value, label: t.label, count: t.count ?? undefined }))}
+                active={effectiveTab ?? ""}
+                onChange={v => setActiveTab(v as ProducerTab)}
+              />
+            </div>
           )}
-
-          <div>
-            {visibleTabs.length > 0 && (
-              <div className="mb-3">
-                <TabBar
-                  tabs={visibleTabs.map(t => ({ value: t.value, label: t.label, count: t.count ?? undefined }))}
-                  active={effectiveTab ?? ""}
-                  onChange={v => setActiveTab(v as ProducerTab)}
-                />
-              </div>
-            )}
-            {effectiveTab === "vns" ? (
-              <ProducerVNs
-                producerId={producer.id}
-                sexualLevel={sexualLevel}
-                violenceLevel={violenceLevel}
-              />
-            ) : effectiveTab === "releases" ? (
-              <ProducerReleases
-                producerId={producer.id}
-                producerLang={producer.lang}
-              />
-            ) : (
-              <p className="text-sm text-muted">No visual novels or releases found.</p>
-            )}
-          </div>
+          {effectiveTab === "vns" ? (
+            <EntityCardSection
+              query={{ developer: producer.id, sort: "released", reverse: true }}
+              fetcher={api.small.vn}
+              renderGrid={vns => (
+                <VNsCardsGrid vns={vns} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
+              )}
+              loadingMessage="Loading visual novels..."
+              emptyMessage="No visual novels found."
+            />
+          ) : effectiveTab === "releases" ? (
+            <ProducerReleases producerId={producer.id} producerLang={producer.lang} />
+          ) : (
+            <p className="text-sm text-muted">No visual novels or releases found.</p>
+          )}
         </div>
       </div>
-    </div>
+    </DetailLayout>
   )
 }

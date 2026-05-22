@@ -5,11 +5,12 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn, shouldBlur } from "@/lib/utils"
-import { enumMap } from "@/lib/enums"
+import { enumMap, enumLabel } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { displayName } from "@/lib/original"
 import type { VN } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
+import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { TabBar } from "@/components/common/TabBar"
 
 type VNCharacter = VN["characters"][number]
@@ -25,13 +26,6 @@ const ROLE_TABS = [
 
 const ROLE_LABEL = enumMap('CHARACTER_ROLE')
 
-const SEX_LABEL: Record<string, string> = {
-  m: "Male",
-  f: "Female",
-  b: "Both",
-  n: "Unknown",
-}
-
 interface VNCharactersProps {
   characters: VNCharacter[]
   va: VAEntry[]
@@ -41,7 +35,6 @@ interface VNCharactersProps {
 
 export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNCharactersProps) {
   const [activeRole, setActiveRole] = useState<string>("all")
-  const [spoilerLevel, setSpoilerLevel] = useState<0 | 1 | 2>(0)
   const { showOriginal } = useSearchContext()
 
   // Build VA map: characterId → va entries
@@ -56,19 +49,20 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
   const getRole = (c: VNCharacter): string => c.vns[0]?.role ?? "appears"
   const getSpoiler = (c: VNCharacter): number => c.vns[0]?.spoiler ?? 0
 
+  const spoiler = useSpoilerLevel(
+    characters.some(c => getSpoiler(c) === 1),
+    characters.some(c => getSpoiler(c) === 2),
+  )
+
   // Characters after role filter (ignoring spoiler for count purposes)
   const byRole = activeRole === "all"
     ? characters
     : characters.filter(c => getRole(c) === activeRole)
 
   // Separate visible from hidden by spoiler level
-  const visible = byRole.filter(c => getSpoiler(c) <= spoilerLevel)
-  const hiddenMinor = byRole.filter(c => getSpoiler(c) === 1 && spoilerLevel < 1).length
-  const hiddenMajor = byRole.filter(c => getSpoiler(c) === 2 && spoilerLevel < 2).length
-
-  const hasMinorSpoilers = characters.some(c => getSpoiler(c) === 1)
-  const hasMajorSpoilers = characters.some(c => getSpoiler(c) === 2)
-  const hasAnySpoilers = hasMinorSpoilers || hasMajorSpoilers
+  const visible = byRole.filter(c => getSpoiler(c) <= spoiler.spoilerLevel)
+  const hiddenMinor = byRole.filter(c => getSpoiler(c) === 1 && spoiler.spoilerLevel < 1).length
+  const hiddenMajor = byRole.filter(c => getSpoiler(c) === 2 && spoiler.spoilerLevel < 2).length
 
   // Role tab counts based on all characters (regardless of spoiler filter)
   const roleCounts = ROLE_TABS.reduce<Record<string, number>>((acc, tab) => {
@@ -77,18 +71,6 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
       : characters.filter(c => getRole(c) === tab.value).length
     return acc
   }, {})
-
-  function nextSpoilerLevel(): 0 | 1 | 2 {
-    if (spoilerLevel === 0) return hasMinorSpoilers ? 1 : 2
-    if (spoilerLevel === 1) return hasMajorSpoilers ? 2 : 0
-    return 0
-  }
-
-  function spoilerButtonLabel(): string {
-    if (spoilerLevel === 0) return "Show minor spoilers"
-    if (spoilerLevel === 1) return hasMajorSpoilers ? "Show major spoilers" : "Hide spoilers"
-    return "Hide spoilers"
-  }
 
   return (
     <div>
@@ -101,12 +83,12 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
           active={activeRole}
           onChange={setActiveRole}
         />
-        {hasAnySpoilers && (
+        {spoiler.hasAnySpoilers && (
           <button
-            onClick={() => setSpoilerLevel(nextSpoilerLevel())}
+            onClick={spoiler.cycle}
             className="text-xs text-muted hover:text-white transition-colors shrink-0 py-1"
           >
-            {spoilerButtonLabel()}
+            {spoiler.buttonLabel}
           </button>
         )}
       </div>
@@ -151,7 +133,6 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
                   <p className="text-xs font-semibold text-white truncate">
                     {displayName(c, showOriginal)}
                   </p>
-                  {/* original display handled by displayName */}
 
                   {sexApparent && (
                     <div className="flex items-center gap-1 mt-0.5">
@@ -160,12 +141,12 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
                         "charsex-" + sexApparent
                       )} />
                       <span className="text-xs text-muted/80 truncate">
-                        {SEX_LABEL[sexApparent] ?? sexApparent}
-                        {hasSexSpoiler && spoilerLevel < 2 && (
+                        {enumLabel('CHARACTER_SEX', sexApparent)}
+                        {hasSexSpoiler && spoiler.spoilerLevel < 2 && (
                           <span className="text-yellow-500/70"> (?)</span>
                         )}
-                        {hasSexSpoiler && spoilerLevel >= 2 && sexReal && (
-                          <span className="text-yellow-400"> → {SEX_LABEL[sexReal] ?? sexReal}</span>
+                        {hasSexSpoiler && spoiler.spoilerLevel >= 2 && sexReal && (
+                          <span className="text-yellow-400"> → {enumLabel('CHARACTER_SEX', sexReal)}</span>
                         )}
                       </span>
                     </div>
@@ -192,7 +173,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
         {/* Minor spoiler placeholder */}
         {hiddenMinor > 0 && (
           <button
-            onClick={() => setSpoilerLevel(1)}
+            onClick={() => spoiler.setSpoilerLevel(1)}
             className="h-full rounded-lg border border-yellow-500/20 bg-yellow-500/5 hover:bg-yellow-500/10 transition-colors flex flex-col items-center justify-center gap-1.5 p-4 min-h-48"
           >
             <span className="text-sm font-semibold text-yellow-400">+{hiddenMinor}</span>
@@ -206,7 +187,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
         {/* Major spoiler placeholder */}
         {hiddenMajor > 0 && (
           <button
-            onClick={() => setSpoilerLevel(2)}
+            onClick={() => spoiler.setSpoilerLevel(2)}
             className="h-full rounded-lg border border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10 transition-colors flex flex-col items-center justify-center gap-1.5 p-4 min-h-48"
           >
             <span className="text-sm font-semibold text-orange-400">+{hiddenMajor}</span>

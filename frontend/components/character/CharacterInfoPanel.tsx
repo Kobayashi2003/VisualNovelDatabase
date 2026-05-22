@@ -1,27 +1,23 @@
 /** Character detail sidebar: cover, physical stats, voice actors, collection button. */
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { createPortal } from "react-dom"
-import { X } from "lucide-react"
 import { cn, shouldBlur } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
 import { ICON } from "@/lib/icons"
-import { InfoRow, InlineList } from "@/components/common/InfoPanel"
+import { enumLabel } from "@/lib/enums"
+import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
+import { Lightbox } from "@/components/common/Lightbox"
 import type { Character } from "@/lib/types"
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ]
-
-const SEX_LABEL: Record<string, string> = {
-  m: "Male", f: "Female", b: "Both", n: "Unknown",
-}
 
 interface CharacterInfoPanelProps {
   character: Character
@@ -35,11 +31,8 @@ export function CharacterInfoPanel({
   character, sexualLevel, violenceLevel, spoilerLevel, mobile
 }: CharacterInfoPanelProps) {
   const [coverOpen, setCoverOpen] = useState(false)
-  const [coverMounted, setCoverMounted] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const { showOriginal } = useSearchContext()
-
-  useEffect(() => { setCoverMounted(true) }, [])
 
   const blur = character.image
     ? shouldBlur(character.image.sexual, character.image.violence, sexualLevel, violenceLevel)
@@ -104,28 +97,13 @@ export function CharacterInfoPanel({
       </div>
 
       {/* Lightbox */}
-      {coverMounted && coverOpen && character.image && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={() => setCoverOpen(false)}
-        >
-          <button
-            onClick={() => setCoverOpen(false)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-          <img
-            src={character.image.url}
-            alt={character.name}
-            className={cn(
-              "max-w-[90vw] max-h-[90vh] object-contain rounded-lg",
-              blur && "blur-xl"
-            )}
-            onClick={e => e.stopPropagation()}
-          />
-        </div>,
-        document.body
+      {coverOpen && character.image && (
+        <Lightbox
+          images={[{ url: character.image.url, blurred: blur }]}
+          index={0}
+          onClose={() => setCoverOpen(false)}
+          onIndexChange={() => {}}
+        />
       )}
 
       {/* Physical info */}
@@ -139,12 +117,12 @@ export function CharacterInfoPanel({
                 "charsex-" + sexApparent
               )} />
               <span>
-                {SEX_LABEL[sexApparent] ?? sexApparent}
+                {enumLabel('CHARACTER_SEX', sexApparent)}
                 {hasSexSpoiler && spoilerLevel < 2 && (
                   <span className="text-yellow-500/70"> (?)</span>
                 )}
                 {hasSexSpoiler && spoilerLevel >= 2 && sexReal && (
-                  <span className="text-yellow-400"> → {SEX_LABEL[sexReal] ?? sexReal}</span>
+                  <span className="text-yellow-400"> → {enumLabel('CHARACTER_SEX', sexReal)}</span>
                 )}
               </span>
             </span>
@@ -225,10 +203,10 @@ export function CharacterInfoPanel({
                 (ICON.CHARACTER_SEX as Record<string, string>)[sexApparent],
                 "charsex-" + sexApparent
               )} />
-              {SEX_LABEL[sexApparent] ?? sexApparent}
+              {enumLabel('CHARACTER_SEX', sexApparent)}
               {hasSexSpoiler && spoilerLevel < 2 && <span className="text-yellow-500/70"> (?)</span>}
               {hasSexSpoiler && spoilerLevel >= 2 && sexReal && (
-                <span className="text-yellow-400"> → {SEX_LABEL[sexReal] ?? sexReal}</span>
+                <span className="text-yellow-400"> → {enumLabel('CHARACTER_SEX', sexReal)}</span>
               )}
             </span>
           )}

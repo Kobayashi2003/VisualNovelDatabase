@@ -8,6 +8,7 @@ import { Languages, RefreshCw, SlidersHorizontal } from "lucide-react"
 import { useSearchContext } from "@/context/SearchContext"
 import { SearchBar } from "@/components/input/SearchBar"
 import { SubmitButton } from "@/components/button/SubmitButton"
+import { IconButton } from "@/components/button/IconButton"
 import { SearchPanel } from "@/components/panel/SearchPanel"
 
 interface SearchHeaderProps {
@@ -73,19 +74,12 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
 
   return (
     <div className={cn("flex flex-row items-center gap-1", className)}>
-      <button
+      <IconButton
+        icon={<RefreshCw className="w-4 h-4" />}
         onClick={() => router.refresh()}
         disabled={hidden}
-        className={cn(
-          "p-2 rounded-full transition-all duration-200",
-          "text-muted hover:text-white hover:bg-white/10",
-          "disabled:opacity-40 disabled:cursor-not-allowed"
-        )}
-        title="Refresh"
-        aria-label="Refresh"
-      >
-        <RefreshCw className="w-4 h-4" />
-      </button>
+        tooltip="Refresh"
+      />
 
       <button
         onClick={() => setShowOriginal(!showOriginal)}
@@ -114,20 +108,12 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
 
       <SubmitButton handleSubmit={handleSubmit} disabled={loading || hidden} />
 
-      <button
+      <IconButton
+        icon={<SlidersHorizontal className="w-4 h-4" />}
         onClick={() => setPanelOpen(true)}
         disabled={loading || hidden}
-        className={cn(
-          "p-2 rounded-full",
-          "text-muted hover:text-white",
-          "hover:bg-white/10",
-          "transition-all duration-200",
-          "disabled:opacity-40 disabled:cursor-not-allowed"
-        )}
-        aria-label="Search options"
-      >
-        <SlidersHorizontal className="w-4 h-4" />
-      </button>
+        ariaLabel="Search options"
+      />
 
       <SearchPanel
         open={panelOpen}

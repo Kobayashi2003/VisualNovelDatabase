@@ -4,6 +4,7 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { ICON } from "@/lib/icons"
+import { enumLabel } from "@/lib/enums"
 import type { Character } from "@/lib/types"
 
 type Trait = Character["traits"][number]
@@ -14,10 +15,6 @@ const GROUP_ORDER = [
   "Personality", "Role", "Engages in", "Engages in (Sexual)",
   "Subject of", "Subject of (Sexual)",
 ]
-
-const SEX_LABEL: Record<string, string> = {
-  m: "Male", f: "Female", b: "Both", n: "Unknown", o: "Other", u: "Unknown",
-}
 
 interface CharacterTraitsProps {
   traits: Trait[]
@@ -70,7 +67,7 @@ export function CharacterTraits({ traits, spoilerLevel, sexualLevel, sex, onReve
             (ICON.CHARACTER_SEX as Record<string, string>)[sex],
             "charsex-" + sex
           )} />
-          <span className="text-xs text-muted">{SEX_LABEL[sex] ?? sex}</span>
+          <span className="text-xs text-muted">{enumLabel('CHARACTER_SEX', sex)}</span>
         </div>
       )}
       {noTraits && <p className="text-xs text-muted italic">No traits listed.</p>}

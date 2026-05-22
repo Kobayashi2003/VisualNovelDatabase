@@ -9,11 +9,11 @@ import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { api } from "@/lib/api"
 import { PAGE_LIMIT } from "@/lib/constants"
-import { displayTitle, displayName } from "@/lib/original"
+import { displayTitle } from "@/lib/original"
 import type { Release_Small } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
 import { Loading } from "@/components/status/Loading"
-import { Error as ErrorStatus } from "@/components/status/Error"
+import { ErrorPanel } from "@/components/status/ErrorPanel"
 
 type GroupBy = "all" | "language" | "vn"
 
@@ -187,7 +187,7 @@ export function ProducerReleases({ producerId, producerLang }: ProducerReleasesP
   }, [producerId])
 
   if (loading) return <Loading message="Loading releases..." />
-  if (error)   return <ErrorStatus message={error} />
+  if (error)   return <ErrorPanel message={error} />
   if (releases.length === 0) return <p className="text-sm text-muted">No releases found.</p>
 
   const sharedRowProps = { producerId, showOriginal, RTYPE, LANG_ICON, PLAT_ICON }

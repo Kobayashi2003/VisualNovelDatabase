@@ -8,6 +8,7 @@ import { ArrowBigLeftIcon, ArrowBigRightIcon } from "lucide-react"
 
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { api } from "@/lib/api"
+import { PAGE_LIMIT } from "@/lib/constants"
 import { VN_Small } from "@/lib/types"
 import { useUserContext } from "@/context/UserContext"
 
@@ -20,7 +21,7 @@ import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { IconButton } from "@/components/button/IconButton"
 import { Loading } from "@/components/status/Loading"
-import { Error as ErrorStatus } from "@/components/status/Error"
+import { ErrorPanel } from "@/components/status/ErrorPanel"
 import { NotFound } from "@/components/status/NotFound"
 import { VNsCardsGrid } from "@/components/card/CardsGrid"
 
@@ -29,7 +30,6 @@ function HomeContent() {
   const { updateKey, updateMultipleKeys } = useUrlParams()
   const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
 
-  const itemsPerPage = 24
   const currentPage = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1
   // "00" is the "any" sentinel from YearSelector / MonthSelector.
   const selectedYear = searchParams.get("year") || `${new Date().getFullYear()}`
@@ -64,9 +64,9 @@ function HomeContent() {
         const lastDay = new Date(parseInt(selectedYear), parseInt(selectedMonth), 0).getDate()
         released = `(>=${selectedYear}-${selectedMonth}-01+<=${selectedYear}-${selectedMonth}-${lastDay}),(=${selectedYear}-${selectedMonth})`
       }
-      const response = await api.small.vn({ released, olang: "ja", sort: "released", reverse: true, page: currentPage, limit: itemsPerPage }, ctrl.signal)
+      const response = await api.small.vn({ released, olang: "ja", sort: "released", reverse: true, page: currentPage, limit: PAGE_LIMIT }, ctrl.signal)
       setVns(response.results)
-      setTotalPages(Math.ceil(response.count / itemsPerPage) || 1)
+      setTotalPages(Math.ceil(response.count / PAGE_LIMIT) || 1)
       setStatus(response.results.length === 0 ? "notFound" : null)
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return
@@ -121,7 +121,6 @@ function HomeContent() {
             onClick={handleMonthSub}
             disabled={status === "loading" || selectedYear === "00" || selectedMonth === "00" || !monthSubable()}
             tooltip="Previous Month"
-            tooltipPosition="top"
             className="hover:bg-white/5 max-sm:hidden"
           />
           <YearSelector selectedYear={selectedYear} setSelectedYear={v => updateMultipleKeys({ year: v, page: "1" })} disabled={status === "loading"} />
@@ -131,7 +130,6 @@ function HomeContent() {
             onClick={handleMonthAdd}
             disabled={status === "loading" || selectedYear === "00" || selectedMonth === "00" || !monthAddable()}
             tooltip="Next Month"
-            tooltipPosition="top"
             className="hover:bg-white/5 max-sm:hidden"
           />
         </div>
@@ -153,7 +151,7 @@ function HomeContent() {
             className="grow flex justify-center items-center"
           >
             {status === "loading" && <Loading message="Loading..." />}
-            {status === "error" && <ErrorStatus message={statusMsg || "Unknown error"} />}
+            {status === "error" && <ErrorPanel message={statusMsg || "Unknown error"} />}
             {status === "notFound" && <NotFound message="No VNs found" />}
           </motion.div>
         )}

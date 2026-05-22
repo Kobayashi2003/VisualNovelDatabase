@@ -9,6 +9,7 @@ import { useUrlParams } from "@/hooks/useUrlParams"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
 import { api } from "@/lib/api"
+import { PAGE_LIMIT } from "@/lib/constants"
 import type {
   VN_Small, Release_Small, Character_Small, Producer_Small,
   Staff_Small, Tag_Small, Trait_Small, VNDBQueryParams,
@@ -20,7 +21,7 @@ import { CardTypeSwitch } from "@/components/selector/CardTypeSwitch"
 import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { Loading } from "@/components/status/Loading"
-import { Error as ErrorStatus } from "@/components/status/Error"
+import { ErrorPanel } from "@/components/status/ErrorPanel"
 import { NotFound } from "@/components/status/NotFound"
 import { VNDetailPage } from "@/components/vn/VNDetailPage"
 import { CharacterDetailPage } from "@/components/character/CharacterDetailPage"
@@ -48,7 +49,6 @@ function SearchResultsContent({ slug }: { slug: string }) {
   const { sortBy } = useSearchContext()
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
 
-  const itemsPerPage = 24
   const currentPage = parseInt(searchParams.get("page") || "1")
 
   const [status, setStatus] = useState<"loading" | "error" | "notFound" | null>(null)
@@ -82,7 +82,7 @@ function SearchResultsContent({ slug }: { slug: string }) {
     try {
       // Forward every URL param to the API as a filter (`tag`, `lang`, …),
       // plus the trio we manage ourselves (`page`, `limit`, `sort`).
-      const queryParams: VNDBQueryParams = { page: currentPage, limit: itemsPerPage, sort: sortBy }
+      const queryParams: VNDBQueryParams = { page: currentPage, limit: PAGE_LIMIT, sort: sortBy }
       for (const [key, value] of searchParams.entries()) {
         queryParams[key as keyof VNDBQueryParams] = value as string
       }
@@ -91,7 +91,7 @@ function SearchResultsContent({ slug }: { slug: string }) {
         p: api.small.producer, s: api.small.staff, g: api.small.tag, i: api.small.trait,
       }
       const response = await fetchFn[type as keyof typeof fetchFn](queryParams, ctrl.signal)
-      setTotalPages(Math.ceil(response.count / itemsPerPage))
+      setTotalPages(Math.ceil(response.count / PAGE_LIMIT))
       if (response.results.length === 0) {
         setStatus("notFound")
       } else {
@@ -141,7 +141,7 @@ function SearchResultsContent({ slug }: { slug: string }) {
         {status !== null && (
           <motion.div key="status" initial={{ filter: "blur(20px)", opacity: 0 }} animate={{ filter: "blur(0px)", opacity: 1 }} exit={{ filter: "blur(20px)", opacity: 0 }} transition={{ duration: 0.4 }} className="grow flex justify-center items-center">
             {status === "loading" && <Loading message="Loading..." />}
-            {status === "error" && <ErrorStatus message={statusMsg || "Unknown error"} />}
+            {status === "error" && <ErrorPanel message={statusMsg || "Unknown error"} />}
             {status === "notFound" && <NotFound message="No items found" />}
           </motion.div>
         )}

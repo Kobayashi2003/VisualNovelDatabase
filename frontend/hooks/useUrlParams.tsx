@@ -19,13 +19,5 @@ export const useUrlParams = () => {
     router.push(`${pathname}?${newParams.toString()}`)
   }
 
-  const removeKey = (key: string) => {
-    const params = new URLSearchParams(searchParams)
-    params.delete(key)
-    router.push(`${pathname}?${params.toString()}`)
-  }
-
-  const clearKeys = () => router.push(pathname)
-
-  return { updateKey, updateMultipleKeys, removeKey, clearKeys }
+  return { updateKey, updateMultipleKeys }
 }

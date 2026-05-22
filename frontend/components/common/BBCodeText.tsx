@@ -1,4 +1,5 @@
-/** Renders VNDB-flavoured BBCode descriptions; spoilers reveal on click. */
+/** Renders VNDB-flavoured BBCode text (descriptions); spoilers reveal on click.
+ *  Shared by every entity detail page (VN / Character / Producer / Staff / …). */
 "use client"
 
 import { useState } from "react"
@@ -159,11 +160,11 @@ function RenderNodes({ nodes }: { nodes: Node[] }) {
 }
 
 /* ─── Component ────────────────────────────────────────────────────────────── */
-interface VNDescriptionProps {
+interface BBCodeTextProps {
   text: string
 }
 
-export function VNDescription({ text }: VNDescriptionProps) {
+export function BBCodeText({ text }: BBCodeTextProps) {
   if (!text) return null
   const paragraphs = parseVNDBMarkup(text)
 

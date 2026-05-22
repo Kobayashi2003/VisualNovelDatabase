@@ -97,6 +97,11 @@ class InvalidVerificationCodeError(ValidationError):
     message = "The verification code is invalid or has expired."
 
 
+class InvalidInvitationCodeError(ValidationError):
+    error_code = "invalid_invitation_code"
+    message = "The invitation code is invalid."
+
+
 class CategoryNotFoundError(Exception):
     pass
 
@@ -177,6 +182,17 @@ def verify_email_code(email: str, code: str) -> bool:
         raise InvalidVerificationCodeError
     return True
 
+def verify_invitation_code(invitation_code: str) -> bool:
+    """Raise InvalidInvitationCodeError unless `invitation_code` matches the
+    code configured via INVITATION_CODE. An empty INVITATION_CODE disables the
+    invite gate, so any value (including none) passes."""
+    expected = current_app.config.get('INVITATION_CODE', '')
+    if not expected:
+        return True
+    if not secrets.compare_digest((invitation_code or '').strip(), expected):
+        raise InvalidInvitationCodeError
+    return True
+
 def save_db_operation(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -206,9 +222,23 @@ def get_user_by_email(email: str) -> User | None:
     return User.query.filter_by(email=email.strip().lower()).first()
 
 @save_db_operation
-def create_user(username: str, email: str, password: str, code: str) -> User | None:
+def get_user_by_username_or_email(identifier: str) -> User | None:
+    """Resolve a login identifier that may be either a username or an email.
+    The username is tried first; an email fallback lets users sign in with
+    whichever they remember."""
+    identifier = identifier.strip()
+    if not identifier:
+        return None
+    user = User.query.filter_by(username=identifier).first()
+    if user:
+        return user
+    return User.query.filter_by(email=identifier.lower()).first()
+
+@save_db_operation
+def create_user(username: str, email: str, password: str, code: str, invitation_code: str = "") -> User | None:
     username = username.strip()
     email = email.strip().lower()
+    verify_invitation_code(invitation_code)
     check_username(username)
     check_email(email)
     check_password(password)
@@ -282,6 +312,26 @@ def change_password(user_id: int, old_password: str, new_password: str) -> User 
         raise InvalidOldPasswordError
     check_password(new_password)
     user.set_password(new_password)
+    db.session.flush()
+    db.session.commit()
+    return user
+
+@save_db_operation
+def change_email(user_id: int, new_email: str, code: str, password: str) -> User | None:
+    """Rebind a user's email address. The current `password` authorises the
+    change, and the verification `code` (sent to `new_email` beforehand) proves
+    the new address belongs to the user."""
+    user = get_user(user_id)
+    if not user:
+        raise UserNotFoundError
+    if not user.check_password(password):
+        raise InvalidOldPasswordError
+    new_email = new_email.strip().lower()
+    # check_email enforces both the format rule and uniqueness; verify_email_code
+    # confirms ownership of the new address.
+    check_email(new_email)
+    verify_email_code(new_email, code)
+    user.email = new_email
     db.session.flush()
     db.session.commit()
     return user

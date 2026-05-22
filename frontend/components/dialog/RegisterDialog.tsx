@@ -11,7 +11,7 @@ import { validateUsername, validateEmail, validatePassword, PASSWORD_MIN_LENGTH 
 interface RegisterDialogProps {
   open: boolean
   setOpen: (open: boolean) => void
-  handleRegister: (username: string, email: string, password: string, code: string) => Promise<void>
+  handleRegister: (username: string, email: string, password: string, code: string, invitationCode: string) => Promise<void>
   disabled?: boolean
   className?: string
 }
@@ -19,6 +19,7 @@ interface RegisterDialogProps {
 const RESEND_COOLDOWN_SECONDS = 60
 
 export function RegisterDialog({ open, setOpen, handleRegister, disabled, className }: RegisterDialogProps) {
+  const [invitationCode, setInvitationCode] = useState("")
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
@@ -58,6 +59,7 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     // Mirror the backend rules so typos are caught before a round-trip.
+    if (!invitationCode.trim()) { setError("Enter your invitation code."); return }
     const usernameError = validateUsername(username)
     if (usernameError) { setError(usernameError); return }
     const emailError = validateEmail(email)
@@ -70,7 +72,7 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
     setLoading(true)
     setError("")
     try {
-      await handleRegister(username, email, password, code)
+      await handleRegister(username, email, password, code, invitationCode)
       setOpen(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
@@ -84,6 +86,18 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
   return (
     <BaseDialog open={open} setOpen={setOpen} title="Sign up" className={className}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-muted">Invitation code</label>
+          <input
+            type="text"
+            value={invitationCode}
+            onChange={(e) => setInvitationCode(e.target.value)}
+            placeholder="Enter your invitation code"
+            required
+            className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
+          />
+          <p className="text-xs text-muted">Sign-ups are invite-only. Ask an existing member for a code.</p>
+        </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-muted">Username</label>
           <input

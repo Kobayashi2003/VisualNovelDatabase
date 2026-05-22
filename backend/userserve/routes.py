@@ -8,7 +8,8 @@ from flask_jwt_extended import (
 from userserve import limiter
 from .operations import (
     ValidationError,
-    get_user, create_user, update_user, delete_user, change_password, get_user_by_username,
+    get_user, create_user, update_user, delete_user, change_password, change_email,
+    get_user_by_username, get_user_by_username_or_email,
     get_user_by_email, reset_user_password, check_email, create_verification_code,
     revoke_token, revoke_all_user_tokens,
     get_category, create_category, update_category, delete_category, clear_category,
@@ -64,14 +65,15 @@ def login():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify(error="invalid_request", message="Request body must be JSON."), 400
-    username = data.get('username')
+    # The `username` field accepts either a username or an email address.
+    identifier = data.get('username')
     password = data.get('password')
-    if not isinstance(username, str) or not isinstance(password, str):
-        return jsonify(error="missing_fields", message="Username and password are required."), 400
-    user = get_user_by_username(username.strip())
+    if not isinstance(identifier, str) or not isinstance(password, str):
+        return jsonify(error="missing_fields", message="Username (or email) and password are required."), 400
+    user = get_user_by_username_or_email(identifier.strip())
     if user and user.check_password(password):
         return _issue_token_cookies(jsonify(username=user.username), user), 200
-    return jsonify(error="invalid_credentials", message="Invalid username or password."), 401
+    return jsonify(error="invalid_credentials", message="Invalid username/email or password."), 401
 
 @api_bp.route('/send_verification_code', methods=['POST'])
 @limiter.limit("5 per hour")
@@ -98,12 +100,15 @@ def register():
     email = data.get('email')
     password = data.get('password')
     code = data.get('code')
+    invitation_code = data.get('invitation_code')
     if (not isinstance(username, str) or not isinstance(email, str)
-            or not isinstance(password, str) or not isinstance(code, str)):
-        return jsonify(error="missing_fields", message="Username, email, password and verification code are required."), 400
-    # check_* helpers / verify_email_code raise ValidationError (handled above);
-    # a None return therefore means an unexpected DB-level failure.
-    user = create_user(username, email, password, code)
+            or not isinstance(password, str) or not isinstance(code, str)
+            or not isinstance(invitation_code, str)):
+        return jsonify(error="missing_fields", message="Username, email, password, verification code and invitation code are required."), 400
+    # check_* helpers / verify_email_code / verify_invitation_code raise
+    # ValidationError (handled above); a None return therefore means an
+    # unexpected DB-level failure.
+    user = create_user(username, email, password, code, invitation_code)
     if not user:
         return jsonify(error="registration_failed", message="Registration failed. Please try again."), 500
     return _issue_token_cookies(jsonify(username=user.username), user), 201
@@ -207,6 +212,29 @@ def change_password_route():
     # stays signed in.
     revoke_all_user_tokens(user_id)
     return _issue_token_cookies(jsonify(message="Password changed successfully"), user), 200
+
+@api_bp.route('/change_email', methods=['POST'])
+@limiter.limit("10 per hour")
+@jwt_required()
+def change_email_route():
+    user_id = get_jwt_identity()
+    user = get_user(user_id)
+    if not user:
+        return jsonify(error="user_not_found", message="User not found."), 404
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    new_email = data.get('new_email')
+    code = data.get('code')
+    password = data.get('password')
+    if not isinstance(new_email, str) or not isinstance(code, str) or not isinstance(password, str):
+        return jsonify(error="missing_fields", message="New email, verification code and current password are required."), 400
+    # A wrong password / taken email / bad code raises ValidationError (handled
+    # above); a None return therefore means an unexpected DB-level failure.
+    updated = change_email(user_id, new_email, code, password)
+    if not updated:
+        return jsonify(error="email_change_failed", message="Email change failed. Please try again."), 500
+    return jsonify(email=updated.email), 200
 
 @api_bp.route('/forgot_password', methods=['POST'])
 @limiter.limit("5 per hour")

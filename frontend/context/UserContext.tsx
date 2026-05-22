@@ -10,9 +10,10 @@ interface UserContextType {
   isLoading: boolean
   defaultSexualLevel: SexualLevel
   defaultViolenceLevel: ViolenceLevel
-  register: (username: string, email: string, password: string, code: string) => Promise<void>
+  register: (username: string, email: string, password: string, code: string, invitationCode: string) => Promise<void>
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  changeEmail: (newEmail: string, code: string, password: string) => Promise<void>
   updateDefaultSexualLevel: (v: SexualLevel) => void
   updateDefaultViolenceLevel: (v: ViolenceLevel) => void
 }
@@ -67,8 +68,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // the new session. The auth tokens are set as httpOnly cookies by the server;
   // only the (non-sensitive) username is cached, as a hint that a session is
   // active — and server-normalised (trimmed) so later lookups match.
-  const register = async (username: string, email: string, password: string, code: string) => {
-    const response = await api.user.register(username, email, password, code)
+  const register = async (username: string, email: string, password: string, code: string, invitationCode: string) => {
+    const response = await api.user.register(username, email, password, code, invitationCode)
     localStorage.setItem("username", response.username)
     const userData = await api.user.me()
     setUser(userData)
@@ -94,8 +95,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     window.location.reload()
   }
 
+  // Rebind the account email. The session itself is unaffected (the user id
+  // never changes), so only the cached user object is patched in place.
+  const changeEmail = async (newEmail: string, code: string, password: string) => {
+    const response = await api.user.changeEmail(newEmail, code, password)
+    setUser((u) => (u ? { ...u, email: response.email } : u))
+  }
+
   return (
-    <UserContext.Provider value={{ user, register, login, logout, isLoading, defaultSexualLevel, defaultViolenceLevel, updateDefaultSexualLevel, updateDefaultViolenceLevel }}>
+    <UserContext.Provider value={{ user, register, login, logout, changeEmail, isLoading, defaultSexualLevel, defaultViolenceLevel, updateDefaultSexualLevel, updateDefaultViolenceLevel }}>
       {children}
     </UserContext.Provider>
   )

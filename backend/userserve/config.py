@@ -57,6 +57,10 @@ class Config:
     VERIFICATION_CODE_MAX_AGE = int(os.environ.get('VERIFICATION_CODE_MAX_AGE_SECONDS', 600))
     USERSERVE_REDIS_URL = os.environ.get('USERSERVE_REDIS_URL', 'redis://localhost:6379/7')
 
+    # Registration invite gate — when INVITATION_CODE is non-empty, new sign-ups
+    # must supply a matching code. Leave it blank to keep registration open.
+    INVITATION_CODE = os.environ.get('INVITATION_CODE', '').strip()
+
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ['USERSERVE_DB_URL']
     SQLALCHEMY_TRACK_MODIFICATIONS = False

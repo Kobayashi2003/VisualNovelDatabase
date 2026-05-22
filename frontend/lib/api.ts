@@ -403,10 +403,12 @@ export const api = {
       fetchUserserve<{ username: string }>("login", "POST", { username, password }, abortSignal),
     sendVerificationCode: (email: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("send_verification_code", "POST", { email }, abortSignal),
-    register: (username: string, email: string, password: string, code: string, abortSignal?: AbortSignal) =>
-      fetchUserserve<{ username: string }>("register", "POST", { username, email, password, code }, abortSignal),
+    register: (username: string, email: string, password: string, code: string, invitationCode: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ username: string }>("register", "POST", { username, email, password, code, invitation_code: invitationCode }, abortSignal),
     changePassword: (oldPassword: string, newPassword: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
+    changeEmail: (newEmail: string, code: string, password: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ email: string }>("change_email", "POST", { new_email: newEmail, code, password }, abortSignal),
     forgotPassword: (email: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("forgot_password", "POST", { email }, abortSignal),
     resetPassword: (token: string, newPassword: string, abortSignal?: AbortSignal) =>

@@ -39,12 +39,12 @@ export function LoginDialog({ open, setOpen, handleLogin, onForgotPassword, disa
     <BaseDialog open={open} setOpen={setOpen} title="Login" className={className}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-muted">Username</label>
+          <label className="text-sm font-medium text-muted">Username or email</label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username"
+            placeholder="Enter your username or email"
             required
             className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm placeholder:text-muted focus:outline-none focus:border-white/30"
           />

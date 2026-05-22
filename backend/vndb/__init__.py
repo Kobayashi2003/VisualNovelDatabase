@@ -66,7 +66,8 @@ def create_app(config_class=Config, enable_scheduler=True):
         scheduler = ExtAPScheduler(app)
         from .schedule.simple import simple_schedule
         from .schedule.backup import backup_database_schedule
-        from .schedule.random import random_fetch_schedule, random_update_schedule
+        # from .schedule.random import random_fetch_schedule, random_update_schedule  # superseded by schedule/fetch.py
+        from .schedule.fetch import fetch_new_schedule, fetch_backfill_schedule
     else:
         scheduler = None
 

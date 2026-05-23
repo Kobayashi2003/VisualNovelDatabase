@@ -10,7 +10,7 @@ class LocalFields:
     TRAIT = [column.key for column in Trait.__table__.columns]
 
     SMALL_VN = ['id', 'title', 'alttitle', 'titles', 'released', 'developers', 'image']
-    SMALL_RELEASE = ['id', 'title', 'alttitle', 'released', 'platforms', 'vns', 'producers', 'languages']
+    SMALL_RELEASE = ['id', 'title', 'alttitle', 'released', 'minage', 'patch', 'official', 'uncensored', 'media', 'platforms', 'vns', 'producers', 'languages']
     SMALL_CHARACTER = ['id', 'name', 'sex', 'original', 'vns', 'image']
     SMALL_PRODUCER = ['id', 'name', 'original']
     SMALL_STAFF = ['id', 'name', 'original']

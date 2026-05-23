@@ -416,6 +416,8 @@ export const api = {
       fetchUserserve<{ message: string }>("change_password", "POST", { old_password: oldPassword, new_password: newPassword }, abortSignal),
     changeEmail: (newEmail: string, code: string, password: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ email: string }>("change_email", "POST", { new_email: newEmail, code, password }, abortSignal),
+    deleteAccount: (username: string, password: string, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>(`u${username}`, "DELETE", { password }, abortSignal),
     forgotPassword: (email: string, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>("forgot_password", "POST", { email }, abortSignal),
     resetPassword: (token: string, newPassword: string, abortSignal?: AbortSignal) =>

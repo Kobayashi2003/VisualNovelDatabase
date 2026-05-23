@@ -52,21 +52,6 @@ class User(db.Model):
     def __repr__(self):
         return f"User(id={self.id!r}, username={self.username!r}, is_admin={self.is_admin!r})"
 
-class TokenBlocklist(db.Model):
-    """Revoked JWT ids. A token whose `jti` is listed here is rejected by the
-    `token_in_blocklist_loader`. Rows are pruned once `expires_at` has passed."""
-    __tablename__ = 'token_blocklist'
-
-    id = Column(Integer, primary_key=True)
-    jti = Column(String(36), nullable=False, unique=True)
-    token_type = Column(String(16), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=func.now())
-    expires_at = Column(DateTime(timezone=True), nullable=True)
-
-    def __repr__(self):
-        return f"TokenBlocklist(jti={self.jti!r}, token_type={self.token_type!r})"
-
 class Category(db.Model):
     __abstract__ = True
 
@@ -204,7 +189,6 @@ MODEL_MAP = {
     'staff': StaffCategory,
     'tag': TagCategory,
     'trait': TraitCategory,
-    'token_blocklist': TokenBlocklist,
 }
 
 def create_default_categories(mapper, connection, target):

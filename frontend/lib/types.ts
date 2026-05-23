@@ -172,6 +172,14 @@ export interface VN {
     title: string
     alttitle?: string
     released?: string
+    minage?: number
+    patch: boolean
+    official: boolean
+    uncensored?: boolean
+    media: Array<{
+      medium: string
+      qty: number
+    }>
     platforms?: string[]
     languages: Array<{
       lang: string
@@ -405,6 +413,14 @@ export interface Release_Small {
   title: string
   alttitle?: string
   released: string
+  minage?: number
+  patch: boolean
+  official: boolean
+  uncensored?: boolean
+  media: Array<{
+    medium: string
+    qty: number
+  }>
   platforms?: string[]
   languages: Array<{
     lang: string

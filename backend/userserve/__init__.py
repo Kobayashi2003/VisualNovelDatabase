@@ -76,7 +76,7 @@ def create_app(config_class=Config, enable_scheduler=True):
     # ----------------------------------------
     if enable_scheduler:
         scheduler = ExtAPScheduler(app)
-        from .schedule import backup_database_schedule, prune_token_blocklist_schedule
+        from .schedule import backup_database_schedule
     else:
         scheduler = None
 

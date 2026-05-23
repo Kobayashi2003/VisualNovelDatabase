@@ -15,6 +15,7 @@ interface UserContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   changeEmail: (newEmail: string, code: string, password: string) => Promise<void>
+  deleteAccount: (password: string) => Promise<void>
   updateDefaultSexualLevel: (v: SexualLevel) => void
   updateDefaultViolenceLevel: (v: ViolenceLevel) => void
   updateImageSource: (v: ImageSource) => void
@@ -113,8 +114,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUser((u) => (u ? { ...u, email: response.email } : u))
   }
 
+  // Permanently remove the account. The backend verifies `password` and clears
+  // the auth cookies on success; the page is reloaded so every Server Component
+  // re-renders for the (now signed-out) session.
+  const deleteAccount = async (password: string) => {
+    if (!user) throw new Error("Not signed in")
+    await api.user.deleteAccount(user.username, password)
+    clearStoredSession()
+    setUser(null)
+    window.location.reload()
+  }
+
   return (
-    <UserContext.Provider value={{ user, register, login, logout, changeEmail, isLoading, defaultSexualLevel, defaultViolenceLevel, imageSource, updateDefaultSexualLevel, updateDefaultViolenceLevel, updateImageSource }}>
+    <UserContext.Provider value={{ user, register, login, logout, changeEmail, deleteAccount, isLoading, defaultSexualLevel, defaultViolenceLevel, imageSource, updateDefaultSexualLevel, updateDefaultViolenceLevel, updateImageSource }}>
       {children}
     </UserContext.Provider>
   )

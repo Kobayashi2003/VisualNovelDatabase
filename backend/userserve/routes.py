@@ -176,17 +176,30 @@ def update_user_route(username):
     return jsonify(dict(user)), 200
 
 @api_bp.route('/u<username>', methods=['DELETE'])
+@limiter.limit("10 per hour")
 @jwt_required()
 def delete_user_route(username):
     current_user_id = get_jwt_identity()
     user = get_user_by_username(username)
     if not user:
-        return jsonify(error="User not found"), 404
+        return jsonify(error="user_not_found", message="User not found."), 404
     if current_user_id != user.id:
-        return jsonify(error="Unauthorized"), 403
-    if not delete_user(user.id):
-        return jsonify(message="Delete failed"), 400
-    return jsonify(message="User deleted"), 200
+        return jsonify(error="unauthorized", message="You can only delete your own account."), 403
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="invalid_request", message="Request body must be JSON."), 400
+    password = data.get('password')
+    if not isinstance(password, str) or not password:
+        return jsonify(error="missing_fields", message="Current password is required to delete the account."), 400
+    # A wrong password raises ValidationError (handled above); a None return
+    # therefore means an unexpected DB-level failure.
+    if not delete_user(user.id, password):
+        return jsonify(error="delete_failed", message="Account deletion failed."), 500
+    # The user row is gone — clear the auth cookies so the (now-orphaned) JWTs
+    # don't keep a 404'ing session hanging around in the browser.
+    response = jsonify(message="Account deleted")
+    unset_jwt_cookies(response)
+    return response, 200
 
 @api_bp.route('/change_password', methods=['POST'])
 @limiter.limit("20 per hour")

@@ -1,4 +1,5 @@
-/** User settings: content-level defaults, email change, and password change. */
+/** User settings: a "General" tab for content/image defaults, and an "Account"
+ *  tab for email, password, and account deletion. */
 "use client"
 
 import { useState, useEffect } from "react"
@@ -10,6 +11,7 @@ import { ImageSourceSelector } from "@/components/selector/ImageSourceSelector"
 import { BaseDialog } from "@/components/dialog/BaseDialog"
 import { PasswordInput } from "@/components/input/PasswordInput"
 import { validatePassword, validateEmail } from "@/lib/validation"
+import { cn } from "@/lib/utils"
 
 interface SettingsDialogProps {
   open: boolean
@@ -24,13 +26,17 @@ const PW_INPUT_CLASS = FIELD_CLASS.replace("px-3 py-2", "px-3 py-2 pr-10")
 
 const RESEND_COOLDOWN_SECONDS = 60
 
+type Tab = "general" | "account"
+
 export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
   const {
-    user, changeEmail,
+    user, changeEmail, deleteAccount,
     defaultSexualLevel, defaultViolenceLevel,
     updateDefaultSexualLevel, updateDefaultViolenceLevel,
     imageSource, updateImageSource,
   } = useUserContext()
+
+  const [tab, setTab] = useState<Tab>("general")
 
   /* ─── Change Email ────────────────────────────────────────────────────────── */
 
@@ -133,138 +139,259 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
     }
   }
 
+  /* ─── Delete Account ──────────────────────────────────────────────────────── */
+
+  // Two-step flow: a "Delete account" button reveals the confirm form, which
+  // requires the current password and an explicit "DELETE" string before
+  // submission. Both guards live client-side; the password is re-checked
+  // server-side before any rows are touched.
+  const [deleteConfirming, setDeleteConfirming]   = useState(false)
+  const [deletePassword, setDeletePassword]       = useState("")
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [deleteLoading, setDeleteLoading]         = useState(false)
+  const [deleteError, setDeleteError]             = useState<string | null>(null)
+
+  const handleDeleteAccount = async () => {
+    setDeleteError(null)
+    if (!deletePassword) { setDeleteError("Enter your current password to confirm."); return }
+    if (deleteConfirmText !== "DELETE") { setDeleteError('Type "DELETE" to confirm.'); return }
+    setDeleteLoading(true)
+    try {
+      // Triggers a reload from UserContext once the cookies are cleared, so no
+      // success branch is needed here — the dialog will be unmounted with it.
+      await deleteAccount(deletePassword)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Failed to delete the account")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const cancelDelete = () => {
+    setDeleteConfirming(false)
+    setDeletePassword("")
+    setDeleteConfirmText("")
+    setDeleteError(null)
+  }
+
+  /* ─── Render ──────────────────────────────────────────────────────────────── */
+
   return (
     <BaseDialog open={open} setOpen={setOpen} title="Settings" className="max-w-sm">
-      <div className="flex flex-col gap-5">
+      {/* Tab strip */}
+      <div className="flex gap-1 mb-5 -mt-1 border-b border-white/8">
+        <TabButton active={tab === "general"} onClick={() => setTab("general")}>General</TabButton>
+        <TabButton active={tab === "account"} onClick={() => setTab("account")}>Account</TabButton>
+      </div>
 
-        {/* ─── Content Defaults ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Content Defaults</p>
-          <div className="grid grid-cols-[5rem_1fr] items-center gap-y-3 gap-x-5">
-            <span className="text-sm text-white/70">Sexual</span>
-            <SexualLevelSelector
-              sexualLevel={defaultSexualLevel}
-              setSexualLevel={updateDefaultSexualLevel}
-            />
-            <span className="text-sm text-white/70">Violence</span>
-            <ViolenceLevelSelector
-              violenceLevel={defaultViolenceLevel}
-              setViolenceLevel={updateDefaultViolenceLevel}
-            />
+      {tab === "general" && (
+        <div className="flex flex-col gap-5">
+
+          {/* ─── Content Defaults ───────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Content Defaults</p>
+            <div className="grid grid-cols-[5rem_1fr] items-center gap-y-3 gap-x-5">
+              <span className="text-sm text-white/70">Sexual</span>
+              <SexualLevelSelector
+                sexualLevel={defaultSexualLevel}
+                setSexualLevel={updateDefaultSexualLevel}
+              />
+              <span className="text-sm text-white/70">Violence</span>
+              <ViolenceLevelSelector
+                violenceLevel={defaultViolenceLevel}
+                setViolenceLevel={updateDefaultViolenceLevel}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="border-t border-white/8" />
+          <div className="border-t border-white/8" />
 
-        {/* ─── Image Source ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Image Source</p>
-          <div className="grid grid-cols-[5rem_1fr] items-center gap-x-5">
-            <span className="text-sm text-white/70">Source</span>
-            <ImageSourceSelector imageSource={imageSource} setImageSource={updateImageSource} />
+          {/* ─── Image Source ───────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Image Source</p>
+            <div className="grid grid-cols-[5rem_1fr] items-center gap-x-5">
+              <span className="text-sm text-white/70">Source</span>
+              <ImageSourceSelector imageSource={imageSource} setImageSource={updateImageSource} />
+            </div>
+            <p className="text-xs text-muted">
+              Proxy loads images through the imgserve cache. Direct fetches them straight from VNDB.
+            </p>
           </div>
-          <p className="text-xs text-muted">
-            Proxy loads images through the imgserve cache. Direct fetches them straight from VNDB.
-          </p>
+
         </div>
+      )}
 
-        <div className="border-t border-white/8" />
+      {tab === "account" && (
+        <div className="flex flex-col gap-5">
 
-        {/* ─── Change Email ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Change Email</p>
-          {user?.email && (
-            <p className="text-xs text-muted">Current: <span className="text-white/70">{user.email}</span></p>
-          )}
-          <div className="flex flex-col gap-2">
-            <input
-              type="email"
-              value={newEmail}
-              onChange={e => { setNewEmail(e.target.value); resetEmailFeedback() }}
-              placeholder="New email address"
-              className={FIELD_CLASS}
-            />
-            <div className="flex gap-2">
+          {/* ─── Change Email ───────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Change Email</p>
+            {user?.email && (
+              <p className="text-xs text-muted">Current: <span className="text-white/70">{user.email}</span></p>
+            )}
+            <div className="flex flex-col gap-2">
               <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={emailCode}
-                onChange={e => { setEmailCode(e.target.value); resetEmailFeedback() }}
-                placeholder="6-digit code"
+                type="email"
+                value={newEmail}
+                onChange={e => { setNewEmail(e.target.value); resetEmailFeedback() }}
+                placeholder="New email address"
                 className={FIELD_CLASS}
               />
-              <button
-                type="button"
-                onClick={handleSendEmailCode}
-                disabled={codeSending || cooldown > 0}
-                className="shrink-0 px-3 rounded-md border border-white/8 text-sm text-white hover:border-white/25 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
-              >
-                {sendCodeLabel}
-              </button>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={emailCode}
+                  onChange={e => { setEmailCode(e.target.value); resetEmailFeedback() }}
+                  placeholder="6-digit code"
+                  className={FIELD_CLASS}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendEmailCode}
+                  disabled={codeSending || cooldown > 0}
+                  className="shrink-0 px-3 rounded-md border border-white/8 text-sm text-white hover:border-white/25 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                >
+                  {sendCodeLabel}
+                </button>
+              </div>
+              <PasswordInput
+                value={emailPassword}
+                onChange={v => { setEmailPassword(v); resetEmailFeedback() }}
+                placeholder="Current password"
+                className={PW_INPUT_CLASS}
+                onKeyDown={e => e.key === "Enter" && !emailLoading && handleChangeEmail()}
+              />
             </div>
-            <PasswordInput
-              value={emailPassword}
-              onChange={v => { setEmailPassword(v); resetEmailFeedback() }}
-              placeholder="Current password"
-              className={PW_INPUT_CLASS}
-              onKeyDown={e => e.key === "Enter" && !emailLoading && handleChangeEmail()}
-            />
+
+            {codeNotice    && <p className="text-xs text-muted">{codeNotice}</p>}
+            {emailError    && <p className="text-xs text-red-400">{emailError}</p>}
+            {emailSuccess  && <p className="text-xs text-green-400">Email changed successfully</p>}
+
+            <button
+              onClick={handleChangeEmail}
+              disabled={emailLoading || !newEmail || !emailCode || !emailPassword}
+              className="self-end px-4 py-1.5 rounded-full bg-accent hover:bg-accent-hover disabled:opacity-35 disabled:cursor-not-allowed text-sm font-semibold text-black transition-colors"
+            >
+              {emailLoading ? "Saving…" : "Save"}
+            </button>
           </div>
 
-          {codeNotice    && <p className="text-xs text-muted">{codeNotice}</p>}
-          {emailError    && <p className="text-xs text-red-400">{emailError}</p>}
-          {emailSuccess  && <p className="text-xs text-green-400">Email changed successfully</p>}
+          <div className="border-t border-white/8" />
 
-          <button
-            onClick={handleChangeEmail}
-            disabled={emailLoading || !newEmail || !emailCode || !emailPassword}
-            className="self-end px-4 py-1.5 rounded-full bg-accent hover:bg-accent-hover disabled:opacity-35 disabled:cursor-not-allowed text-sm font-semibold text-black transition-colors"
-          >
-            {emailLoading ? "Saving…" : "Save"}
-          </button>
-        </div>
+          {/* ─── Change Password ────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Change Password</p>
+            <div className="flex flex-col gap-2">
+              <PasswordInput
+                value={oldPassword}
+                onChange={v => { setOldPassword(v); setPwError(null); setPwSuccess(false) }}
+                placeholder="Current password"
+                className={PW_INPUT_CLASS}
+              />
+              <PasswordInput
+                value={newPassword}
+                onChange={v => { setNewPassword(v); setPwError(null); setPwSuccess(false) }}
+                placeholder="New password"
+                className={PW_INPUT_CLASS}
+              />
+              <PasswordInput
+                value={confirmPassword}
+                onChange={v => { setConfirmPassword(v); setPwError(null); setPwSuccess(false) }}
+                placeholder="Confirm new password"
+                className={PW_INPUT_CLASS}
+                onKeyDown={e => e.key === "Enter" && !pwLoading && handleChangePassword()}
+              />
+            </div>
 
-        <div className="border-t border-white/8" />
+            {pwError   && <p className="text-xs text-red-400">{pwError}</p>}
+            {pwSuccess && <p className="text-xs text-green-400">Password changed successfully</p>}
 
-        {/* ─── Change Password ──────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Change Password</p>
-          <div className="flex flex-col gap-2">
-            <PasswordInput
-              value={oldPassword}
-              onChange={v => { setOldPassword(v); setPwError(null); setPwSuccess(false) }}
-              placeholder="Current password"
-              className={PW_INPUT_CLASS}
-            />
-            <PasswordInput
-              value={newPassword}
-              onChange={v => { setNewPassword(v); setPwError(null); setPwSuccess(false) }}
-              placeholder="New password"
-              className={PW_INPUT_CLASS}
-            />
-            <PasswordInput
-              value={confirmPassword}
-              onChange={v => { setConfirmPassword(v); setPwError(null); setPwSuccess(false) }}
-              placeholder="Confirm new password"
-              className={PW_INPUT_CLASS}
-              onKeyDown={e => e.key === "Enter" && !pwLoading && handleChangePassword()}
-            />
+            <button
+              onClick={handleChangePassword}
+              disabled={pwLoading || !oldPassword || !newPassword || !confirmPassword}
+              className="self-end px-4 py-1.5 rounded-full bg-accent hover:bg-accent-hover disabled:opacity-35 disabled:cursor-not-allowed text-sm font-semibold text-black transition-colors"
+            >
+              {pwLoading ? "Saving…" : "Save"}
+            </button>
           </div>
 
-          {pwError   && <p className="text-xs text-red-400">{pwError}</p>}
-          {pwSuccess && <p className="text-xs text-green-400">Password changed successfully</p>}
+          <div className="border-t border-white/8" />
 
-          <button
-            onClick={handleChangePassword}
-            disabled={pwLoading || !oldPassword || !newPassword || !confirmPassword}
-            className="self-end px-4 py-1.5 rounded-full bg-accent hover:bg-accent-hover disabled:opacity-35 disabled:cursor-not-allowed text-sm font-semibold text-black transition-colors"
-          >
-            {pwLoading ? "Saving…" : "Save"}
-          </button>
+          {/* ─── Delete Account ─────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold text-red-400/80 uppercase tracking-widest">Danger Zone</p>
+            <p className="text-xs text-muted">
+              Deleting your account is permanent. Your categories and marks will be removed and cannot be recovered.
+            </p>
+
+            {!deleteConfirming ? (
+              <button
+                onClick={() => setDeleteConfirming(true)}
+                className="self-end px-4 py-1.5 rounded-full border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/70 disabled:opacity-35 disabled:cursor-not-allowed text-sm font-semibold transition-colors"
+              >
+                Delete account
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <PasswordInput
+                  value={deletePassword}
+                  onChange={v => { setDeletePassword(v); setDeleteError(null) }}
+                  placeholder="Current password"
+                  className={PW_INPUT_CLASS}
+                />
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={e => { setDeleteConfirmText(e.target.value); setDeleteError(null) }}
+                  placeholder='Type "DELETE" to confirm'
+                  className={FIELD_CLASS}
+                  onKeyDown={e => e.key === "Enter" && !deleteLoading && handleDeleteAccount()}
+                />
+
+                {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
+
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={cancelDelete}
+                    disabled={deleteLoading}
+                    className="px-4 py-1.5 rounded-full border border-white/10 text-sm text-white/70 hover:text-white hover:border-white/25 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteLoading || !deletePassword || deleteConfirmText !== "DELETE"}
+                    className="px-4 py-1.5 rounded-full bg-red-600 hover:bg-red-500 disabled:opacity-35 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
+                  >
+                    {deleteLoading ? "Deleting…" : "Permanently delete"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
-
-      </div>
+      )}
     </BaseDialog>
+  )
+}
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "px-3 py-2 -mb-px text-sm font-medium border-b-2 transition-colors",
+        active
+          ? "text-white border-accent"
+          : "text-muted border-transparent hover:text-white/80"
+      )}
+    >
+      {children}
+    </button>
   )
 }

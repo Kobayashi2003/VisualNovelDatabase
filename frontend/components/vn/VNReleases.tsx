@@ -9,6 +9,7 @@ import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
+import { Tooltip } from "@/components/common/Tooltip"
 import type { VN } from "@/lib/types"
 
 type VNRelease = NonNullable<VN["releases"]>[number]
@@ -20,9 +21,10 @@ interface VNReleasesProps {
 
 export function VNReleases({ releases, olang }: VNReleasesProps) {
   const LANGUAGE = enumMap('LANGUAGE')
-  const RTYPE = enumMap('RTYPE')
+  const MEDIUM = enumMap('MEDIUM')
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
   const PLAT_ICON = ICON.PLATFORM as Record<string, string>
+  const MEDIA_ICON = ICON.RELEASE_MEDIA as Record<string, string>
   const { showOriginal } = useSearchContext()
 
   // Group by primary language
@@ -83,32 +85,47 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
             </button>
 
             {isOpen && groupReleases.map((r, i) => {
-              const rtype = r.vns[0]?.rtype
+              const ageLabel = r.minage == null ? null : r.minage === 0 ? "All Ages" : `${r.minage}+`
+              const isMtl = r.languages?.find(l => l.main)?.mtl
+              const dimRow = isMtl || !r.official
               return (
                 <div
                   key={r.id}
                   className={cn(
                     "flex items-start gap-3 px-3 py-2.5",
                     i % 2 === 0 ? "bg-surface" : "bg-background/40",
-                    r.languages?.find(l => l.main)?.mtl && "opacity-60"
+                    dimRow && "opacity-60"
                   )}
                 >
                   <span className="text-xs text-muted w-24 shrink-0 pt-0.5 font-mono">
                     {r.released ?? "TBA"}
                   </span>
 
-                  <span className={cn(
-                    "text-xs px-1.5 py-0.5 rounded font-medium shrink-0",
-                    rtype === "complete" ? "bg-green-500/15 text-green-400" :
-                    rtype === "trial" ? "bg-blue-500/15 text-blue-400" :
-                    "bg-white/10 text-white/60"
-                  )}>
-                    {RTYPE[rtype ?? ""] ?? rtype ?? "?"}
-                  </span>
+                  {ageLabel && (
+                    (() => {
+                      const badge = (
+                        <span className={cn(
+                          "text-xs px-1.5 py-0.5 rounded font-medium shrink-0",
+                          r.uncensored ? "bg-fuchsia-500/15 text-fuchsia-400" :
+                          r.minage === 0 ? "bg-green-500/15 text-green-400" :
+                          (r.minage ?? 0) >= 18 ? "bg-red-500/15 text-red-400" :
+                          (r.minage ?? 0) >= 17 ? "bg-orange-500/15 text-orange-400" :
+                          (r.minage ?? 0) >= 15 ? "bg-yellow-500/15 text-yellow-400" :
+                          "bg-white/10 text-white/60"
+                        )}>
+                          {ageLabel}
+                        </span>
+                      )
+                      return r.uncensored
+                        ? <Tooltip label="Uncensored">{badge}</Tooltip>
+                        : badge
+                    })()
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <Link href={`/${r.id}`} className="text-sm text-white/90 hover:text-accent transition-colors truncate block">
                       {displayTitle(r, showOriginal)}
+                      {r.patch && <span className="text-muted ml-1">(patch)</span>}
                     </Link>
                     {r.producers && r.producers.length > 0 && (
                       <p className="text-xs text-muted truncate mt-0.5">
@@ -125,6 +142,22 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
                       </p>
                     )}
                   </div>
+
+                  {r.media && r.media.length > 0 && (
+                    <div className="flex flex-wrap gap-1 shrink-0 justify-end pt-0.5">
+                      {r.media.map((m, idx) => {
+                        const iconClass = MEDIA_ICON[m.medium]
+                        if (!iconClass) return null
+                        const name = MEDIUM[m.medium] ?? m.medium
+                        const label = m.qty && m.qty > 1 ? `${name} ×${m.qty}` : name
+                        return (
+                          <Tooltip key={`${m.medium}-${idx}`} label={label}>
+                            <span className={cn(iconClass, "text-muted text-sm")} />
+                          </Tooltip>
+                        )
+                      })}
+                    </div>
+                  )}
 
                   {r.platforms && r.platforms.length > 0 && (
                     <div className="flex flex-wrap gap-1 shrink-0 justify-end pt-0.5">

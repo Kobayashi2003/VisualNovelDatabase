@@ -14,6 +14,7 @@ import type { Release_Small } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
 import { Loading } from "@/components/status/Loading"
 import { ErrorPanel } from "@/components/status/ErrorPanel"
+import { Tooltip } from "@/components/common/Tooltip"
 
 type GroupBy = "all" | "language" | "vn"
 
@@ -29,24 +30,41 @@ interface ReleaseRowProps {
   producerId: string
   index: number
   showOriginal: boolean
-  RTYPE: Record<string, string>
+  MEDIUM: Record<string, string>
   LANG_ICON: Record<string, string>
   PLAT_ICON: Record<string, string>
+  MEDIA_ICON: Record<string, string>
 }
 
-function ReleaseRow({ release: r, producerId, index, showOriginal, RTYPE, LANG_ICON, PLAT_ICON }: ReleaseRowProps) {
-  const rtype = r.vns[0]?.rtype
+function ReleaseRow({ release: r, producerId, index, showOriginal, MEDIUM, LANG_ICON, PLAT_ICON, MEDIA_ICON }: ReleaseRowProps) {
   const myEntry = r.producers?.find(p => p.id === producerId)
   const isDev = myEntry?.developer ?? false
   const isPub = myEntry?.publisher ?? false
   const roleLabel = isDev && isPub ? "D&P" : isDev ? "Dev" : isPub ? "Pub" : null
+  const ageLabel = r.minage == null ? null : r.minage === 0 ? "All Ages" : `${r.minage}+`
+  const isMtl = r.languages?.find(l => l.main)?.mtl
+  const dimRow = isMtl || !r.official
+
+  const ageBadge = ageLabel && (
+    <span className={cn(
+      "text-xs px-1.5 py-0.5 rounded font-medium shrink-0",
+      r.uncensored              ? "bg-fuchsia-500/15 text-fuchsia-400" :
+      r.minage === 0            ? "bg-green-500/15 text-green-400" :
+      (r.minage ?? 0) >= 18     ? "bg-red-500/15 text-red-400" :
+      (r.minage ?? 0) >= 17     ? "bg-orange-500/15 text-orange-400" :
+      (r.minage ?? 0) >= 15     ? "bg-yellow-500/15 text-yellow-400" :
+                                  "bg-white/10 text-white/60"
+    )}>
+      {ageLabel}
+    </span>
+  )
 
   return (
     <div
       className={cn(
         "flex items-center gap-3 px-3 py-2.5",
         index % 2 === 0 ? "bg-surface" : "bg-background/40",
-        r.languages?.find(l => l.main)?.mtl && "opacity-60"
+        dimRow && "opacity-60"
       )}
     >
       <span className="text-xs text-muted w-24 shrink-0 font-mono">
@@ -60,14 +78,10 @@ function ReleaseRow({ release: r, producerId, index, showOriginal, RTYPE, LANG_I
         )}
       </div>
 
-      <span className={cn(
-        "text-xs px-1.5 py-0.5 rounded font-medium shrink-0",
-        rtype === "complete" ? "bg-green-500/15 text-green-400" :
-        rtype === "trial"    ? "bg-blue-500/15 text-blue-400" :
-                               "bg-white/10 text-white/60"
-      )}>
-        {RTYPE[rtype ?? ""] ?? rtype ?? "?"}
-      </span>
+      {ageBadge && (r.uncensored
+        ? <Tooltip label="Uncensored">{ageBadge}</Tooltip>
+        : ageBadge
+      )}
 
       {roleLabel && (
         <span className={cn(
@@ -83,8 +97,25 @@ function ReleaseRow({ release: r, producerId, index, showOriginal, RTYPE, LANG_I
       <div className="flex-1 min-w-0">
         <Link href={`/${r.id}`} className="text-sm text-white/90 hover:text-accent transition-colors truncate block">
           {displayTitle(r, showOriginal)}
+          {r.patch && <span className="text-muted ml-1">(patch)</span>}
         </Link>
       </div>
+
+      {r.media && r.media.length > 0 && (
+        <div className="flex flex-wrap gap-1 shrink-0 justify-end pt-0.5">
+          {r.media.map((m, idx) => {
+            const iconClass = MEDIA_ICON[m.medium]
+            if (!iconClass) return null
+            const name = MEDIUM[m.medium] ?? m.medium
+            const label = m.qty && m.qty > 1 ? `${name} ×${m.qty}` : name
+            return (
+              <Tooltip key={`${m.medium}-${idx}`} label={label}>
+                <span className={cn(iconClass, "text-muted text-sm")} />
+              </Tooltip>
+            )
+          })}
+        </div>
+      )}
 
       {r.platforms && r.platforms.length > 0 && (
         <div className="flex flex-wrap gap-1 shrink-0 justify-end pt-0.5">
@@ -106,13 +137,14 @@ interface GroupSectionProps {
   releases: Release_Small[]
   producerId: string
   showOriginal: boolean
-  RTYPE: Record<string, string>
+  MEDIUM: Record<string, string>
   LANG_ICON: Record<string, string>
   PLAT_ICON: Record<string, string>
+  MEDIA_ICON: Record<string, string>
   defaultCollapsed?: boolean
 }
 
-function GroupSection({ groupKey, header, count, releases, producerId, showOriginal, RTYPE, LANG_ICON, PLAT_ICON, defaultCollapsed }: GroupSectionProps) {
+function GroupSection({ groupKey, header, count, releases, producerId, showOriginal, MEDIUM, LANG_ICON, PLAT_ICON, MEDIA_ICON, defaultCollapsed }: GroupSectionProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false)
 
   return (
@@ -132,7 +164,7 @@ function GroupSection({ groupKey, header, count, releases, producerId, showOrigi
         <ReleaseRow
           key={`${groupKey}-${r.id}`}
           release={r} producerId={producerId} index={i}
-          showOriginal={showOriginal} RTYPE={RTYPE} LANG_ICON={LANG_ICON} PLAT_ICON={PLAT_ICON}
+          showOriginal={showOriginal} MEDIUM={MEDIUM} LANG_ICON={LANG_ICON} PLAT_ICON={PLAT_ICON} MEDIA_ICON={MEDIA_ICON}
         />
       ))}
     </div>
@@ -148,9 +180,10 @@ export function ProducerReleases({ producerId, producerLang }: ProducerReleasesP
   const [groupBy, setGroupBy] = useState<GroupBy>("all")
 
   const LANGUAGE = enumMap('LANGUAGE')
-  const RTYPE    = enumMap('RTYPE')
+  const MEDIUM    = enumMap('MEDIUM')
   const LANG_ICON = ICON.LANGUAGE as Record<string, string>
   const PLAT_ICON = ICON.PLATFORM  as Record<string, string>
+  const MEDIA_ICON = ICON.RELEASE_MEDIA as Record<string, string>
   const { showOriginal } = useSearchContext()
 
   // Reset groupBy when producer changes
@@ -190,7 +223,7 @@ export function ProducerReleases({ producerId, producerLang }: ProducerReleasesP
   if (error)   return <ErrorPanel message={error} />
   if (releases.length === 0) return <p className="text-sm text-muted">No releases found.</p>
 
-  const sharedRowProps = { producerId, showOriginal, RTYPE, LANG_ICON, PLAT_ICON }
+  const sharedRowProps = { producerId, showOriginal, MEDIUM, LANG_ICON, PLAT_ICON, MEDIA_ICON }
 
   /* ── Group-by selector ── */
   const GroupSelector = (

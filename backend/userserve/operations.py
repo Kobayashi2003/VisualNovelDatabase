@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from flask import current_app
 
 from userserve import db, redis_client
-from .models import User, TokenBlocklist, CATEGORY_MODEL, CategoryType
+from .models import User, CATEGORY_MODEL, CategoryType
 
 class ValidationError(Exception):
     """Base for input-validation failures meant to be reported to the client.
@@ -350,23 +350,32 @@ def reset_user_password(user_id: int, new_password: str) -> User | None:
     return user
 
 @save_db_operation
-def delete_user(user_id: int) -> bool:
+def delete_user(user_id: int, password: str) -> bool:
+    """Permanently remove a user. The current `password` authorises the action —
+    a missing or incorrect password raises InvalidOldPasswordError before any
+    rows are touched."""
     user = get_user(user_id)
     if not user:
         raise UserNotFoundError
+    if not isinstance(password, str) or not user.check_password(password):
+        raise InvalidOldPasswordError
     db.session.delete(user)
     db.session.flush()
     db.session.commit()
     return True
 
 
+def _blocklist_key(jti: str) -> str:
+    return f"userserve:jwt:blocked:{jti}"
+
 def is_token_invalidated(jwt_payload: dict) -> bool:
     """Blocklist check for the JWT loader: True if the token's `jti` has been
-    explicitly revoked, or if it was issued before the owning user's revocation
-    cut-off (set on password change). Not wrapped by `save_db_operation` — a
-    swallowed error must never make a revoked token look valid."""
+    explicitly revoked (Redis), or if it was issued before the owning user's
+    revocation cut-off (set on password change). Not wrapped by
+    `save_db_operation` — a swallowed error must never make a revoked token
+    look valid."""
     jti = jwt_payload.get('jti')
-    if jti and TokenBlocklist.query.filter_by(jti=jti).first() is not None:
+    if jti and redis_client.exists(_blocklist_key(jti)):
         return True
     user_id = jwt_payload.get('sub')
     issued_at = jwt_payload.get('iat')
@@ -376,23 +385,26 @@ def is_token_invalidated(jwt_payload: dict) -> bool:
             return True
     return False
 
-@save_db_operation
 def revoke_token(jwt_payload: dict) -> bool:
-    """Add a decoded token's `jti` to the blocklist. Idempotent: an already
-    blocklisted jti (e.g. logging out twice) is treated as success."""
-    jti = jwt_payload['jti']
-    if TokenBlocklist.query.filter_by(jti=jti).first() is not None:
-        return True
+    """Add a decoded token's `jti` to the Redis blocklist. The entry's TTL is
+    the token's remaining lifetime, so expired tokens drop out on their own —
+    no scheduled cleanup needed. Idempotent: re-revoking just refreshes the
+    same key."""
+    jti = jwt_payload.get('jti')
+    if not jti:
+        return False
     exp = jwt_payload.get('exp')
-    entry = TokenBlocklist(
-        jti=jti,
-        token_type=jwt_payload.get('type', 'access'),
-        user_id=jwt_payload.get('sub'),
-        expires_at=datetime.fromtimestamp(exp, tz=timezone.utc) if exp else None,
-    )
-    db.session.add(entry)
-    db.session.flush()
-    db.session.commit()
+    now = int(datetime.now(timezone.utc).timestamp())
+    # Fall back to the longest possible token lifetime if `exp` is missing, so
+    # we don't accidentally store a permanent entry.
+    if exp is None:
+        ttl = int(current_app.config['JWT_REFRESH_TOKEN_EXPIRES'].total_seconds())
+    else:
+        ttl = int(exp) - now
+    if ttl <= 0:
+        # Token already expired — JWT validation would reject it anyway.
+        return True
+    redis_client.setex(_blocklist_key(jti), ttl, "1")
     return True
 
 @save_db_operation
@@ -406,16 +418,6 @@ def revoke_all_user_tokens(user_id: int) -> bool:
     db.session.flush()
     db.session.commit()
     return True
-
-@save_db_operation
-def prune_expired_blocklist() -> int:
-    """Delete blocklist rows whose tokens have already expired naturally."""
-    deleted = TokenBlocklist.query.filter(
-        TokenBlocklist.expires_at.isnot(None),
-        TokenBlocklist.expires_at < datetime.now(timezone.utc),
-    ).delete(synchronize_session=False)
-    db.session.commit()
-    return deleted
 
 
 @save_db_operation

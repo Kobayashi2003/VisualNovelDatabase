@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from .config import Config
 from .extensions import (
-    ExtSQLAchemy, ExtCache, ExtCelery, ExtAPScheduler
+    ExtSQLAchemy, ExtCache, ExtCelery, ExtAPScheduler, ExtRedis
 )
 
 def create_app(config_class=Config, enable_scheduler=True):
@@ -19,6 +19,7 @@ def create_app(config_class=Config, enable_scheduler=True):
     global db
     global migrate
     global cache
+    global redis_client
     global scheduler
     global celery
 
@@ -53,6 +54,13 @@ def create_app(config_class=Config, enable_scheduler=True):
     cache = ExtCache(app)
 
     # ----------------------------------------
+    # Redis Client Initialization
+    # Direct redis client for single-flight locking + access ZSET. Lives in
+    # its own DB so it doesn't share keyspace with Flask-Caching.
+    # ----------------------------------------
+    redis_client = ExtRedis(app)
+
+    # ----------------------------------------
     # Celery Initialization
     # This section sets up Celery for asynchronous task processing
     # ----------------------------------------
@@ -65,8 +73,8 @@ def create_app(config_class=Config, enable_scheduler=True):
     if enable_scheduler:
         scheduler = ExtAPScheduler(app)
         from .schedule.backup import backup_database_schedule
-        # from .schedule.random import random_fetch_schedule, random_update_schedule  # superseded by schedule/fetch.py
         from .schedule.fetch import fetch_new_images_schedule, fetch_thumbnail_images_schedule
+        from .schedule.access import flush_access_schedule
     else:
         scheduler = None
 

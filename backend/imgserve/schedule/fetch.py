@@ -1,15 +1,12 @@
 """Image-fetching schedules for imgserve.
 
-Replaces schedule/random.py. Unlike the VNDB resource API, t.vndb.org exposes
-no listing API, so there is no way to ask "what is new" - coverage can only be
-discovered by probing sequential image ids. Two jobs:
+Unlike the VNDB resource API, t.vndb.org exposes no listing API, so there is
+no way to ask "what is new" - coverage can only be discovered by probing
+sequential image ids. Two jobs:
 
   fetch_new_images_schedule       - probe ids upward from each type's current
                                     highest id, stopping after MISS_LIMIT
                                     consecutive misses (the end of the range).
-                                    This is the only way to discover new
-                                    images; random.py could only re-sample the
-                                    ids already below the local maximum.
 
   fetch_thumbnail_images_schedule - create the missing '.t' thumbnail variant
                                     for every full-size image. VNDB generates a

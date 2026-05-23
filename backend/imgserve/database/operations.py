@@ -1,4 +1,5 @@
 from imgserve import db
+from imgserve.utils import download_image_to_disk
 from .models import IMAGE_MODEL, ImageType
 from .common import save_db_operation
 
@@ -14,8 +15,15 @@ def get(type: str, id: str) -> ImageType | None:
     return model.query.get(id)
 
 @save_db_operation
-def create(type: str, id: str) -> ImageType | None:
+def create(type: str, id: str, *, fast: bool = False) -> ImageType | None:
+    """Download the file to disk, then insert the DB row.
+
+    Returns None if the row already exists or the download failed. The DB row
+    is only written after a successful download — there should never be a row
+    without a file on disk."""
     if exists(type, id):
+        return None
+    if not download_image_to_disk(type, id, fast=fast):
         return None
     model = IMAGE_MODEL[type]
     image = model(id=id)
@@ -24,9 +32,12 @@ def create(type: str, id: str) -> ImageType | None:
     return image
 
 @save_db_operation
-def update(type: str, id: str) -> ImageType | None:
+def update(type: str, id: str, *, fast: bool = False) -> ImageType | None:
+    """Re-download the file and bump updated_at."""
     image = get(type, id)
     if not image:
+        return None
+    if not download_image_to_disk(type, id, fast=fast):
         return None
     db.session.add(image)
     db.session.commit()

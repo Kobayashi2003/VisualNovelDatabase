@@ -55,7 +55,16 @@ class Config:
     FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost')
     RESET_TOKEN_MAX_AGE = int(os.environ.get('RESET_TOKEN_MAX_AGE_SECONDS', 1800))
     VERIFICATION_CODE_MAX_AGE = int(os.environ.get('VERIFICATION_CODE_MAX_AGE_SECONDS', 600))
-    USERSERVE_REDIS_URL = os.environ.get('USERSERVE_REDIS_URL', 'redis://localhost:6379/7')
+
+    # Direct redis client (verification codes + JWT blocklist). Strings are
+    # auto-decoded since the userserve keys all store ASCII payloads.
+    REDIS_URL = os.environ.get('USERSERVE_REDIS_URL', 'redis://localhost:6379/7')
+    REDIS_DECODE_RESPONSES = True
+
+    # Waitress thread pool. Sized for the worst-case route: send_verification_code
+    # / forgot_password used to block on SMTP for up to 10s — mail dispatch is now
+    # async (see userserve/mail.py) so a modest pool is enough.
+    WAITRESS_THREADS = int(os.environ.get('USERSERVE_WAITRESS_THREADS', '16'))
 
     # Registration invite gate — when INVITATION_CODE is non-empty, new sign-ups
     # must supply a matching code. Leave it blank to keep registration open.

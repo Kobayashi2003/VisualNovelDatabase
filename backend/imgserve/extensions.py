@@ -2,6 +2,7 @@ import time
 from abc import ABC, abstractmethod
 from functools import wraps
 
+import redis
 from flask_sqlalchemy import SQLAlchemy
 from flask_caching import Cache
 from flask_apscheduler import APScheduler
@@ -75,6 +76,16 @@ class ExtCache(Extension):
             'CACHE_DEFAULT_TIMEOUT': app.config['CACHE_DEFAULT_TIMEOUT']
         })
         return cache
+
+class ExtRedis(Extension):
+    """Shared redis client for direct (non-Flask-Caching) uses — the
+    single-flight lock channel and the access-tracking ZSET. One pooled
+    client per app, accessed via the module-level `redis_client` attr."""
+    def create(self, app):
+        return redis.Redis.from_url(
+            app.config['REDIS_URL'],
+            decode_responses=app.config.get('REDIS_DECODE_RESPONSES', False),
+        )
 
 class ExtCelery(Extension):
     def create(self, app):

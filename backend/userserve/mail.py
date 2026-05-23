@@ -4,9 +4,15 @@ Each provider has a built-in host/port/security preset, so only credentials are
 taken from env vars (see config.py). send_email tries every configured provider
 in turn until one succeeds. When none is configured (typical in development),
 emails are logged to the console instead of being sent.
+
+User-facing helpers (send_password_reset_email / send_verification_code_email)
+dispatch the SMTP work to a background daemon thread so request handlers never
+block on a slow QQ/Gmail server. SMTP routes are already rate-limited (see
+userserve/routes.py), so the thread count stays bounded in practice.
 """
 
 import smtplib
+import threading
 from email.message import EmailMessage
 
 from flask import current_app
@@ -65,7 +71,19 @@ def send_email(to: str, subject: str, body: str) -> bool:
     current_app.logger.error(f"All configured mail providers failed for {to}")
     return False
 
-def send_password_reset_email(user, reset_url: str) -> bool:
+def _dispatch_async(to: str, subject: str, body: str) -> None:
+    """Hand the send_email call off to a daemon thread, with app context
+    preserved so config / logging work normally inside the worker."""
+    app = current_app._get_current_object()
+    def _run():
+        with app.app_context():
+            try:
+                send_email(to, subject, body)
+            except Exception as exc:
+                app.logger.exception(f"async mail dispatch failed: {exc}")
+    threading.Thread(target=_run, daemon=True).start()
+
+def send_password_reset_email(user, reset_url: str) -> None:
     subject = "Reset your VNDB account password"
     body = (
         f"Hi {user.username},\n\n"
@@ -75,9 +93,9 @@ def send_password_reset_email(user, reset_url: str) -> bool:
         f"If you didn't request this, you can safely ignore this email — your "
         f"password won't change.\n"
     )
-    return send_email(user.email, subject, body)
+    _dispatch_async(user.email, subject, body)
 
-def send_verification_code_email(email: str, code: str) -> bool:
+def send_verification_code_email(email: str, code: str) -> None:
     subject = "Your VNDB sign-up verification code"
     body = (
         f"Your verification code is:\n\n"
@@ -86,4 +104,4 @@ def send_verification_code_email(email: str, code: str) -> bool:
         f"The code expires in 10 minutes.\n\n"
         f"If you didn't request this, you can safely ignore this email.\n"
     )
-    return send_email(email, subject, body)
+    _dispatch_async(email, subject, body)

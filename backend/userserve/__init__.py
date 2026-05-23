@@ -1,10 +1,9 @@
 from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 from flask_migrate import Migrate
-import redis
 from .config import Config
 from .extensions import (
-    ExtSQLAchemy, ExtJWT, ExtAPScheduler, ExtLimiter
+    ExtSQLAchemy, ExtJWT, ExtAPScheduler, ExtLimiter, ExtRedis
 )
 
 import os
@@ -66,9 +65,10 @@ def create_app(config_class=Config, enable_scheduler=True):
 
     # ----------------------------------------
     # Redis Initialization
-    # Ephemeral store for email verification codes (TTL handles expiry)
+    # Ephemeral store for email verification codes (TTL handles expiry) and
+    # the JWT blocklist. Strings auto-decoded.
     # ----------------------------------------
-    redis_client = redis.Redis.from_url(app.config['USERSERVE_REDIS_URL'], decode_responses=True)
+    redis_client = ExtRedis(app)
 
     # ----------------------------------------
     # Scheduler Initialization

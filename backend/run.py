@@ -2,12 +2,13 @@ import os
 import sys
 import time
 import signal
+import shutil
 import subprocess
 import threading
 import argparse
 import logging
 from logging.handlers import RotatingFileHandler
-from typing import List
+from typing import List, Optional
 
 os.makedirs('logs', exist_ok=True)
 os.environ['PYTHONUNBUFFERED'] = '1'
@@ -32,6 +33,60 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+def run_caddy() -> Optional[subprocess.Popen]:
+    """Launch Caddy as the unified backend edge, if enabled and available.
+
+    Opt-in via USE_CADDY=true. Caddy fronts all three Flask backends behind a
+    single bind address (default :5080) using path-prefix routing:
+        /imgserve/*  -> imgserve  (with file_server fast path)
+        /userserve/* -> userserve
+        /vndb/*      -> vndb
+    The imgserve image folder is derived from DATA_FOLDER (mirroring
+    imgserve.config) so the file_server fast path resolves to the same disk
+    location Flask writes to."""
+    if os.environ.get('USE_CADDY', 'false').lower() not in ('true', '1', 'yes'):
+        return None
+    caddy_bin = shutil.which('caddy')
+    if not caddy_bin:
+        msg = "[CADDY] USE_CADDY is set but `caddy` is not on PATH; skipping."
+        logger.warning(msg)
+        print(msg)
+        return None
+
+    data_folder = os.environ.get('DATA_FOLDER', './DATA')
+    image_folder = os.path.abspath(os.path.join(data_folder, 'images'))
+    os.makedirs(image_folder, exist_ok=True)
+
+    env = os.environ.copy()
+    env['IMGSERVE_IMAGE_FOLDER'] = image_folder
+    env['IMGSERVE_PORT']  = os.environ.get('IMGSERVE_PORT',  '5001')
+    env['USERSERVE_PORT'] = os.environ.get('USERSERVE_PORT', '5002')
+    env['VNDB_PORT']      = os.environ.get('VNDB_PORT',      '5000')
+    env.setdefault('CADDY_BIND', ':5080')
+
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    caddyfile = os.path.join(backend_dir, 'Caddyfile')
+
+    print(f"Starting Caddy on {env['CADDY_BIND']} "
+          f"(image_folder={image_folder}, "
+          f"upstreams=imgserve::{env['IMGSERVE_PORT']}, "
+          f"userserve::{env['USERSERVE_PORT']}, "
+          f"vndb::{env['VNDB_PORT']})")
+    caddy_process = subprocess.Popen(
+        [caddy_bin, 'run', '--config', caddyfile, '--adapter', 'caddyfile'],
+        cwd=backend_dir, env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+
+    def log_caddy():
+        for line in caddy_process.stdout:
+            logger.info(f"[CADDY] {line.strip()}")
+            print(f"[CADDY] {line.strip()}")
+
+    threading.Thread(target=log_caddy, daemon=True).start()
+    return caddy_process
+
+
 def run_redis_server():
     print("Starting Redis server")
     redis_process = subprocess.Popen([
@@ -49,14 +104,19 @@ def run_redis_server():
     return redis_process
 
 def run_celery_worker(app_name):
-    print(f"Starting Celery worker for {app_name}")
+    # `pool='threads'` (vs the old `solo`) lets I/O-bound tasks — image
+    # fetches and the VNDB Kana API calls — run concurrently on Windows,
+    # where the prefork pool is unavailable. Concurrency defaults to the CPU
+    # count; tune via CELERY_CONCURRENCY if needed.
+    concurrency = int(os.environ.get('CELERY_CONCURRENCY', os.cpu_count() or 4))
+    print(f"Starting Celery worker for {app_name} (threads pool, concurrency={concurrency})")
     celery_process = subprocess.Popen([
         'python', '-c',
         f"from {app_name} import create_app;"
         f"app = create_app(enable_scheduler=False);"
         f"config = app.config;"
         f"celery = app.celery;"
-        f"celery.Worker(pool='solo', loglevel='info', quiet=False).start();"
+        f"celery.Worker(pool='threads', concurrency={concurrency}, loglevel='info', quiet=False).start();"
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     def log_celery():
@@ -115,7 +175,8 @@ def run_flask_waitress(app_name: str):
         f"import {app_name};"
         f"app = {app_name}.create_app();"
         f"config = app.config;"
-        f"serve(app, host=config['APP_HOST'], port=config['APP_PORT']);"
+        f"serve(app, host=config['APP_HOST'], port=config['APP_PORT'],"
+        f"      threads=config.get('WAITRESS_THREADS', 4));"
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     def log_waitress():
@@ -191,6 +252,13 @@ def main():
     else:
         userserve_flask_process = run_flask('userserve')
     processes.append(userserve_flask_process)
+
+
+    # Optional Caddy edge for imgserve. Started after Flask so the upstream
+    # is up by the time Caddy probes it.
+    caddy_process = run_caddy()
+    if caddy_process is not None:
+        processes.append(caddy_process)
 
 
     def signal_handler(signum, frame):

@@ -2,6 +2,7 @@ import time
 from abc import ABC, abstractmethod
 from functools import wraps
 
+import redis
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
@@ -112,3 +113,13 @@ class ExtLimiter(Extension):
             swallow_errors=True,
         )
         return limiter
+
+class ExtRedis(Extension):
+    """Shared redis client for ephemeral userserve state — email verification
+    codes and the JWT-jti blocklist. One pooled client, accessed via the
+    module-level `redis_client` attr."""
+    def create(self, app):
+        return redis.Redis.from_url(
+            app.config['REDIS_URL'],
+            decode_responses=app.config.get('REDIS_DECODE_RESPONSES', False),
+        )

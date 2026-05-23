@@ -229,10 +229,14 @@ function convertToImgserveUrl(url: string): string {
     return url
   }
 
-  const match = url.match(/^https?:\/\/[^/]+\/(cv|sf|ch|cv\.t|sf\.t|ch\.t)\/\d+\/(\d+)\.jpg$/)
+  // Preserve the <dir> segment so the URL maps 1:1 onto imgserve's on-disk
+  // layout (<type>/<dir>/<id>.jpg). Caddy's file_server fast path serves
+  // cache hits straight from disk by URL — only possible if the URL carries
+  // the dir VNDB already embeds in its CDN path.
+  const match = url.match(/^https?:\/\/[^/]+\/(cv|sf|ch|cv\.t|sf\.t|ch\.t)\/(\d+)\/(\d+)\.jpg$/)
   if (!match) return url
-  const [, type, id] = match
-  return `${getBaseUrl("imgserve")}/img/${type}/${id}`
+  const [, type, dir, id] = match
+  return `${getBaseUrl("imgserve")}/img/${type}/${dir}/${id}.jpg`
 }
 
 

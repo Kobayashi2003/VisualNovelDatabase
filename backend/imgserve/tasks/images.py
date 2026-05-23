@@ -1,24 +1,32 @@
+import os
 from typing import Dict, List, Any
 from flask import current_app
 from imgserve import celery
 from imgserve.database import exists, create, update, delete
-from imgserve.utils import download_images
+from imgserve.utils import download_image_to_disk, download_images, get_image_path
 from .common import SUCCESS, FAILED
+
 
 @celery.task
 def ensure_image_task(type: str, id: int) -> Dict[str, str]:
-    """Make sure the image for (type, id) is cached, fetching it if not.
+    """Make sure both the file and the DB row for (type, id) are present.
 
-    Runs in the worker, never the request thread. `exists` loads the ORM row,
-    whose `load` event re-downloads a file that went missing; `create` inserts
-    a new row, whose `before_insert` event downloads a not-yet-known image."""
+    Three cases:
+      file present                -> SUCCESS (no-op)
+      file missing, row present   -> re-download the file
+      file missing, row missing   -> create() (downloads then inserts row)
+    """
     try:
-        if exists(type, id):
+        if os.path.exists(get_image_path(type, id)):
             return SUCCESS
+        if exists(type, id):
+            ok = download_image_to_disk(type, id)
+            return SUCCESS if ok else FAILED
         result = create(type, id)
     except Exception as e:
         return {'status': 'ERROR', 'results': str(e)}
     return SUCCESS if result else FAILED
+
 
 @celery.task
 def create_image_task(type: str, id: int) -> Dict[str, str]:
@@ -30,6 +38,7 @@ def create_image_task(type: str, id: int) -> Dict[str, str]:
         return FAILED
     return SUCCESS
 
+
 @celery.task
 def update_image_task(type: str, id: int) -> Dict[str, str]:
     try:
@@ -39,6 +48,7 @@ def update_image_task(type: str, id: int) -> Dict[str, str]:
     if not result:
         return FAILED
     return SUCCESS
+
 
 @celery.task
 def delete_image_task(type: str, id: int) -> Dict[str, str]:
@@ -50,6 +60,7 @@ def delete_image_task(type: str, id: int) -> Dict[str, str]:
         return FAILED
     return SUCCESS
 
+
 @celery.task
 def download_images_task(urls: List[str]) -> Dict[str, Any]:
     try:
@@ -58,4 +69,3 @@ def download_images_task(urls: List[str]) -> Dict[str, Any]:
     except Exception as e:
         return {'status': 'ERROR', 'results': str(e)}
     return {'status': 'SUCCESS', 'results': results}
-    

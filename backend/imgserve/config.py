@@ -11,6 +11,12 @@ class Config:
     SECRET_KEY = os.environ['SECRET_KEY']
     APP_HOST = os.environ['IMGSERVE_HOST']
     APP_PORT = int(os.environ['IMGSERVE_PORT'])
+    # Waitress thread pool. Cold image requests block on httpx fetches from
+    # t.vndb.org, so we want plenty of threads to absorb concurrent misses.
+    # Combined with the Redis single-flight in routes/images.py, duplicate
+    # requests for the same image collapse to one upstream fetch regardless
+    # of thread count.
+    WAITRESS_THREADS = int(os.environ.get('IMGSERVE_WAITRESS_THREADS', '64'))
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ['IMGSERVE_DB_URL']
@@ -24,6 +30,11 @@ class Config:
     CACHE_TYPE = 'redis'
     CACHE_REDIS_URL = os.environ['IMGSERVE_CACHE_REDIS_URL']
     CACHE_DEFAULT_TIMEOUT = 300
+
+    # Direct redis client (single-flight + access ZSET). Kept in its own DB so
+    # the Flask-Caching keyspace stays free of bookkeeping junk.
+    REDIS_URL = os.environ['IMGSERVE_REDIS_URL']
+    REDIS_DECODE_RESPONSES = False
 
     # Celery configuration
     CELERY_DEFAULT_QUEUE = os.environ['IMGSERVE_CELERY_DEFAULT_QUEUE']

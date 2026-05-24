@@ -2,7 +2,10 @@
 # Production launcher.
 #
 # Boots two child processes and forwards Ctrl+C to both:
-#   1. backend/prod.py   — Redis + 3 Waitress backends + 2 Celery workers + Caddy
+#   1. backend/prod.py — launched via `pixi run prod` so it runs inside the
+#      reproducible pixi env (Python 3.13 + postgresql + psycopg2 + all PyPI
+#      deps). Run backend/setup.ps1 once to materialize the env.
+#      Spawns: Postgres + Redis + 3 Waitress backends + 2 Celery workers + Caddy
 #   2. Next.js standalone — node frontend/.next/standalone/server.js
 #
 # Caddy is the only public ingress; frp should forward to CADDY_BIND
@@ -31,6 +34,18 @@ $backendDir       = Join-Path $root 'backend'
 $frontendDir      = Join-Path $root 'frontend'
 $standaloneRoot   = Join-Path $frontendDir '.next\standalone'
 $standaloneServer = Join-Path $standaloneRoot 'server.js'
+
+# Pixi is required — we launch the backend through `pixi run` so it uses
+# the env declared in backend/pixi.toml rather than whatever `python` on
+# PATH happens to be. The env is materialized by backend/setup.ps1.
+if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {
+    throw "pixi is not on PATH. Install it (scoop install pixi) and run backend\setup.ps1 once before start-prod.ps1."
+}
+if (-not (Test-Path (Join-Path $backendDir '.pixi'))) {
+    Write-Host "[WARN] backend\.pixi not found — running backend\setup.ps1 to install the env." -ForegroundColor Yellow
+    & (Join-Path $backendDir 'setup.ps1')
+    if ($LASTEXITCODE -ne 0) { throw "backend\setup.ps1 failed (exit $LASTEXITCODE)" }
+}
 
 # ---------- optional build step ---------------------------------------------
 if ($Build) {
@@ -79,10 +94,13 @@ if (Test-Path $srcPublic) {
 # them individually. Both children inherit the console, so their stdout
 # interleaves into this terminal — same UX as run.py.
 
-Write-Host "[START] backend/prod.py (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
+Write-Host "[START] backend/prod.py via pixi (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
+# `pixi run prod -- --next-port N` -> `python prod.py --next-port N` inside
+# the pixi env. The `--` separator keeps pixi from claiming `--next-port`
+# as one of its own flags.
 $backend = Start-Process `
-    -FilePath 'python' `
-    -ArgumentList @('prod.py', '--next-port', $NextPort) `
+    -FilePath 'pixi' `
+    -ArgumentList @('run', 'prod', '--', '--next-port', $NextPort) `
     -WorkingDirectory $backendDir `
     -NoNewWindow `
     -PassThru

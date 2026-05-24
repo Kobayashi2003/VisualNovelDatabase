@@ -2,5 +2,6 @@
 *.log
 DATA/
 logs/
+.pixi/
 .pytest_cache/
 __pycache__/

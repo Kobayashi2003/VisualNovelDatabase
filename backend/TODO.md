@@ -2,21 +2,6 @@
 
 ## 待优化（能正常运行但实现不够规范）
 
----
-
-### `Staff.aid` — 列类型有误
-
-**位置：** `vndb/database/models.py`、`vndb/migrations/`
-
-Kana API 返回 `staff.aid` 为**整数**，但本地模型定义为 `Column(String)`。
-SQLAlchemy 会将其转为字符串存储，数据不会丢失，但语义上类型有误，可能影响排序或数值比较。
-
-**需要的修改：**
-- 将 `Staff` 模型中的 `aid = Column(String)` 改为 `aid = Column(Integer)`
-- 生成并执行数据库迁移
-
----
-
 ### `Character.birthday` — 存储格式不规范
 
 **位置：** `vndb/database/models.py`、`vndb/search/common.py`、`vndb/migrations/`

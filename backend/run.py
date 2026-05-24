@@ -37,7 +37,7 @@ def run_caddy() -> Optional[subprocess.Popen]:
     """Launch Caddy as the unified backend edge, if enabled and available.
 
     Opt-in via USE_CADDY=true. Caddy fronts all three Flask backends behind a
-    single bind address (default :5080) using path-prefix routing:
+    single bind address (default :7090) using path-prefix routing:
         /imgserve/*  -> imgserve  (with file_server fast path)
         /userserve/* -> userserve
         /vndb/*      -> vndb
@@ -62,10 +62,11 @@ def run_caddy() -> Optional[subprocess.Popen]:
     env['IMGSERVE_PORT']  = os.environ.get('IMGSERVE_PORT',  '5001')
     env['USERSERVE_PORT'] = os.environ.get('USERSERVE_PORT', '5002')
     env['VNDB_PORT']      = os.environ.get('VNDB_PORT',      '5000')
-    env.setdefault('CADDY_BIND', ':5080')
+    env.setdefault('CADDY_BIND', ':7090')
 
     backend_dir = os.path.dirname(os.path.abspath(__file__))
-    caddyfile = os.path.join(backend_dir, 'Caddyfile')
+    project_root = os.path.dirname(backend_dir)
+    caddyfile = os.path.join(project_root, 'Caddyfile')
 
     print(f"Starting Caddy on {env['CADDY_BIND']} "
           f"(image_folder={image_folder}, "
@@ -74,7 +75,7 @@ def run_caddy() -> Optional[subprocess.Popen]:
           f"vndb::{env['VNDB_PORT']})")
     caddy_process = subprocess.Popen(
         [caddy_bin, 'run', '--config', caddyfile, '--adapter', 'caddyfile'],
-        cwd=backend_dir, env=env,
+        cwd=project_root, env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
 

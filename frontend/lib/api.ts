@@ -14,8 +14,9 @@ import {
 
 /* ─── Base URL resolution ──────────────────────────────────────────────────── */
 // On the server the URL can be overridden via env vars (so SSR can hit the
-// internal hostnames); on the client we always go through the Next.js proxy
-// routes defined under `app/api/*`.
+// internal hostnames); on the client we always use the same-origin /vndb,
+// /imgserve, /userserve paths, which Caddy (prod) or Next.js rewrites (dev)
+// forward to the matching Flask backend.
 
 const getBaseUrl = (type: "vndb" | "imgserve" | "userserve") => {
   if (typeof window === "undefined") {

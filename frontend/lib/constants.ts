@@ -2,13 +2,15 @@
 
 
 /* ─── Backend routes ───────────────────────────────────────────────────────── */
-// Three services sit behind Next.js proxy routes. The constants below are the
-// browser-side defaults; server-side code may override them via env vars in
-// `api.ts`.
+// Three services sit behind path-prefix routes. In prod, Caddy intercepts
+// these prefixes and proxies directly to the matching Flask backend (see
+// Caddyfile's `handle_path /vndb/*` etc.). In dev, Next.js' rewrites in
+// next.config.ts forward them to the same Flask ports. Either way, the
+// browser only ever talks to a single origin.
 
-export const VNDB_BASE_URL = "/api/vndb"
-export const IMGSERVE_BASE_URL = "/api/imgserve"
-export const USERSERVE_BASE_URL = "/api/userserve"
+export const VNDB_BASE_URL = "/vndb"
+export const IMGSERVE_BASE_URL = "/imgserve"
+export const USERSERVE_BASE_URL = "/userserve"
 
 
 /* ─── UI defaults ──────────────────────────────────────────────────────────── */

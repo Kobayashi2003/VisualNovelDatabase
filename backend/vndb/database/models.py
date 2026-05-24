@@ -126,7 +126,7 @@ class Staff(db.Model):
     __tablename__ = 'staff'
 
     id = Column(String, primary_key=True)
-    aid = Column(String)
+    aid = Column(Integer)
     ismain = Column(Boolean)
     name = Column(String)
     original = Column(String)

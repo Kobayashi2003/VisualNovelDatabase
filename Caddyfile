@@ -1,0 +1,107 @@
+# Unified edge.
+#
+# Single front door (default :7090) for the Next.js frontend and all three
+# Flask backends. Path prefix decides the route:
+#   /vndb/*      -> Flask vndb         (handle_path strips /vndb)
+#   /imgserve/*  -> Flask imgserve     (handle_path strips /imgserve;
+#                                       file_server fast path on cache hits)
+#   /userserve/* -> Flask userserve    (handle_path strips /userserve)
+#   everything else (/, /_next/*, …)
+#                -> Next.js standalone (catch-all `handle`)
+#
+# `handle_path` strips the matched prefix before forwarding, so each
+# backend keeps its existing route shape (Flask sees /img/..., /login,
+# /v123, not the prefixed form).
+#
+# For /imgserve/img/<type>/<dir>/<id>.jpg requests whose file already
+# lives under IMAGE_FOLDER, serve directly from disk with an immutable
+# Cache-Control header — Flask is never hit. Cache misses fall through to
+# the Flask reverse_proxy, which runs the Redis single-flight fetch+store.
+#
+# Env vars (set by backend/run.py / backend/prod.py when launching caddy):
+#   CADDY_BIND            - bind address, e.g. ":7090"
+#   IMGSERVE_PORT         - Flask imgserve port,  e.g. 5001
+#   USERSERVE_PORT        - Flask userserve port, e.g. 5002
+#   VNDB_PORT             - Flask vndb port,      e.g. 5000
+#   NEXT_PORT             - Next.js server port,  e.g. 5003
+#                           (set by prod.py; unset under run.py, so dev
+#                            traffic hits `next dev` on :5003 directly and
+#                            the catch-all `handle` here 502s — that's the
+#                            expected dev signal)
+#   IMGSERVE_IMAGE_FOLDER - absolute path to the imgserve image cache root
+#                           (disk layout mirrors the URL minus the /imgserve
+#                            edge prefix and the /img app prefix; for
+#                            example /imgserve/img/cv/87/9087.jpg ->
+#                            IMAGE_FOLDER/cv/87/9087.jpg).
+{
+	# Quieter default access log; Caddy logs every request otherwise.
+	auto_https off
+}
+
+{$CADDY_BIND::7090} {
+	# Upstreams are addressed as 127.0.0.1 (not `localhost`) on purpose: on
+	# Windows, `localhost` resolves to ::1 first, but Flask/Waitress bind to
+	# 0.0.0.0 (IPv4 only). Caddy would then sit through ~20s of IPv6 TCP
+	# timeout on every cold connection before retrying on IPv4. Hard-coding
+	# the IPv4 loopback sidesteps that.
+
+	# ── imgserve ───────────────────────────────────────────────────────────
+	# handle_path strips /imgserve before the inner matchers see the path,
+	# so the regex below matches against /img/<type>/<dir>/<id>.jpg — the
+	# same shape Flask routes on directly.
+	handle_path /imgserve/* {
+		# Fast path: URL maps directly to an existing file under IMAGE_FOLDER.
+		# The file matcher checks existence using try_files relative to root;
+		# if missing, the named matcher fails and we fall through to the
+		# reverse_proxy below.
+		@cached_img {
+			path_regexp imgpath ^/img(/.+\.jpg)$
+			file {
+				try_files {re.imgpath.1}
+				root {$IMGSERVE_IMAGE_FOLDER}
+			}
+		}
+		handle @cached_img {
+			root * {$IMGSERVE_IMAGE_FOLDER}
+			rewrite * {re.imgpath.1}
+			header Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+
+		# Cache miss + every non-cacheable verb / route falls here.
+		handle {
+			reverse_proxy 127.0.0.1:{$IMGSERVE_PORT} {
+				# Long header timeout because cold image fetches can take a
+				# few seconds while the single-flight worker pulls from
+				# t.vndb.org.
+				transport http {
+					read_timeout 30s
+					write_timeout 30s
+				}
+			}
+		}
+	}
+
+	# ── userserve ──────────────────────────────────────────────────────────
+	handle_path /userserve/* {
+		reverse_proxy 127.0.0.1:{$USERSERVE_PORT}
+	}
+
+	# ── vndb ───────────────────────────────────────────────────────────────
+	handle_path /vndb/* {
+		reverse_proxy 127.0.0.1:{$VNDB_PORT}
+	}
+
+	# ── frontend (Next.js) ─────────────────────────────────────────────────
+	# Everything not matched by the backend prefixes above is the SPA: pages,
+	# /_next/* bundles and static assets. Backend calls never reach here —
+	# the frontend hits /vndb, /imgserve, /userserve directly (see
+	# frontend/lib/constants.ts) and the prefix matchers above intercept them.
+	# When NEXT_PORT is unset (dev: only the backend run.py is running, no
+	# Next), the proxy fails with a connection error and Caddy returns 502,
+	# which is the correct signal that the frontend isn't being served by
+	# Caddy in that mode.
+	handle {
+		reverse_proxy 127.0.0.1:{$NEXT_PORT:5003}
+	}
+}

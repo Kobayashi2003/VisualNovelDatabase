@@ -60,6 +60,20 @@ def make_postgres_spec() -> Optional[ProcSpec]:
     itself reports a much clearer error than we can if neither is set —
     we just hand it the binary and stand back.
 
+    Shutdown is wired through pg_ctl when PG_DATA is known. On Windows
+    Popen.terminate() collapses to TerminateProcess, which kills the
+    postmaster without giving it a chance to checkpoint or close
+    connections — the next startup then has to do crash recovery and the
+    log fills with "the database system was not properly shut down"
+    warnings. `pg_ctl stop -m fast -w` asks the postmaster to roll back
+    in-flight transactions, flush WAL, and exit cleanly. We give it a
+    generous 30s before Supervisor escalates.
+
+    If PG_DATA is unset we have no way to point pg_ctl at the right
+    cluster, so the spec falls back to the default terminate() path —
+    accept the noisy log as the cost of running with an externally-
+    configured data dir.
+
     Returns None only when the binary itself is missing on PATH. If the
     user has postgres running as a service already, comment this maker
     out of run.py / prod.py's build_specs() — there's no auto-detect."""
@@ -76,7 +90,38 @@ def make_postgres_spec() -> Optional[ProcSpec]:
     cmd = [pg_bin]
     if pg_data:
         cmd += ["-D", pg_data]
-    return ProcSpec(name="postgres", cmd=cmd)
+
+    # For the shutdown path, fall back to the standard PGDATA env var when
+    # our PG_DATA override isn't set. scoop's postgres install sets PGDATA
+    # at user scope, so pg_ctl can still find the cluster — keeping the
+    # graceful path active in the common "no explicit override" case.
+    pg_ctl_data = pg_data or (os.environ.get("PGDATA") or "").strip()
+
+    stop_cmd: Optional[List[str]] = None
+    stop_timeout = 5.0
+    if pg_ctl_data:
+        # pg_ctl ships alongside `postgres` in the same bin/, so resolve
+        # relative to the postgres binary first; fall back to PATH.
+        pg_ctl_bin = (
+            os.path.join(os.path.dirname(pg_bin), "pg_ctl")
+            if os.path.dirname(pg_bin) else None
+        )
+        if not (pg_ctl_bin and (os.path.exists(pg_ctl_bin)
+                                or os.path.exists(pg_ctl_bin + ".exe"))):
+            pg_ctl_bin = shutil.which("pg_ctl") or "pg_ctl"
+        # -m fast: roll back active txns and exit (vs. "smart" which waits
+        # for clients to disconnect — would hang shutdown behind any
+        # lingering Flask connection).
+        # -w: wait until pg_ctl observes the postmaster has exited.
+        stop_cmd = [pg_ctl_bin, "stop", "-D", pg_ctl_data, "-m", "fast", "-w"]
+        stop_timeout = 30.0
+
+    return ProcSpec(
+        name="postgres",
+        cmd=cmd,
+        stop_cmd=stop_cmd,
+        stop_timeout=stop_timeout,
+    )
 
 
 def make_redis_spec() -> Optional[ProcSpec]:
@@ -142,7 +187,7 @@ def make_caddy_spec(next_port: Optional[int] = None,
     env["VNDB_PORT"]      = os.environ.get("VNDB_PORT",      "5000")
     if next_port is not None:
         env["NEXT_PORT"] = str(next_port)
-    env.setdefault("CADDY_BIND", ":7090")
+    env.setdefault("CADDY_BIND", ":30709")
 
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(backend_dir)

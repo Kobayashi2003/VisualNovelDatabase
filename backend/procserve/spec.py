@@ -12,19 +12,31 @@ class ProcSpec:
     pump thread can prefix every line uniformly.
 
     Fields:
-      name        Unique identifier across the spec list. Doubles as the
-                  default log prefix (uppercased).
-      cmd         argv list for subprocess.Popen. Pre-resolve the binary
-                  path (shutil.which) when the spec-maker also gates on
-                  binary existence — avoids a second PATH lookup at spawn.
-      depends_on  Names of other specs that must START before this one.
-                  Not a readiness check — just ordering. If a referenced
-                  name is absent from the spec list (e.g. its spec-maker
-                  returned None because the binary was missing), the dep
-                  is treated as already-satisfied so the rest still runs.
-      cwd, env    Forwarded to subprocess.Popen as-is. Leave env=None to
-                  inherit os.environ.
-      log_prefix  Override for the log prefix (default: f"[{NAME}]").
+      name         Unique identifier across the spec list. Doubles as the
+                   default log prefix (uppercased).
+      cmd          argv list for subprocess.Popen. Pre-resolve the binary
+                   path (shutil.which) when the spec-maker also gates on
+                   binary existence — avoids a second PATH lookup at spawn.
+      depends_on   Names of other specs that must START before this one.
+                   Not a readiness check — just ordering. If a referenced
+                   name is absent from the spec list (e.g. its spec-maker
+                   returned None because the binary was missing), the dep
+                   is treated as already-satisfied so the rest still runs.
+      cwd, env     Forwarded to subprocess.Popen as-is. Leave env=None to
+                   inherit os.environ.
+      log_prefix   Override for the log prefix (default: f"[{NAME}]").
+      stop_cmd     Optional external command to request a graceful stop
+                   (e.g. `pg_ctl stop -D <PGDATA> -m fast -w` for postgres).
+                   Supervisor runs it synchronously, then waits up to
+                   `stop_timeout` for the child to exit on its own. If the
+                   child is still alive after that, Supervisor escalates to
+                   terminate() and finally kill(). When None, Supervisor
+                   skips straight to terminate() — fine for processes that
+                   tolerate an abrupt TerminateProcess on Windows.
+      stop_timeout Seconds to wait for the child to exit after the
+                   graceful-stop request (or after terminate(), when
+                   stop_cmd is None). Bumped above the default for
+                   postgres because a "fast" shutdown still flushes WAL.
     """
 
     name: str
@@ -33,6 +45,8 @@ class ProcSpec:
     cwd: Optional[str] = None
     env: Optional[Dict[str, str]] = None
     log_prefix: Optional[str] = None
+    stop_cmd: Optional[List[str]] = None
+    stop_timeout: float = 5.0
 
     @property
     def prefix(self) -> str:

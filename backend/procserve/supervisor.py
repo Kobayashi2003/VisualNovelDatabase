@@ -111,11 +111,23 @@ class Supervisor:
             self._start_one(spec)
 
     def stop_all(self) -> None:
-        """Terminate every running child in reverse-topological order.
+        """Stop every running child in reverse-topological order.
 
         Reverse-topo means dependents (Flask) go down before their deps
         (Postgres) — avoids a tail of "connection refused" log spam from
-        Flask while Postgres is already gone."""
+        Flask while Postgres is already gone.
+
+        Per-child shutdown is a three-step escalation:
+          1. If `spec.stop_cmd` is set, run it and wait up to
+             `spec.stop_timeout` for the child to exit on its own. This is
+             how postgres gets a real shutdown (pg_ctl stop -m fast) on
+             Windows, where Popen.terminate() = TerminateProcess = abrupt
+             kill with no WAL flush.
+          2. If the graceful path is unset or didn't finish in time, send
+             terminate() (Ctrl-Break on Windows process groups, SIGTERM
+             elsewhere) and wait again.
+          3. Last resort: kill() (TerminateProcess / SIGKILL).
+        """
         with self._lock:
             if self._stopping:
                 return
@@ -126,14 +138,74 @@ class Supervisor:
             proc = self.processes.get(spec.name)
             if proc is None or proc.poll() is not None:
                 continue
+            self._stop_one(spec, proc)
+
+    def _stop_one(self, spec: ProcSpec, proc: subprocess.Popen) -> None:
+        timeout = max(0.5, float(spec.stop_timeout))
+
+        # 1) Graceful shutdown via spec-provided command (e.g. pg_ctl stop).
+        if spec.stop_cmd:
+            cmd_str = " ".join(spec.stop_cmd)
+            self.logger.info(f"{spec.prefix} graceful stop: {cmd_str}")
+            print(f"{spec.prefix} graceful stop ({timeout:g}s timeout)")
+            try:
+                # The stop command itself is bounded by the same timeout so
+                # a hung pg_ctl can't wedge the whole shutdown loop.
+                subprocess.run(
+                    spec.stop_cmd,
+                    cwd=spec.cwd,
+                    env=spec.env,
+                    timeout=timeout,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.STDOUT,
+                )
+            except subprocess.TimeoutExpired:
+                self.logger.warning(f"{spec.prefix} stop_cmd timed out after {timeout:g}s")
+                print(f"{spec.prefix} stop_cmd timed out", file=sys.stderr)
+            except Exception as e:
+                self.logger.error(f"{spec.prefix} stop_cmd failed: {e}")
+                print(f"{spec.prefix} stop_cmd failed: {e}", file=sys.stderr)
+
+            try:
+                proc.wait(timeout=timeout)
+                return
+            except subprocess.TimeoutExpired:
+                self.logger.warning(
+                    f"{spec.prefix} did not exit within {timeout:g}s of graceful "
+                    f"stop; escalating to terminate()"
+                )
+                print(
+                    f"{spec.prefix} did not exit gracefully; terminating",
+                    file=sys.stderr,
+                )
+
+        # 2) terminate() — Popen default. On Windows this is TerminateProcess,
+        #    which is abrupt; that's why postgres needs the stop_cmd path
+        #    above. Most other children handle terminate() cleanly enough.
+        if proc.poll() is None:
             try:
                 proc.terminate()
-                proc.wait(timeout=3)
+                proc.wait(timeout=timeout)
+                return
             except subprocess.TimeoutExpired:
-                proc.kill()
+                self.logger.warning(
+                    f"{spec.prefix} did not exit within {timeout:g}s of terminate; "
+                    f"falling back to kill()"
+                )
+                print(f"{spec.prefix} kill (timeout)", file=sys.stderr)
             except Exception as e:
                 self.logger.error(f"{spec.prefix} terminate failed: {e}")
                 print(f"{spec.prefix} terminate failed: {e}", file=sys.stderr)
+
+        # 3) Last resort.
+        if proc.poll() is None:
+            try:
+                proc.kill()
+                proc.wait(timeout=2)
+            except Exception as e:
+                self.logger.error(f"{spec.prefix} kill failed: {e}")
+                print(f"{spec.prefix} kill failed: {e}", file=sys.stderr)
 
     # ---------- introspection ----------------------------------------------
 

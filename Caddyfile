@@ -1,6 +1,6 @@
 # Unified edge.
 #
-# Single front door (default :7090) for the Next.js frontend and all three
+# Single front door (default :30709) for the Next.js frontend and all three
 # Flask backends. Path prefix decides the route:
 #   /vndb/*      -> Flask vndb         (handle_path strips /vndb)
 #   /imgserve/*  -> Flask imgserve     (handle_path strips /imgserve;
@@ -19,7 +19,7 @@
 # the Flask reverse_proxy, which runs the Redis single-flight fetch+store.
 #
 # Env vars (set by backend/run.py / backend/prod.py when launching caddy):
-#   CADDY_BIND            - bind address, e.g. ":7090"
+#   CADDY_BIND            - bind address, e.g. ":30709"
 #   IMGSERVE_PORT         - Flask imgserve port,  e.g. 5001
 #   USERSERVE_PORT        - Flask userserve port, e.g. 5002
 #   VNDB_PORT             - Flask vndb port,      e.g. 5000
@@ -38,7 +38,7 @@
 	auto_https off
 }
 
-{$CADDY_BIND::7090} {
+{$CADDY_BIND::30709} {
 	# Upstreams are addressed as 127.0.0.1 (not `localhost`) on purpose: on
 	# Windows, `localhost` resolves to ::1 first, but Flask/Waitress bind to
 	# 0.0.0.0 (IPv4 only). Caddy would then sit through ~20s of IPv6 TCP

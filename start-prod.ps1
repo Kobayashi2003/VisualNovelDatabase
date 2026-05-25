@@ -9,7 +9,7 @@
 #   2. Next.js standalone — node frontend/.next/standalone/server.js
 #
 # Caddy is the only public ingress; frp should forward to CADDY_BIND
-# (default :7090, set in backend/.env). All four paths live behind it:
+# (default :30709, set in backend/.env). All four paths live behind it:
 #   /            -> Next.js (NextPort, default 5003)
 #   /vndb/*      -> Flask vndb
 #   /imgserve/*  -> Flask imgserve

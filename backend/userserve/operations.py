@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from flask import current_app
 
 from userserve import db, redis_client
-from .models import User, CATEGORY_MODEL, CategoryType
+from .models import User, CATEGORY_MODEL, CategoryType, Rating
 
 class ValidationError(Exception):
     """Base for input-validation failures meant to be reported to the client.
@@ -116,6 +116,11 @@ class CategoryNameTooLongError(InvalidCategoryNameError):
 
 class AttemptToDeleteDefaultCategoryError(Exception):
     pass
+
+
+class InvalidRatingError(ValidationError):
+    error_code = "invalid_rating"
+    message = "Rating must be an integer between 1 and 5."
 
 
 def check_username(username: str) -> bool:
@@ -674,3 +679,49 @@ def get_categories_by_mark(user_id: int, category_type: str, mark_id: int) -> Li
             marked_categories.append(category.id)
 
     return marked_categories
+
+
+@save_db_operation
+def get_ratings_for_user(user_id: int, category_type: str) -> Dict[int, int] | None:
+    if category_type not in CATEGORY_MODEL:
+        raise InvalidCategoryTypeError
+    ratings = Rating.query.filter_by(user_id=user_id, type=category_type).all()
+    return {r.mark_id: r.rating for r in ratings}
+
+@save_db_operation
+def get_rating(user_id: int, category_type: str, mark_id: int) -> int | None:
+    """Return the user's rating for a single mark, or 0 when unrated.
+    A None return signals an operation failure (e.g. invalid type)."""
+    if category_type not in CATEGORY_MODEL:
+        raise InvalidCategoryTypeError
+    rating = Rating.query.filter_by(user_id=user_id, type=category_type, mark_id=mark_id).first()
+    return rating.rating if rating else 0
+
+@save_db_operation
+def set_rating(user_id: int, category_type: str, mark_id: int, rating: int) -> Rating | None:
+    if category_type not in CATEGORY_MODEL:
+        raise InvalidCategoryTypeError
+    if not isinstance(rating, int) or isinstance(rating, bool) or not 1 <= rating <= 5:
+        raise InvalidRatingError
+    record = Rating.query.filter_by(user_id=user_id, type=category_type, mark_id=mark_id).first()
+    if record:
+        record.rating = rating
+    else:
+        record = Rating(user_id=user_id, type=category_type, mark_id=mark_id, rating=rating)
+        db.session.add(record)
+    db.session.flush()
+    db.session.commit()
+    return record
+
+@save_db_operation
+def delete_rating(user_id: int, category_type: str, mark_id: int) -> bool | None:
+    """Remove a rating (back to unrated). Idempotent — succeeds even if no
+    rating existed."""
+    if category_type not in CATEGORY_MODEL:
+        raise InvalidCategoryTypeError
+    record = Rating.query.filter_by(user_id=user_id, type=category_type, mark_id=mark_id).first()
+    if record:
+        db.session.delete(record)
+        db.session.flush()
+        db.session.commit()
+    return True

@@ -19,6 +19,7 @@ from .operations import (
     move_marks_to_category, get_marks_from_category,
     get_marks_from_category_without_pagination,
     get_marks_for_user,
+    get_ratings_for_user, get_rating, set_rating, delete_rating,
 )
 from .security import generate_reset_token, verify_reset_token, password_fingerprint
 from .mail import send_password_reset_email, send_verification_code_email
@@ -460,3 +461,43 @@ def get_categories_by_marks_route(type):
     for mark_id in markIds:
         categoryIds[mark_id] = get_categories_by_mark(user_id, type, mark_id)
     return jsonify(categoryIds=categoryIds), 200
+
+
+@api_bp.route('/<string:type>/r', methods=['GET'])
+@jwt_required()
+def get_ratings_for_user_route(type):
+    user_id = get_jwt_identity()
+    ratings = get_ratings_for_user(user_id, type)
+    if ratings is None:
+        return jsonify(error="Invalid type"), 400
+    # JSON object keys are serialised as strings; the frontend parses them back.
+    return jsonify(ratings), 200
+
+@api_bp.route('/<string:type>/r<int:mark_id>', methods=['GET'])
+@jwt_required()
+def get_rating_route(type, mark_id):
+    user_id = get_jwt_identity()
+    rating = get_rating(user_id, type, mark_id)
+    if rating is None:
+        return jsonify(error="Invalid type"), 400
+    return jsonify(rating=rating), 200
+
+@api_bp.route('/<string:type>/r<int:mark_id>', methods=['PUT'])
+@jwt_required()
+def set_rating_route(type, mark_id):
+    user_id = get_jwt_identity()
+    data = request.json
+    # An out-of-range rating raises ValidationError (handled above); a None
+    # return therefore means an unexpected DB-level failure.
+    rating = set_rating(user_id, type, mark_id, data.get('rating'))
+    if rating:
+        return jsonify(dict(rating)), 200
+    return jsonify(error="Failed to set rating"), 400
+
+@api_bp.route('/<string:type>/r<int:mark_id>', methods=['DELETE'])
+@jwt_required()
+def delete_rating_route(type, mark_id):
+    user_id = get_jwt_identity()
+    if delete_rating(user_id, type, mark_id):
+        return jsonify(message="Rating removed"), 200
+    return jsonify(error="Failed to remove rating"), 400

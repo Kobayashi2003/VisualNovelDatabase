@@ -3,7 +3,7 @@ from typing import Union
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from userserve import db
-from sqlalchemy import Integer, String, Boolean, DateTime, Column, ForeignKey, event, UniqueConstraint
+from sqlalchemy import Integer, SmallInteger, String, Boolean, DateTime, Column, ForeignKey, event, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from sqlalchemy.orm import relationship, declared_attr
@@ -31,6 +31,7 @@ class User(db.Model):
     staff_categories = relationship("StaffCategory", back_populates="user", cascade="all, delete-orphan")
     tag_categories = relationship("TagCategory", back_populates="user", cascade="all, delete-orphan")
     trait_categories = relationship("TraitCategory", back_populates="user", cascade="all, delete-orphan")
+    ratings = relationship("Rating", back_populates="user", cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -162,6 +163,45 @@ class TraitCategory(Category):
         return 'trait'
 
     user = relationship("User", back_populates="trait_categories")
+
+class Rating(db.Model):
+    """A user's personal 1–5 rating for a single marked entity.
+
+    Unlike categories, a rating is keyed by the entity itself — a mark may
+    sit in several categories but has exactly one rating per user. `type` is
+    the single-letter route key shared with `CATEGORY_MODEL` ('v', 'c', …),
+    and `mark_id` is the same numeric entity id used by category marks."""
+
+    __tablename__ = 'ratings'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    type = Column(String(1), nullable=False)
+    mark_id = Column(Integer, nullable=False)
+    rating = Column(SmallInteger, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.now())
+    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'type', 'mark_id', name='uq_rating_user_type_mark'),
+    )
+
+    user = relationship("User", back_populates="ratings")
+
+    def __iter__(self):
+        yield 'id', self.id
+        yield 'user_id', self.user_id
+        yield 'type', self.type
+        yield 'mark_id', self.mark_id
+        yield 'rating', self.rating
+        yield 'created_at', self.created_at.isoformat() if self.created_at else None
+        yield 'updated_at', self.updated_at.isoformat() if self.updated_at else None
+
+    def __str__(self):
+        return f"<Rating(id={self.id}, user_id={self.user_id}, type={self.type}, mark_id={self.mark_id}, rating={self.rating})>"
+
+    def __repr__(self):
+        return f"Rating(id={self.id!r}, user_id={self.user_id!r}, type={self.type!r}, mark_id={self.mark_id!r}, rating={self.rating!r})"
 
 CategoryType = Union[VNCategory, CharacterCategory, ProducerCategory, StaffCategory]
 

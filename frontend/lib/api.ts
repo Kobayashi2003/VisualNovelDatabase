@@ -477,4 +477,24 @@ export const api = {
       )
     },
   },
+
+  /* Userserve: personal 1–5 ratings, keyed by entity (independent of category) */
+  rating: {
+    // The backend serialises the map with string keys; parse them back to the
+    // numeric mark ids the rest of the app uses.
+    get: async (type: string, abortSignal?: AbortSignal): Promise<Record<number, number>> => {
+      const raw = await fetchUserserve<Record<string, number>>(`${typeRoute(type)}/r`, "GET", undefined, abortSignal)
+      const ratings: Record<number, number> = {}
+      for (const [markId, value] of Object.entries(raw)) ratings[Number(markId)] = value
+      return ratings
+    },
+    getOne: async (type: string, markId: number, abortSignal?: AbortSignal): Promise<number> => {
+      const { rating } = await fetchUserserve<{ rating: number }>(`${typeRoute(type)}/r${markId}`, "GET", undefined, abortSignal)
+      return rating
+    },
+    set: (type: string, markId: number, rating: number, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ rating: number }>(`${typeRoute(type)}/r${markId}`, "PUT", { rating }, abortSignal),
+    clear: (type: string, markId: number, abortSignal?: AbortSignal) =>
+      fetchUserserve<{ message: string }>(`${typeRoute(type)}/r${markId}`, "DELETE", undefined, abortSignal),
+  },
 }

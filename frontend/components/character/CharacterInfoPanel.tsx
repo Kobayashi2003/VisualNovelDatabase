@@ -8,6 +8,7 @@ import { cn, shouldBlur } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
+import { CollectionRating } from "@/components/category/CollectionRating"
 import { ICON } from "@/lib/icons"
 import { enumLabel } from "@/lib/enums"
 import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
@@ -176,6 +177,7 @@ export function CharacterInfoPanel({
       )}
 
       <CollectionButton type="character" id={character.id} />
+      <CollectionRating type="character" id={character.id} />
     </div>
   )
 
@@ -220,6 +222,7 @@ export function CharacterInfoPanel({
             </span>
           )}
           <CollectionButton type="character" id={character.id} />
+          <CollectionRating type="character" id={character.id} />
         </div>
       </div>
     )

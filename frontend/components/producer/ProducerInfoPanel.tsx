@@ -6,6 +6,7 @@ import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
 import { CollectionButton } from "@/components/category/CollectionButton"
+import { CollectionRating } from "@/components/category/CollectionRating"
 
 export function ProducerInfoPanel({ producer }: { producer: Producer }) {
   const hasInfo = producer.type || producer.lang || producer.aliases.length > 0
@@ -33,6 +34,7 @@ export function ProducerInfoPanel({ producer }: { producer: Producer }) {
       <ExtLinks links={producer.extlinks} />
 
       <CollectionButton type="producer" id={producer.id} />
+      <CollectionRating type="producer" id={producer.id} />
     </div>
   )
 }

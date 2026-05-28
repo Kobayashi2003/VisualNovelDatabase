@@ -10,9 +10,11 @@ interface TextCardProps {
   layout?: "single" | "grid"
   tooltip?: string
   className?: string
+  /** Optional trailing content (e.g. quick-rate stars). */
+  footer?: React.ReactNode
 }
 
-export function TextCard({ title, msgs, link, layout = "grid", tooltip, className }: TextCardProps) {
+export function TextCard({ title, msgs, link, layout = "grid", tooltip, className, footer }: TextCardProps) {
   const card = (
     <div className={cn(
       "bg-surface hover:bg-elevated",
@@ -28,6 +30,7 @@ export function TextCard({ title, msgs, link, layout = "grid", tooltip, classNam
           <p key={i} className="text-xs text-muted truncate">{msg}</p>
         ))}
       </div>
+      {footer && <div className={layout === "grid" ? "mt-2" : "shrink-0"}>{footer}</div>}
     </div>
   )
 

@@ -9,6 +9,7 @@ import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
+import { CollectionRating } from "@/components/category/CollectionRating"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
@@ -231,6 +232,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
       )}
 
       <CollectionButton type="vn" id={vn.id} />
+      <CollectionRating type="vn" id={vn.id} />
     </div>
   )
 
@@ -283,6 +285,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
             <span className="text-xs text-white/70">{vn.developers.map(d => d.name).join(", ")}</span>
           )}
           <CollectionButton type="vn" id={vn.id} />
+          <CollectionRating type="vn" id={vn.id} />
         </div>
       </div>
     )

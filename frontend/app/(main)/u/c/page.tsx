@@ -38,14 +38,19 @@ import { Loading } from "@/components/status/Loading"
 // Collection-specific sorts (note: "date_added" is local-only).
 
 const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
-  vn:        [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "rating", label: "Rating" }, { value: "released", label: "Released" }],
-  release:   [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "released", label: "Released" }],
-  character: [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
-  producer:  [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
-  staff:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
-  tag:       [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
-  trait:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }],
+  vn:        [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "rating", label: "Rating" }, { value: "released", label: "Released" }, { value: "my_rating", label: "My Rating" }],
+  release:   [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "released", label: "Released" }, { value: "my_rating", label: "My Rating" }],
+  character: [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
+  producer:  [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
+  staff:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
+  tag:       [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
+  trait:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
 }
+
+// Sorts computed locally from marks/ratings rather than by VNDB. They have no
+// honest answer alongside a text search (VNDB does the filtering), so they are
+// disabled while a search is active — mirroring the existing date_added rule.
+const LOCAL_SORTS = new Set(["date_added", "my_rating"])
 
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -112,6 +117,8 @@ function CollectionContent() {
   const [totalCount, setTotalCount]               = useState(0)
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [loadingItems, setLoadingItems]           = useState(false)
+  // Personal ratings for the current type, keyed by numeric mark id.
+  const [ratings, setRatings]                     = useState<Record<number, number>>({})
 
   /* UI state */
   const [editMode, setEditMode]                   = useState(false)
@@ -146,7 +153,7 @@ function CollectionContent() {
     const t = setTimeout(() => {
       lastCommittedRef.current = searchInput
       const updates: Record<string, string> = { q: searchInput }
-      if (searchInput && sort === "date_added") {
+      if (searchInput && LOCAL_SORTS.has(sort)) {
         const fallback = (SORT_OPTIONS[type] ?? SORT_OPTIONS.vn)[1]?.value
         if (fallback) updates.sort = fallback
       }
@@ -217,6 +224,15 @@ function CollectionContent() {
     return map
   }, [allMarks, type])
 
+  // Same `${prefix}${id}` keying as markedAtMap, so cards can look up a rating
+  // by the card id the adapters produce.
+  const ratingsMap = useMemo<Record<string, number>>(() => {
+    const prefix = prefixForType(type)
+    const map: Record<string, number> = {}
+    for (const [markId, value] of Object.entries(ratings)) map[`${prefix}${markId}`] = value
+    return map
+  }, [ratings, type])
+
   const refreshCategories = useCallback(async () => {
     if (!user) return
     const data = await api.category.get(type)
@@ -245,10 +261,29 @@ function CollectionContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, type])
 
+  // Load personal ratings for the current type (cheap id→rating map).
+  useEffect(() => {
+    if (!user) { setRatings({}); return }
+    let cancelled = false
+    api.rating.get(type)
+      .then(data => { if (!cancelled) setRatings(data) })
+      .catch(() => { if (!cancelled) setRatings({}) })
+    return () => { cancelled = true }
+  }, [user, type])
+
+  // Drives re-fetch of the "my_rating" page when the relevant ratings change.
+  // A stable "" outside that sort means rating edits never refetch other views.
+  const ratingSortSignature = useMemo(() => {
+    if (sort !== "my_rating") return ""
+    return allMarks.map(m => `${m.id}:${ratings[m.id] ?? 0}`).join(",")
+  }, [sort, allMarks, ratings])
+
   /* Fetch the current page of items.
-     Two strategies:
+     Three strategies:
        - date_added + no search → userserve paginates by `marked_at`, then we
          hydrate the page from VNDB and re-order to match the userserve order.
+       - my_rating + no search → order ids locally by rating, paginate, then
+         hydrate from VNDB and re-order to match.
        - everything else → fetch the full id set from VNDB with the requested
          sort + (optional) search applied. */
   useEffect(() => {
@@ -294,10 +329,35 @@ function CollectionContent() {
           const ordered = pageIds.map(id => idMap.get(id)).filter(Boolean)
           setItems(ordered)
           setTotalCount(marksPage.count ?? ordered.length)
+        } else if (sort === "my_rating" && !q) {
+          // Sort the marks by personal rating client-side (VNDB can't), then
+          // paginate and hydrate the page, preserving the local order.
+          const ordered = [...allMarks].sort((a, b) => {
+            const ra = ratings[a.id] ?? 0
+            const rb = ratings[b.id] ?? 0
+            if (ra !== rb) return order === "asc" ? ra - rb : rb - ra
+            // Tiebreak: most recently added first.
+            return new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime()
+          })
+          const total = ordered.length
+          const start = (page - 1) * PAGE_LIMIT
+          const pageIds = ordered.slice(start, start + PAGE_LIMIT).map(m => m.id)
+          if (pageIds.length === 0) {
+            setItems([])
+            setTotalCount(total)
+            return
+          }
+          const data = await api.small.byIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
+          const idMap = new Map(data.results.map((item: { id: string }) => [
+            parseInt(item.id.replace(/^[a-z]+/, "")),
+            item,
+          ]))
+          setItems(pageIds.map(id => idMap.get(id)).filter(Boolean))
+          setTotalCount(total)
         } else {
           const allIds = allMarks.map(m => m.id)
           const params: Record<string, unknown> = {
-            sort: sort === "date_added" ? "id" : sort,
+            sort: LOCAL_SORTS.has(sort) ? "id" : sort,
             reverse: order === "desc",
             page,
             limit: PAGE_LIMIT,
@@ -318,10 +378,39 @@ function CollectionContent() {
     }
     run()
     return () => ctrl.abort()
-  }, [allMarks, sort, order, page, q, type, user, activeCategory, isShelf])
+  // `ratings` is read only in the my_rating branch; `ratingSortSignature`
+  // captures the relevant changes, so listing `ratings` directly would refetch
+  // every other view on each rating edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allMarks, sort, order, page, q, type, user, activeCategory, isShelf, ratingSortSignature])
 
 
   /* ─── Handlers ─────────────────────────────────────────────────────────── */
+
+  // Optimistically update the rating map; revert on failure. `value === 0`
+  // clears the rating (StarRating emits 0 when the current star is re-clicked).
+  const handleRate = async (itemId: string, value: number) => {
+    const markId = parseInt(itemId.replace(/^[a-z]+/, ""))
+    const prev = ratings[markId] ?? 0
+    if (value === prev) return
+    setRatings(cur => {
+      const next = { ...cur }
+      if (value === 0) delete next[markId]
+      else next[markId] = value
+      return next
+    })
+    try {
+      if (value === 0) await api.rating.clear(type, markId)
+      else await api.rating.set(type, markId, value)
+    } catch {
+      setRatings(cur => {
+        const next = { ...cur }
+        if (prev === 0) delete next[markId]
+        else next[markId] = prev
+        return next
+      })
+    }
+  }
 
   const handleRemove = async (itemId: string) => {
     const markId = parseInt(itemId.replace(/^[a-z]+/, ""))
@@ -734,6 +823,8 @@ function CollectionContent() {
                       selectedIds,
                       onToggleSelect: handleToggleSelect,
                       markedAtMap,
+                      ratingsMap,
+                      onRate: handleRate,
                     })
                   )}
 

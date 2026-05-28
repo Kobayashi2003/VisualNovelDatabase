@@ -7,11 +7,16 @@ list. This module is shared by run.py and prod.py — the only divergences
 are which specs each launcher builds and a couple of per-spec flags
 (Waitress vs Flask dev server, Caddy hard-fail vs opt-in).
 
+Postgres is intentionally NOT built here — it runs as a Windows service
+(see backend/pg-service.ps1) so the SCM owns its shutdown. The flask/celery
+specs still declare depends_on=["postgres"]; since no postgres spec is in the
+list, Supervisor's topo sort treats that edge as already-satisfied.
+
 Knowledge that lives here:
   - which binaries each service needs (so the missing-binary warning is
     centralized);
-  - the dependency graph (postgres/redis before celery/flask, flask
-    before caddy, etc.);
+  - the dependency graph (redis before celery/flask, flask before caddy,
+    etc.; postgres is external, see above);
   - the per-service env wiring (mostly relevant to Caddy);
   - the `python -c "..."` bootstrap strings for Celery/Flask/Waitress.
 """
@@ -49,79 +54,6 @@ def _check_binary(name: str, install_hint: str = "") -> Optional[str]:
 
 
 # ---------- external services -----------------------------------------------
-
-
-def make_postgres_spec() -> Optional[ProcSpec]:
-    """Foreground postgres server.
-
-    PG_DATA in the env → passed as `-D <dir>`. Unset/empty → run `postgres`
-    bare and let it pick up its own default (typically the PGDATA env var
-    that the user's system install configured, e.g. via scoop). Postgres
-    itself reports a much clearer error than we can if neither is set —
-    we just hand it the binary and stand back.
-
-    Shutdown is wired through pg_ctl when PG_DATA is known. On Windows
-    Popen.terminate() collapses to TerminateProcess, which kills the
-    postmaster without giving it a chance to checkpoint or close
-    connections — the next startup then has to do crash recovery and the
-    log fills with "the database system was not properly shut down"
-    warnings. `pg_ctl stop -m fast -w` asks the postmaster to roll back
-    in-flight transactions, flush WAL, and exit cleanly. We give it a
-    generous 30s before Supervisor escalates.
-
-    If PG_DATA is unset we have no way to point pg_ctl at the right
-    cluster, so the spec falls back to the default terminate() path —
-    accept the noisy log as the cost of running with an externally-
-    configured data dir.
-
-    Returns None only when the binary itself is missing on PATH. If the
-    user has postgres running as a service already, comment this maker
-    out of run.py / prod.py's build_specs() — there's no auto-detect."""
-    pg_bin = _check_binary(
-        "postgres",
-        "Install PostgreSQL (https://www.postgresql.org/download/) and add "
-        "its `bin/` to PATH — or comment make_postgres_spec() out of "
-        "run.py / prod.py if postgres is already running externally.",
-    )
-    if not pg_bin:
-        return None
-
-    pg_data = (os.environ.get("PG_DATA") or "").strip()
-    cmd = [pg_bin]
-    if pg_data:
-        cmd += ["-D", pg_data]
-
-    # For the shutdown path, fall back to the standard PGDATA env var when
-    # our PG_DATA override isn't set. scoop's postgres install sets PGDATA
-    # at user scope, so pg_ctl can still find the cluster — keeping the
-    # graceful path active in the common "no explicit override" case.
-    pg_ctl_data = pg_data or (os.environ.get("PGDATA") or "").strip()
-
-    stop_cmd: Optional[List[str]] = None
-    stop_timeout = 5.0
-    if pg_ctl_data:
-        # pg_ctl ships alongside `postgres` in the same bin/, so resolve
-        # relative to the postgres binary first; fall back to PATH.
-        pg_ctl_bin = (
-            os.path.join(os.path.dirname(pg_bin), "pg_ctl")
-            if os.path.dirname(pg_bin) else None
-        )
-        if not (pg_ctl_bin and (os.path.exists(pg_ctl_bin)
-                                or os.path.exists(pg_ctl_bin + ".exe"))):
-            pg_ctl_bin = shutil.which("pg_ctl") or "pg_ctl"
-        # -m fast: roll back active txns and exit (vs. "smart" which waits
-        # for clients to disconnect — would hang shutdown behind any
-        # lingering Flask connection).
-        # -w: wait until pg_ctl observes the postmaster has exited.
-        stop_cmd = [pg_ctl_bin, "stop", "-D", pg_ctl_data, "-m", "fast", "-w"]
-        stop_timeout = 30.0
-
-    return ProcSpec(
-        name="postgres",
-        cmd=cmd,
-        stop_cmd=stop_cmd,
-        stop_timeout=stop_timeout,
-    )
 
 
 def make_redis_spec() -> Optional[ProcSpec]:

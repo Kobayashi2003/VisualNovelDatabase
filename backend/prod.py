@@ -8,11 +8,13 @@ Differences from run.py:
   - Accepts --next-port so Caddy knows where to proxy / to the Next.js
     standalone server. start-prod.ps1 passes this in.
 
+Postgres is NOT launched here — run it as a Windows service so its shutdown
+is owned by the SCM (clean fast shutdown regardless of how the app dies).
+See backend/pg-service.ps1.
+
 What it still starts (all optional services are skipped with a prominent
 warning if their binary is missing):
-  - Postgres   (skipped if `postgres` not on PATH or PG_DATA unset — run
-                postgres as a Windows service in that case)
-  - Redis      (skipped if `redis-server` not on PATH — same idea)
+  - Redis      (skipped if `redis-server` not on PATH — run as a service too)
   - vndb / imgserve Celery workers
   - vndb / imgserve / userserve Waitress servers
   - Caddy      (required — see above)
@@ -56,7 +58,6 @@ logging.getLogger("_procspecs").setLevel(logging.INFO)
 
 def build_specs(next_port: int):
     return ps.collect(
-        ps.make_postgres_spec(),
         ps.make_redis_spec(),
         ps.make_celery_spec("vndb"),
         ps.make_flask_spec("vndb", use_waitress=True),

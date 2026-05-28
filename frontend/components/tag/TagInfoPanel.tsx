@@ -4,6 +4,7 @@ import { enumLabel } from "@/lib/enums"
 import type { Tag } from "@/lib/types"
 import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { CollectionButton } from "@/components/category/CollectionButton"
+import { CollectionRating } from "@/components/category/CollectionRating"
 
 export function TagInfoPanel({ tag }: { tag: Tag }) {
   return (
@@ -20,6 +21,7 @@ export function TagInfoPanel({ tag }: { tag: Tag }) {
         )}
       </div>
       <CollectionButton type="tag" id={tag.id} />
+      <CollectionRating type="tag" id={tag.id} />
     </div>
   )
 }

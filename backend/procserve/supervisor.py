@@ -37,9 +37,10 @@ class Supervisor:
 
         Edges that point at names not in the spec list are dropped (treated
         as already-satisfied). This is what lets the spec-maker pattern
-        work: when `make_postgres_spec()` returns None because `postgres`
-        isn't on PATH, a downstream spec with `depends_on=["postgres"]`
-        still starts — its dep is just "out of scope" rather than missing."""
+        work: postgres isn't in the spec list at all (it runs as an external
+        Windows service — see backend/pg-service.ps1), yet the flask/celery
+        specs still declare `depends_on=["postgres"]`; the missing edge is
+        treated as out-of-scope rather than missing, so they still start."""
         by_name = {s.name: s for s in self.specs}
         present = set(by_name)
         in_degree = {
@@ -119,10 +120,10 @@ class Supervisor:
 
         Per-child shutdown is a three-step escalation:
           1. If `spec.stop_cmd` is set, run it and wait up to
-             `spec.stop_timeout` for the child to exit on its own. This is
-             how postgres gets a real shutdown (pg_ctl stop -m fast) on
-             Windows, where Popen.terminate() = TerminateProcess = abrupt
-             kill with no WAL flush.
+             `spec.stop_timeout` for the child to exit on its own — the hook
+             for any child that needs a real graceful stop rather than the
+             abrupt terminate() below. No spec currently sets it (postgres,
+             the original user, now runs as a Windows service).
           2. If the graceful path is unset or didn't finish in time, send
              terminate() (Ctrl-Break on Windows process groups, SIGTERM
              elsewhere) and wait again.
@@ -181,8 +182,9 @@ class Supervisor:
                 )
 
         # 2) terminate() — Popen default. On Windows this is TerminateProcess,
-        #    which is abrupt; that's why postgres needs the stop_cmd path
-        #    above. Most other children handle terminate() cleanly enough.
+        #    which is abrupt; the stop_cmd path above exists for children that
+        #    can't tolerate that. Redis/Caddy/Celery/Flask all handle
+        #    terminate() cleanly enough.
         if proc.poll() is None:
             try:
                 proc.terminate()

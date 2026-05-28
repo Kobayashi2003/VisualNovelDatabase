@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { X, FolderInput, Check } from "lucide-react"
 import { cn, formatRelativeDate } from "@/lib/utils"
+import { StarRating } from "@/components/common/StarRating"
 
 interface CompactRowProps {
   index: number
@@ -13,6 +14,8 @@ interface CompactRowProps {
   thumbnail?: string           // undefined = no thumbnail column; empty string = placeholder
   badges?: string[]
   markedAt?: string
+  rating?: number
+  onRate?: (value: number) => void
   link?: string
   selected?: boolean
   editMode?: boolean
@@ -23,7 +26,7 @@ interface CompactRowProps {
 }
 
 export function CompactRow({
-  index, title, subtitle, thumbnail, badges, markedAt,
+  index, title, subtitle, thumbnail, badges, markedAt, rating, onRate,
   link, selected, editMode, onRemove, onMove, onToggleSelect, className
 }: CompactRowProps) {
   const rowClick = editMode ? (e: React.MouseEvent) => { e.preventDefault(); onToggleSelect?.() } : undefined
@@ -81,6 +84,15 @@ export function CompactRow({
           {badges.map((b, i) => (
             <span key={i} className="text-xs text-muted bg-white/5 px-1.5 py-0.5 rounded">{b}</span>
           ))}
+        </div>
+      )}
+
+      {onRate && (
+        <div className={cn(
+          "hidden sm:flex items-center shrink-0 transition-opacity",
+          (rating ?? 0) > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}>
+          <StarRating value={rating ?? 0} onChange={onRate} size={13} />
         </div>
       )}
 

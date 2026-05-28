@@ -3,6 +3,7 @@
 import type { Trait } from "@/lib/types"
 import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { CollectionButton } from "@/components/category/CollectionButton"
+import { CollectionRating } from "@/components/category/CollectionRating"
 
 export function TraitInfoPanel({ trait }: { trait: Trait }) {
   return (
@@ -19,6 +20,7 @@ export function TraitInfoPanel({ trait }: { trait: Trait }) {
         )}
       </div>
       <CollectionButton type="trait" id={trait.id} />
+      <CollectionRating type="trait" id={trait.id} />
     </div>
   )
 }

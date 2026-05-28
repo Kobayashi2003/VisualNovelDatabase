@@ -5,6 +5,7 @@ import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
 import { CollectionButton } from "@/components/category/CollectionButton"
+import { CollectionRating } from "@/components/category/CollectionRating"
 
 const GENDER_LABEL: Record<string, string> = { m: "Male", f: "Female" }
 
@@ -45,6 +46,7 @@ export function StaffInfoPanel({ staff }: { staff: Staff }) {
       <ExtLinks links={staff.extlinks} />
 
       <CollectionButton type="staff" id={staff.id} />
+      <CollectionRating type="staff" id={staff.id} />
     </div>
   )
 }

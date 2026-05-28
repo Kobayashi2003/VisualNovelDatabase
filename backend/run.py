@@ -1,11 +1,14 @@
 """Dev launcher.
 
 Builds a ProcSpec list for the dev stack and hands it to procserve.Supervisor:
-  - Postgres   (skipped if `postgres` not on PATH or PG_DATA unset)
   - Redis      (skipped if `redis-server` not on PATH)
   - vndb / imgserve Celery workers + Flower dashboards
   - vndb / imgserve / userserve Flask servers (Flask dev or Waitress)
   - Caddy edge (opt-in via USE_CADDY=true)
+
+Postgres is NOT launched here — run it as a Windows service so its shutdown
+is owned by the SCM (clean fast shutdown regardless of how the app dies).
+See backend/pg-service.ps1.
 
 The actual process management (topological start, log aggregation,
 signal-driven reverse-topological shutdown) lives in procserve/. See
@@ -52,7 +55,6 @@ logging.getLogger("_procspecs").setLevel(logging.INFO)
 
 def build_specs(use_waitress: bool):
     return ps.collect(
-        ps.make_postgres_spec(),
         ps.make_redis_spec(),
         ps.make_celery_spec("vndb"),
         ps.make_flower_spec("vndb"),

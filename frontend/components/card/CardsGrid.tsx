@@ -6,10 +6,11 @@
 "use client"
 
 import { cn, formatRelativeDate, shouldBlur } from "@/lib/utils"
-import { X, FolderInput, Check } from "lucide-react"
+import { X, FolderInput, Check, Star } from "lucide-react"
 import { ImageCard } from "./ImageCard"
 import { TextCard } from "./TextCard"
 import { CompactRow } from "./CompactRow"
+import { StarRating } from "@/components/common/StarRating"
 import { enumLabel } from "@/lib/enums"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
@@ -42,6 +43,7 @@ interface GenImageCardProps {
   isGuest?: boolean
   tooltip?: string
   className?: string
+  imageOverlay?: React.ReactNode
 }
 
 const BLUR = "blur-lg hover:blur-none"
@@ -58,7 +60,7 @@ function getBlurClass(
 export function GenImageCard({
   title, msgs, image, link,
   sexualLevel = "safe", violenceLevel = "tame",
-  layout = "grid", isGuest, tooltip, className
+  layout = "grid", isGuest, tooltip, className, imageOverlay
 }: GenImageCardProps) {
   const blurClass = getBlurClass(image, sexualLevel, violenceLevel)
   const imgUrl = image?.thumbnail || image?.url || ""
@@ -78,7 +80,33 @@ export function GenImageCard({
       className={cn(className, !isRestricted && blurClass, "transition-all duration-300")}
       tooltip={tooltip}
       layout={layout === "grid" ? "grid" : "list"}
+      imageOverlay={imageOverlay}
     />
+  )
+}
+
+/* Quick-rate overlay drawn over a card thumbnail: a compact badge while the
+   card is idle (so ratings are visible at a glance), swapped for an interactive
+   star bar on hover. Lives inside the thumbnail's relative/overflow-hidden box. */
+function CardRatingOverlay({ value, onRate, size }: {
+  value: number
+  onRate: (value: number) => void
+  size: number
+}) {
+  return (
+    <>
+      {value > 0 && (
+        <div className="absolute top-1 left-1 z-10 flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400 group-hover:opacity-0 transition-opacity pointer-events-none">
+          <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+          {value}
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-1 z-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="rounded-full bg-black/80 px-1 py-0.5 backdrop-blur-sm">
+          <StarRating value={value} onChange={onRate} size={size} />
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -97,9 +125,12 @@ export interface CollectionCardProps {
   editMode?: boolean
   selectedIds?: Set<string>
   markedAtMap?: Record<string, string>
+  /** Personal ratings keyed by card id (e.g. "v17" → 4). */
+  ratingsMap?: Record<string, number>
   onRemove?: (id: string) => void
   onMove?: (id: string) => void
   onToggleSelect?: (id: string) => void
+  onRate?: (id: string, value: number) => void
 }
 
 // Adds hover-actions (remove/move), edit-mode checkbox, and a date-added badge
@@ -211,11 +242,15 @@ function CardsGridBase<T>({
   cardType = "image", layout = "grid",
   sexualLevel = "safe", violenceLevel = "tame", isGuest,
   view, onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap,
+  ratingsMap, onRate,
 }: CardsGridBaseProps<T>) {
   const { showOriginal } = useSearchContext()
   const effectiveLayout: "single" | "grid" =
     view === "list" ? "single" : view === "grid" ? "grid" : layout
   const cards = items.map((item, idx) => ({ idx, ...adapter(item, showOriginal) }))
+
+  // Quick-rate is hidden in edit mode (the card is a selection target there).
+  const canRate = !!onRate && !editMode
 
   if (view === "compact") {
     return (
@@ -228,6 +263,8 @@ function CardsGridBase<T>({
             subtitle={card.subtitle}
             thumbnail={card.thumbnail}
             markedAt={markedAtMap?.[card.id]}
+            rating={ratingsMap?.[card.id] ?? 0}
+            onRate={canRate ? value => onRate!(card.id, value) : undefined}
             onRemove={onRemove ? () => onRemove(card.id) : undefined}
             onMove={onMove ? () => onMove(card.id) : undefined}
             selected={selectedIds?.has(card.id)}
@@ -241,6 +278,7 @@ function CardsGridBase<T>({
   }
 
   const useImageCard = supportsImage && cardType === "image"
+  const ratingSize = effectiveLayout === "grid" ? 16 : 13
 
   return (
     <div className={gridClass(effectiveLayout)}>
@@ -256,9 +294,29 @@ function CardsGridBase<T>({
               image={card.image} title={card.title} msgs={card.msgs} link={card.link}
               sexualLevel={sexualLevel} violenceLevel={violenceLevel}
               layout={effectiveLayout} isGuest={isGuest}
+              imageOverlay={canRate ? (
+                <CardRatingOverlay
+                  value={ratingsMap?.[card.id] ?? 0}
+                  onRate={value => onRate!(card.id, value)}
+                  size={ratingSize}
+                />
+              ) : undefined}
             />
           ) : (
-            <TextCard title={card.title} msgs={card.msgs} link={card.link} layout={effectiveLayout} />
+            <TextCard
+              title={card.title} msgs={card.msgs} link={card.link} layout={effectiveLayout}
+              footer={canRate ? (
+                <StarRating
+                  value={ratingsMap?.[card.id] ?? 0}
+                  onChange={value => onRate!(card.id, value)}
+                  size={14}
+                  className={cn(
+                    "transition-opacity",
+                    (ratingsMap?.[card.id] ?? 0) > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}
+                />
+              ) : undefined}
+            />
           )}
         </CollectionWrapper>
       ))}

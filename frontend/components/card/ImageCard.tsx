@@ -16,9 +16,11 @@ interface ImageCardProps {
   tooltip?: string
   layout?: "grid" | "list"
   className?: string
+  /** Absolutely-positioned content drawn over the thumbnail (e.g. quick-rate). */
+  imageOverlay?: React.ReactNode
 }
 
-export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout = "grid", className }: ImageCardProps) {
+export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout = "grid", className, imageOverlay }: ImageCardProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [imgUrl, setImgUrl] = useState(url)
@@ -87,7 +89,12 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
             <Lock className="w-6 h-6 text-muted/50" />
             <span className="text-xs text-muted/50">Login to view</span>
           </div>
-        ) : imageContent}
+        ) : (
+          <>
+            {imageContent}
+            {imageOverlay}
+          </>
+        )}
       </div>
       <div className="mt-2 px-1">
         <p className="truncate font-semibold text-xs sm:text-sm text-white">{title}</p>
@@ -111,7 +118,12 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
             <Lock className="w-5 h-5 text-muted/50" />
             <span className="text-xs text-muted/50 text-center px-1 leading-tight">Login to view</span>
           </div>
-        ) : imageContent}
+        ) : (
+          <>
+            {imageContent}
+            {imageOverlay}
+          </>
+        )}
       </div>
       <div className="flex-1 min-w-0 py-1">
         <p className="font-semibold text-sm text-white line-clamp-2">{title}</p>

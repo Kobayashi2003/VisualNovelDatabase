@@ -56,7 +56,7 @@ export function CompactRow({
       {thumbnail !== undefined && (
         <div className="w-10 h-14 shrink-0 rounded overflow-hidden bg-white/5">
           {thumbnail ? (
-            <Image src={thumbnail} alt={title} width={40} height={56} className="w-full h-full object-cover" unoptimized />
+            <Image src={thumbnail} alt={title || ""} width={40} height={56} className="w-full h-full object-cover" unoptimized />
           ) : (
             <div className="w-full h-full bg-white/10" />
           )}

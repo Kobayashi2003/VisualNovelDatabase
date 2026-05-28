@@ -407,6 +407,22 @@ export const api = {
         return fetchVNDB<Trait_Small>(`i`, { ...params, size: "small", id: ids.map(id => `i${id}`).join(",") }, undefined, abortSignal)
       },
     },
+
+    // Type-erased dispatcher over `byIds`. Callers that only have `type` as a
+    // string (collection page, shelf rows) shouldn't have to write the switch.
+    byIdsForType: (type: string, ids: number[], params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
+      const b = api.small.byIds
+      switch (type) {
+        case "vn":        return b.vn(ids, params, abortSignal)
+        case "release":   return b.release(ids, params, abortSignal)
+        case "character": return b.character(ids, params, abortSignal)
+        case "producer":  return b.producer(ids, params, abortSignal)
+        case "staff":     return b.staff(ids, params, abortSignal)
+        case "tag":       return b.tag(ids, params, abortSignal)
+        case "trait":     return b.trait(ids, params, abortSignal)
+        default:          return b.vn(ids, params, abortSignal)
+      }
+    },
   },
 
   /* Userserve: auth */

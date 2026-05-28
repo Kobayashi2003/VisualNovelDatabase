@@ -49,7 +49,7 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
         <Image
           ref={imgRef}
           src={imgUrl}
-          alt={title}
+          alt={title || ""}
           fill
           loading="lazy"
           onLoad={() => { setLoading(false); setError(false) }}

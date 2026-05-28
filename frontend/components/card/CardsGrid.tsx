@@ -91,7 +91,9 @@ const gridClass = (layout: "single" | "grid") =>
 /* ─── Shared collection props + hover-action wrapper ──────────────────────── */
 
 export interface CollectionCardProps {
-  view?: "grid" | "list" | "compact"
+  // "shelf" is accepted only so the parent's `ViewMode` flows through cleanly;
+  // CardsGridBase treats it as "grid" since shelf rendering happens elsewhere.
+  view?: "grid" | "list" | "compact" | "shelf"
   editMode?: boolean
   selectedIds?: Set<string>
   markedAtMap?: Record<string, string>
@@ -103,7 +105,7 @@ export interface CollectionCardProps {
 // Adds hover-actions (remove/move), edit-mode checkbox, and a date-added badge
 // on top of any card. Used to make the same card components reusable across
 // search results (plain) and the user-collections page (with collection chrome).
-function CollectionWrapper({
+export function CollectionWrapper({
   id, children,
   onRemove, onMove, editMode, selectedIds, onToggleSelect, markedAtMap
 }: CollectionCardProps & { id: string; children: React.ReactNode }) {
@@ -175,7 +177,7 @@ function CollectionWrapper({
 /* ─── Generic grid core ────────────────────────────────────────────────────── */
 
 /** The shared shape every entity card is rendered from. */
-interface CardItem {
+export interface CardItem {
   id: string
   link: string
   title: string
@@ -190,7 +192,7 @@ interface CardItem {
 }
 
 /** Maps one entity payload onto a `CardItem`. */
-type CardAdapter<T> = (item: T, showOriginal: boolean) => CardItem
+export type CardAdapter<T> = (item: T, showOriginal: boolean) => CardItem
 
 interface CardsGridBaseProps<T> extends CollectionCardProps {
   items: T[]
@@ -406,4 +408,29 @@ interface TraitsCardsGridProps extends CollectionCardProps {
 
 export function TraitsCardsGrid({ traits, ...props }: TraitsCardsGridProps) {
   return <CardsGridBase items={traits} adapter={traitAdapter} {...props} />
+}
+
+
+/* ─── Type-erased adapter dispatch (used by CardsShelfRow) ─────────────────── */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ADAPTERS: Record<string, CardAdapter<any>> = {
+  vn:        vnAdapter,
+  release:   releaseAdapter,
+  character: characterAdapter,
+  producer:  producerAdapter,
+  staff:     staffAdapter,
+  tag:       tagAdapter,
+  trait:     traitAdapter,
+}
+
+export function adapterForType(type: string): CardAdapter<unknown> {
+  return (ADAPTERS[type] ?? ADAPTERS.vn) as CardAdapter<unknown>
+}
+
+const IMAGE_TYPES = new Set(["vn", "character"])
+
+/** Whether this entity type renders an image-backed card (vs text-only). */
+export function supportsImageForType(type: string): boolean {
+  return IMAGE_TYPES.has(type)
 }

@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
-  LayoutGrid, LayoutList, AlignJustify, ArrowDown, ArrowUp,
+  LayoutGrid, LayoutList, AlignJustify, Rows3, ArrowDown, ArrowUp,
   Pencil, Menu, Lock, Library, X, ChevronDown, Search,
   CheckSquare, Square, FolderInput, Trash2,
 } from "lucide-react"
@@ -29,6 +29,7 @@ import {
   ProducersCardsGrid, StaffCardsGrid, TagsCardsGrid, TraitsCardsGrid,
   CollectionCardProps,
 } from "@/components/card/CardsGrid"
+import { CardsShelfRow } from "@/components/card/CardsShelfRow"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { Loading } from "@/components/status/Loading"
 
@@ -49,7 +50,12 @@ const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
-type ViewMode = "grid" | "list" | "compact"
+type ViewMode = "grid" | "list" | "compact" | "shelf"
+const VIEW_MODES: ViewMode[] = ["grid", "list", "compact", "shelf"]
+
+// "Shelf" mode is offered only for image-backed entities viewed across all
+// collections — text-only types make a thin horizontal strip look empty.
+const SHELF_SUPPORTED_TYPES = new Set(["vn", "character"])
 
 interface CollectionGridProps extends CollectionCardProps {
   view: ViewMode
@@ -59,26 +65,6 @@ interface CollectionGridProps extends CollectionCardProps {
 
 function prefixForType(type: string): string {
   return COLLECTION_TYPE_MAP[type]?.route ?? ""
-}
-
-// Type-erased dispatcher onto the `api.small.byIds.*` family.
-async function fetchByIdsForType(
-  type: string,
-  ids: number[],
-  params: Record<string, unknown>,
-  signal?: AbortSignal,
-) {
-  const b = api.small.byIds
-  switch (type) {
-    case "vn":        return b.vn(ids, params, signal)
-    case "release":   return b.release(ids, params, signal)
-    case "character": return b.character(ids, params, signal)
-    case "producer":  return b.producer(ids, params, signal)
-    case "staff":     return b.staff(ids, params, signal)
-    case "tag":       return b.tag(ids, params, signal)
-    case "trait":     return b.trait(ids, params, signal)
-    default:          return b.vn(ids, params, signal)
-  }
 }
 
 function renderCollectionGrid(type: string, items: unknown[], props: CollectionGridProps) {
@@ -178,8 +164,19 @@ function CollectionContent() {
   // Restore last-used view mode from localStorage.
   useEffect(() => {
     const stored = localStorage.getItem("collectionView") as ViewMode | null
-    if (stored && ["grid", "list", "compact"].includes(stored)) setView(stored)
+    if (stored && (VIEW_MODES as string[]).includes(stored)) setView(stored)
   }, [])
+
+  // Shelf mode is only valid when viewing all collections of a supported type.
+  // If conditions change underneath it, fall back to grid for rendering — but
+  // we don't overwrite the stored view, so flipping back to "all"+vn restores it.
+  const isShelf =
+    view === "shelf" &&
+    activeCategory === "all" &&
+    SHELF_SUPPORTED_TYPES.has(type)
+  const shelfAvailable =
+    activeCategory === "all" && SHELF_SUPPORTED_TYPES.has(type)
+  const effectiveView: ViewMode = isShelf ? "shelf" : (view === "shelf" ? "grid" : view)
 
   // Reset to page 1 whenever the result set could change.
   useEffect(() => { setPage(1) }, [q, sort, order, type, cidRaw])
@@ -256,6 +253,13 @@ function CollectionContent() {
          sort + (optional) search applied. */
   useEffect(() => {
     abortRef.current?.abort()
+    if (isShelf) {
+      // Shelf rows fetch their own items per category; the main flat list is unused.
+      setItems([])
+      setTotalCount(0)
+      setLoadingItems(false)
+      return
+    }
     if (!user || allMarks.length === 0) {
       setItems([])
       setTotalCount(0)
@@ -282,7 +286,7 @@ function CollectionContent() {
             setTotalCount(marksPage.count ?? 0)
             return
           }
-          const data = await fetchByIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
+          const data = await api.small.byIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
           const idMap = new Map(data.results.map((item: { id: string }) => [
             parseInt(item.id.replace(/^[a-z]+/, "")),
             item,
@@ -299,7 +303,7 @@ function CollectionContent() {
             limit: PAGE_LIMIT,
             ...(q ? { search: q } : {}),
           }
-          const data = await fetchByIdsForType(type, allIds, params, ctrl.signal)
+          const data = await api.small.byIdsForType(type, allIds, params, ctrl.signal)
           setItems(data.results)
           setTotalCount(data.count)
         }
@@ -314,7 +318,7 @@ function CollectionContent() {
     }
     run()
     return () => ctrl.abort()
-  }, [allMarks, sort, order, page, q, type, user, activeCategory])
+  }, [allMarks, sort, order, page, q, type, user, activeCategory, isShelf])
 
 
   /* ─── Handlers ─────────────────────────────────────────────────────────── */
@@ -457,6 +461,12 @@ function CollectionContent() {
   const setViewPersisted = (v: ViewMode) => {
     setView(v)
     localStorage.setItem("collectionView", v)
+    // Edit mode has no meaning in shelf view (no batch ops, no page concept),
+    // so drop any in-flight edit state when switching to it.
+    if (v === "shelf") {
+      setEditMode(false)
+      setSelectedIds(new Set())
+    }
   }
 
   /* Derived values for the render pass */
@@ -543,8 +553,10 @@ function CollectionContent() {
               <div className="flex items-center gap-3 mb-4">
                 <h1 className="text-2xl font-bold text-white">
                   {activeCategoryName}
-                  {totalCount > 0 && (
-                    <span className="text-muted font-normal text-base ml-2">{totalCount}</span>
+                  {(isShelf ? allMarks.length : totalCount) > 0 && (
+                    <span className="text-muted font-normal text-base ml-2">
+                      {isShelf ? allMarks.length : totalCount}
+                    </span>
                   )}
                 </h1>
               </div>
@@ -555,93 +567,104 @@ function CollectionContent() {
                 <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel} className="w-full" />
               </div>
 
-              {/* Search / sort / view bar */}
+              {/* Search / sort / view bar.
+                  Shelf mode skips sort / order / search / edit — each shelf is
+                  fixed to `marked_at desc` and shows a snippet, so those
+                  controls have nothing to act on. */}
               <div className="flex flex-wrap items-center gap-2 mb-4">
-                {/* Search */}
-                <div className="flex-1 min-w-40 lg:w-64 lg:flex-none relative">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/60" />
-                  <input
-                    type="text"
-                    value={searchInput}
-                    onChange={e => setSearchInput(e.target.value)}
-                    onCompositionStart={() => setIsComposing(true)}
-                    onCompositionEnd={e => {
-                      setIsComposing(false)
-                      setSearchInput(e.currentTarget.value)
-                    }}
-                    placeholder="Search in collection…"
-                    className="w-full bg-elevated border border-white/10 rounded-lg pl-8 pr-7 py-1.5 text-sm text-white placeholder:text-muted/50 outline-none focus:border-white/30 transition-colors"
-                  />
-                  {searchInput && (
-                    <button
-                      onClick={clearSearch}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-white"
+                {!isShelf && (
+                  <div className="flex-1 min-w-40 lg:w-64 lg:flex-none relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/60" />
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={e => setSearchInput(e.target.value)}
+                      onCompositionStart={() => setIsComposing(true)}
+                      onCompositionEnd={e => {
+                        setIsComposing(false)
+                        setSearchInput(e.currentTarget.value)
+                      }}
+                      placeholder="Search in collection…"
+                      className="w-full bg-elevated border border-white/10 rounded-lg pl-8 pr-7 py-1.5 text-sm text-white placeholder:text-muted/50 outline-none focus:border-white/30 transition-colors"
+                    />
+                    {searchInput && (
+                      <button
+                        onClick={clearSearch}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {!isShelf && (
+                  <div className="relative">
+                    <select
+                      value={sort}
+                      onChange={e => updateMultipleKeys({ sort: e.target.value })}
+                      className="appearance-none bg-elevated border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-sm text-white outline-none focus:border-white/30 cursor-pointer transition-colors"
                     >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                      {sortOptions.map(o => {
+                        const disabled = !!q && o.value === "date_added"
+                        return (
+                          <option key={o.value} value={o.value} disabled={disabled}>
+                            {o.label}{disabled ? " (clear search)" : ""}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                  </div>
+                )}
 
-                {/* Sort */}
-                <div className="relative">
-                  <select
-                    value={sort}
-                    onChange={e => updateMultipleKeys({ sort: e.target.value })}
-                    className="appearance-none bg-elevated border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-sm text-white outline-none focus:border-white/30 cursor-pointer transition-colors"
+                {!isShelf && (
+                  <button
+                    onClick={() => updateMultipleKeys({ order: order === "desc" ? "asc" : "desc" })}
+                    className="p-1.5 rounded-lg bg-elevated border border-white/10 text-muted hover:text-white hover:bg-white/10 transition-colors"
+                    title={order === "desc" ? "Descending" : "Ascending"}
                   >
-                    {sortOptions.map(o => {
-                      const disabled = !!q && o.value === "date_added"
-                      return (
-                        <option key={o.value} value={o.value} disabled={disabled}>
-                          {o.label}{disabled ? " (clear search)" : ""}
-                        </option>
-                      )
-                    })}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
-                </div>
-
-                {/* Order toggle */}
-                <button
-                  onClick={() => updateMultipleKeys({ order: order === "desc" ? "asc" : "desc" })}
-                  className="p-1.5 rounded-lg bg-elevated border border-white/10 text-muted hover:text-white hover:bg-white/10 transition-colors"
-                  title={order === "desc" ? "Descending" : "Ascending"}
-                >
-                  {order === "desc" ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
-                </button>
+                    {order === "desc" ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                  </button>
+                )}
 
                 {/* View mode toggle */}
-                <div className="flex rounded-lg overflow-hidden border border-white/10">
-                  {(["grid", "list", "compact"] as ViewMode[]).map(v => (
-                    <button
-                      key={v}
-                      onClick={() => setViewPersisted(v)}
-                      className={cn(
-                        "p-1.5 transition-colors",
-                        view === v ? "bg-white/15 text-white" : "text-muted hover:text-white hover:bg-white/10 bg-elevated"
-                      )}
-                      title={v.charAt(0).toUpperCase() + v.slice(1)}
-                    >
-                      {v === "grid"    && <LayoutGrid    className="w-4 h-4" />}
-                      {v === "list"    && <LayoutList    className="w-4 h-4" />}
-                      {v === "compact" && <AlignJustify  className="w-4 h-4" />}
-                    </button>
-                  ))}
+                <div className={cn("flex rounded-lg overflow-hidden border border-white/10", isShelf && "ml-auto")}>
+                  {(["grid", "list", "compact", "shelf"] as ViewMode[]).map(v => {
+                    if (v === "shelf" && !shelfAvailable) return null
+                    return (
+                      <button
+                        key={v}
+                        onClick={() => setViewPersisted(v)}
+                        className={cn(
+                          "p-1.5 transition-colors",
+                          view === v ? "bg-white/15 text-white" : "text-muted hover:text-white hover:bg-white/10 bg-elevated"
+                        )}
+                        title={v.charAt(0).toUpperCase() + v.slice(1)}
+                      >
+                        {v === "grid"    && <LayoutGrid    className="w-4 h-4" />}
+                        {v === "list"    && <LayoutList    className="w-4 h-4" />}
+                        {v === "compact" && <AlignJustify  className="w-4 h-4" />}
+                        {v === "shelf"   && <Rows3         className="w-4 h-4" />}
+                      </button>
+                    )
+                  })}
                 </div>
 
-                {/* Edit mode toggle */}
-                <button
-                  onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()) }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors",
-                    editMode
-                      ? "bg-accent/20 border-accent text-accent"
-                      : "bg-elevated border-white/10 text-muted hover:text-white hover:bg-white/10"
-                  )}
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  {editMode ? "Done" : "Edit"}
-                </button>
+                {!isShelf && (
+                  <button
+                    onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()) }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors",
+                      editMode
+                        ? "bg-accent/20 border-accent text-accent"
+                        : "bg-elevated border-white/10 text-muted hover:text-white hover:bg-white/10"
+                    )}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    {editMode ? "Done" : "Edit"}
+                  </button>
+                )}
               </div>
 
 
@@ -668,7 +691,32 @@ function CollectionContent() {
               {/* Items */}
               {!loadingCategories && categories.length > 0 && (
                 <>
-                  {loadingItems ? (
+                  {isShelf ? (
+                    allMarks.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted">
+                        <Library className="w-12 h-12 opacity-40" />
+                        <p className="text-base">No marks yet</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {categories
+                          .filter(cat => cat.marks.length > 0)
+                          .map(cat => (
+                            <CardsShelfRow
+                              key={cat.id}
+                              type={type}
+                              category={cat}
+                              sexualLevel={sexualLevel}
+                              violenceLevel={violenceLevel}
+                              onRemove={handleRemove}
+                              onMove={canMove ? handleMove : undefined}
+                              markedAtMap={markedAtMap}
+                              onSeeAll={handleCategorySelect}
+                            />
+                          ))}
+                      </div>
+                    )
+                  ) : loadingItems ? (
                     <div className="flex justify-center py-24"><Loading /></div>
                   ) : items.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted">
@@ -677,7 +725,7 @@ function CollectionContent() {
                     </div>
                   ) : (
                     renderCollectionGrid(type, items, {
-                      view,
+                      view: effectiveView,
                       sexualLevel,
                       violenceLevel,
                       onRemove: handleRemove,
@@ -689,8 +737,8 @@ function CollectionContent() {
                     })
                   )}
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
+                  {/* Pagination — hidden in shelf mode (each shelf has its own "See all"). */}
+                  {!isShelf && totalPages > 1 && (
                     <div className="mt-8">
                       <PaginationButtons
                         totalPages={totalPages}

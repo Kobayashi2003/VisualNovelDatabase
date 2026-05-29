@@ -519,3 +519,11 @@ export interface Mark {
 // Generic merge helper: any small entity plus the `marked_at` timestamp that
 // the categories endpoint attaches when listing a category's contents.
 export type MarkedItem<T> = T & { marked_at: string }
+
+// Read-only public view of a user's `played`/`playing` VN collections, plus
+// their VN ratings keyed by numeric mark id. Returned by the public endpoint.
+export interface PublicVNCollections {
+  username: string
+  collections: Array<{ category_name: string; marks: Mark[] }>
+  ratings: Record<number, number>
+}

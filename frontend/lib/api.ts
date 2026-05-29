@@ -4,7 +4,7 @@ import {
   VN, Release, Character, Producer, Staff, Tag, Trait,
   VN_Small, Release_Small, Character_Small, Producer_Small,
   Staff_Small, Tag_Small, Trait_Small, User, Category, Mark,
-  VNDBQueryParams, MarksQueryParams, PaginatedResponse,
+  VNDBQueryParams, MarksQueryParams, PaginatedResponse, PublicVNCollections,
 } from "./types"
 import {
   VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL,
@@ -475,6 +475,23 @@ export const api = {
       return fetchUserserve<{ results: Mark[]; count?: number; more: boolean }>(
         `${typeRoute(type)}/c/m?${query}`, "GET", undefined, abortSignal,
       )
+    },
+  },
+
+  /* Userserve: read-only public view of another user's VN collections.
+     Goes through `fetchUserserve` so the viewer's auth cookie rides along
+     (the endpoint requires a signed-in viewer); the string-keyed ratings map
+     is parsed back to numeric mark ids, mirroring `rating.get`. */
+  publicCollections: {
+    vn: async (username: string, abortSignal?: AbortSignal): Promise<PublicVNCollections> => {
+      const raw = await fetchUserserve<{
+        username: string
+        collections: Array<{ category_name: string; marks: Mark[] }>
+        ratings: Record<string, number>
+      }>(`u${username}/v/c/public`, "GET", undefined, abortSignal)
+      const ratings: Record<number, number> = {}
+      for (const [markId, value] of Object.entries(raw.ratings)) ratings[Number(markId)] = value
+      return { username: raw.username, collections: raw.collections, ratings }
     },
   },
 

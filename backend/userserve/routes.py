@@ -13,7 +13,8 @@ from .operations import (
     get_user_by_email, reset_user_password, check_email, create_verification_code,
     revoke_token, revoke_all_user_tokens,
     get_category, create_category, update_category, delete_category, clear_category,
-    search_categories, get_categories_by_mark, contains_mark, is_marked, are_marked,
+    search_categories, get_public_vn_collections,
+    get_categories_by_mark, contains_mark, is_marked, are_marked,
     add_mark_to_category, remove_mark_from_category,
     add_marks_to_category, remove_marks_from_category,
     move_marks_to_category, get_marks_from_category,
@@ -289,6 +290,17 @@ def reset_password_route():
     revoke_all_user_tokens(user.id)
     return jsonify(message="Your password has been reset. Please log in with your new password."), 200
 
+
+@api_bp.route('/u<username>/v/c/public', methods=['GET'])
+@jwt_required()
+def get_public_vn_collections_route(username):
+    """Read another user's `played`/`playing` VN collections. Requires the
+    viewer to be signed in, but is not scoped to the viewer's own id — any
+    authenticated user may read these two collections for any user."""
+    data = get_public_vn_collections(username)
+    if data is None:
+        return jsonify(error="User not found"), 404
+    return jsonify(data), 200
 
 @api_bp.route('/<string:type>/c', methods=['GET'])
 @jwt_required()

@@ -1,18 +1,23 @@
 /** Public, read-only showcase of kobayashi's `Playing` / `Played` VN collections.
  *  Logged-in viewers only (covers depend on an authenticated image session).
- *  Spotify-playlist styling: a parallax cover-collage hero, an animated tab
- *  pill, and a staggered blur-in grid. */
+ *
+ *  Self-contained by design: every control here (auth, tabs, sort, search,
+ *  content-level filters, pagination, cards, cursor) is implemented in this file
+ *  rather than pulled from shared components. Spotify-flavoured dark UI — a
+ *  fanned cover-collage hero, a pin-to-top toolbar, a scroll-revealed grid, and
+ *  a custom cursor. */
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { AnimatePresence, motion, useMotionValue, useScroll, useTransform, type Variants, type Transition } from "motion/react"
-import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Library, Lock, Search, Star, X } from "lucide-react"
+import { AnimatePresence, animate, motion, useMotionTemplate, useMotionValue, useScroll, useSpring, useTransform, type Variants, type Transition } from "motion/react"
+import { ArrowDown, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, Library, Loader2, Lock, Mail, Search, Star, Ticket, User, X } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { cn, shouldBlur } from "@/lib/utils"
 import { PAGE_LIMIT } from "@/lib/constants"
 import { displayTitle, displayName } from "@/lib/original"
+import { validateUsername, validateEmail, validatePassword, PASSWORD_MIN_LENGTH } from "@/lib/validation"
 import { useUserContext } from "@/context/UserContext"
 import { useSearchContext } from "@/context/SearchContext"
 import type { PublicVNCollections, VN_Small, Mark, SexualLevel, ViolenceLevel, VNDBQueryParams } from "@/lib/types"
@@ -54,8 +59,9 @@ const byRecent = (a: Mark, b: Mark) => b.marked_at.localeCompare(a.marked_at)
 const markId = (id: string) => parseInt(id.replace(/^[a-z]+/, ""), 10)
 
 
-/* ─── Read-only rating badge (drawn over a cover) ──────────────────────────── */
+/* ─── Small self-contained UI primitives ──────────────────────────────────── */
 
+// Personal-rating pill drawn over a cover's corner.
 function RatingBadge({ value }: { value: number }) {
   return (
     <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-full bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold text-yellow-400 backdrop-blur-sm">
@@ -65,22 +71,17 @@ function RatingBadge({ value }: { value: number }) {
   )
 }
 
-// Read-only 5-star row showing the owner's personal rating, used under a card.
-function StarRow({ value }: { value: number }) {
-  return (
-    <div className="mt-1 flex items-center gap-0.5" aria-label={`Rated ${value} of 5`}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Star
-          key={i}
-          className={cn("h-3 w-3", i <= value ? "fill-yellow-400 text-yellow-400" : "fill-transparent text-white/20")}
-        />
-      ))}
-    </div>
-  )
+// Animated count-up used for the hero stats.
+function Counter({ value }: { value: number }) {
+  const mv = useMotionValue(0)
+  const text = useTransform(mv, v => Math.round(v).toString())
+  useEffect(() => {
+    const controls = animate(mv, value, { duration: 0.9, ease: [0.16, 1, 0.3, 1] })
+    return () => controls.stop()
+  }, [value, mv])
+  return <motion.span>{text}</motion.span>
 }
 
-
-/* ─── Self-contained UI primitives (no shared components) ──────────────────── */
 
 // Bouncing-dot loader in the accent colour.
 function Loader() {
@@ -236,7 +237,13 @@ function SortMenu({ value, order, onChange, onToggleOrder }: {
         onClick={onToggleOrder}
         className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted transition-colors hover:bg-white/10 hover:text-white"
       >
-        {order === "desc" ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
+        <motion.span
+          animate={{ rotate: order === "asc" ? 180 : 0 }}
+          transition={{ type: "spring", stiffness: 400, damping: 22 }}
+          className="flex"
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+        </motion.span>
       </button>
 
       <AnimatePresence>
@@ -317,9 +324,24 @@ function VNCard({ vn, rating, showOriginal, sexualLevel, violenceLevel }: {
   const url = img?.thumbnail || img?.url || ""
   const blur = img ? shouldBlur(img.sexual, img.violence, sexualLevel, violenceLevel) : false
 
+  // Cursor-following 3D tilt on the cover (spring-smoothed, resets on leave).
+  const px = useMotionValue(0)
+  const py = useMotionValue(0)
+  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [7, -7]), { stiffness: 200, damping: 18 })
+  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-7, 7]), { stiffness: 200, damping: 18 })
+
   return (
-    <Link href={`/${vn.id}`} className="group block">
-      <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-elevated ring-1 ring-white/10 transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-black/60 group-hover:ring-white/30">
+    <Link href={`/${vn.id}`} className="group block" style={{ perspective: 800 }}>
+      <motion.div
+        onMouseMove={e => {
+          const r = e.currentTarget.getBoundingClientRect()
+          px.set((e.clientX - r.left) / r.width - 0.5)
+          py.set((e.clientY - r.top) / r.height - 0.5)
+        }}
+        onMouseLeave={() => { px.set(0); py.set(0) }}
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+        className="relative aspect-[3/4] overflow-hidden rounded-xl bg-elevated ring-1 ring-white/10 transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-black/60 group-hover:ring-white/30"
+      >
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -336,25 +358,24 @@ function VNCard({ vn, rating, showOriginal, sexualLevel, violenceLevel }: {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-3 pt-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           <p className="line-clamp-2 text-xs font-semibold leading-snug text-white">{title}</p>
         </div>
-      </div>
-      <div className="mt-2 px-0.5">
-        <p className="line-clamp-1 text-sm font-medium text-white/90 transition-colors group-hover:text-white">{title}</p>
-        {(developer || year) && (
-          <p className="mt-0.5 line-clamp-1 text-xs text-muted">{[developer, year].filter(Boolean).join(" · ")}</p>
-        )}
-        {rating > 0 && <StarRow value={rating} />}
-      </div>
+      </motion.div>
+      {(developer || year) && (
+        <p className="mt-2 line-clamp-1 px-0.5 text-xs text-muted">{[developer, year].filter(Boolean).join(" · ")}</p>
+      )}
     </Link>
   )
 }
 
 
-/* ─── Hero cover collage with mouse-parallax tilt ──────────────────────────── */
+/* ─── Hero cover collage (fanned covers; click to shuffle) ─────────────────── */
 
 interface Cover { id: string; url: string; blur: boolean }
 
-// One snappy, delay-free spring used for the entrance, shuffle, hover, and return.
+// Snappy spring for the hover lift; a bouncier one for fan position + shuffle
+// so cards arc and overshoot into place. Tilt uses its own soft spring.
 const collageCardTransition: Transition = { type: "spring", stiffness: 260, damping: 22 }
+const collagePosTransition: Transition = { type: "spring", stiffness: 220, damping: 15 }
+const collageTiltSpring = { stiffness: 200, damping: 18 }
 
 // Horizontal step between fanned cards (they overlap, so < card width).
 const COLLAGE_SPREAD = 52
@@ -375,15 +396,69 @@ function pickSelection(poolLen: number, count: number): number[] {
   return shuffled(Array.from({ length: poolLen }, (_, i) => i)).slice(0, count)
 }
 
+// One fanned cover. Outer = stable hit zone + fan slot + z-index (it only moves
+// on shuffle, so the pointer can't fall off it mid-hover). Inner = the visual
+// that lifts/scales/straightens on hover and tilts toward the cursor in its OWN
+// per-card 3D space — keeping perspective off the shared stack means z-index,
+// not 3D depth, decides which card sits on top.
+function CollageCard({ cover, slot, mid, isHovered, onHover, onLeave }: {
+  cover: Cover
+  slot: number
+  mid: number
+  isHovered: boolean
+  onHover: () => void
+  onLeave: () => void
+}) {
+  const offset = slot - mid
+  const px = useMotionValue(0)
+  const py = useMotionValue(0)
+  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [12, -12]), collageTiltSpring)
+  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-14, 14]), collageTiltSpring)
+
+  return (
+    <motion.div
+      onMouseEnter={onHover}
+      onMouseLeave={() => { onLeave(); px.set(0); py.set(0) }}
+      onMouseMove={e => {
+        const r = e.currentTarget.getBoundingClientRect()
+        px.set((e.clientX - r.left) / r.width - 0.5)
+        py.set((e.clientY - r.top) / r.height - 0.5)
+      }}
+      initial={{ opacity: 0, x: 0, y: 64, rotate: 0, scale: 0.85 }}
+      animate={{ opacity: 1, x: offset * COLLAGE_SPREAD, y: Math.abs(offset) * 8, rotate: offset * 7, scale: 1 }}
+      exit={{ opacity: 0, y: 48, scale: 0.85, transition: { duration: 0.18 } }}
+      transition={{ ...collagePosTransition, delay: Math.abs(offset) * 0.04 }}
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        marginLeft: -60,   // half of w-30 → centre the card in the box
+        marginTop: -88,    // half of h-44
+        zIndex: isHovered ? 50 : 10 - Math.abs(Math.round(offset)),
+        perspective: 700,
+      }}
+      className="h-44 w-30"
+    >
+      <motion.div
+        initial={false}
+        animate={{ y: isHovered ? -34 : 0, scale: isHovered ? 1.1 : 1, rotate: isHovered ? -offset * 7 : 0 }}
+        transition={collageCardTransition}
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+        className="h-full w-full overflow-hidden rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/15"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={cover.url} alt="" draggable={false} className={cn("h-full w-full object-cover", cover.blur && "blur-md")} />
+      </motion.div>
+    </motion.div>
+  )
+}
+
 function CoverCollage({ covers }: { covers: Cover[] }) {
   const count = Math.min(COLLAGE_SIZE, covers.length)
   // `selection` is the list of pool indices currently fanned out, in slot
   // order. Clicking re-draws a fresh random selection from the pool, so the
   // shuffle changes both the arrangement *and* which covers are shown.
   const [selection, setSelection] = useState<number[]>([])
-  // Stacking is toggled instantly via state — never animated — and the stack is
-  // plain 2D (no 3D parallax), so z-index is always honoured and a hovered card
-  // sits cleanly above its neighbours instead of flickering above/below them.
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   // On (re)load of the pool, show the most-recent `count` covers, in order.
@@ -402,57 +477,27 @@ function CoverCollage({ covers }: { covers: Cover[] }) {
 
   return (
     <div
+      data-cursor="pointer"
       className="relative hidden h-56 w-[360px] shrink-0 cursor-pointer select-none sm:block"
       onClick={shuffle}
       title="Shuffle"
     >
+      {/* Soft floor shadow grounding the fan. */}
+      <div aria-hidden className="absolute bottom-4 left-1/2 h-5 w-2/3 -translate-x-1/2 rounded-[50%] bg-black/50 blur-xl" />
       <AnimatePresence>
         {sel.map((coverIdx, slot) => {
           const c = covers[coverIdx]
           if (!c) return null
-          const offset = slot - mid
-          const isHovered = hoveredId === c.id
           return (
-            // Outer = stable hit zone + fan slot + z-index. On hover it stays
-            // put (only the inner moves), so the pointer can never fall off it
-            // and start a hover/un-hover loop.
-            <motion.div
+            <CollageCard
               key={c.id}
-              onMouseEnter={() => setHoveredId(c.id)}
-              onMouseLeave={() => setHoveredId(prev => (prev === c.id ? null : prev))}
-              initial={{ opacity: 0, x: 0, y: 64, rotate: 0, scale: 0.85 }}
-              animate={{ opacity: 1, x: offset * COLLAGE_SPREAD, y: Math.abs(offset) * 8, rotate: offset * 7, scale: 1 }}
-              exit={{ opacity: 0, y: 48, scale: 0.85, transition: { duration: 0.18 } }}
-              transition={collageCardTransition}
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                marginLeft: -60,   // half of w-30 → centre the card in the box
-                marginTop: -88,    // half of h-44
-                zIndex: isHovered ? 50 : 10 - Math.abs(Math.round(offset)),
-              }}
-              className="h-44 w-30"
-            >
-              {/* Inner = the visual that lifts / scales / straightens. A big lift
-                  (well past the fan's droop) makes even an edge card clearly pop
-                  above its neighbours. Driven only by hover state, so one clean
-                  spring runs each way uninterrupted. */}
-              <motion.div
-                initial={false}
-                animate={{ y: isHovered ? -34 : 0, scale: isHovered ? 1.1 : 1, rotate: isHovered ? -offset * 7 : 0 }}
-                transition={collageCardTransition}
-                className="h-full w-full overflow-hidden rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/15"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={c.url}
-                  alt=""
-                  draggable={false}
-                  className={cn("h-full w-full object-cover", c.blur && "blur-md")}
-                />
-              </motion.div>
-            </motion.div>
+              cover={c}
+              slot={slot}
+              mid={mid}
+              isHovered={hoveredId === c.id}
+              onHover={() => setHoveredId(c.id)}
+              onLeave={() => setHoveredId(prev => (prev === c.id ? null : prev))}
+            />
           )
         })}
       </AnimatePresence>
@@ -463,24 +508,356 @@ function CoverCollage({ covers }: { covers: Cover[] }) {
 
 /* ─── A single cover cell in the grid ──────────────────────────────────────── */
 
+// `custom` is the card's index; the column-based delay gives each row a quick
+// left-to-right cascade as it scrolls into view.
 const cellVariants: Variants = {
-  hidden: { opacity: 0, y: 18, filter: "blur(12px)" },
-  show:   { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
+  hidden: { opacity: 0, y: 24, filter: "blur(12px)" },
+  show: (i: number) => ({
+    opacity: 1, y: 0, filter: "blur(0px)",
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: (i % 6) * 0.05 },
+  }),
 }
 
 function VNCell({
-  vn, rating, showOriginal, sexualLevel, violenceLevel,
+  vn, rating, index, showOriginal, sexualLevel, violenceLevel,
 }: {
   vn: VN_Small
   rating: number
+  index: number
   showOriginal: boolean
   sexualLevel: SexualLevel
   violenceLevel: ViolenceLevel
 }) {
   return (
-    <motion.div variants={cellVariants} whileHover={{ y: -4 }} className="relative">
+    <motion.div
+      custom={index}
+      variants={cellVariants}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.15 }}
+      whileHover={{ y: -4 }}
+      className="relative"
+    >
       <VNCard vn={vn} rating={rating} showOriginal={showOriginal} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
     </motion.div>
+  )
+}
+
+
+/* ─── Hero title: per-letter reveal + magnetic cursor pull ─────────────────── */
+
+const LETTER: Variants = {
+  hidden: { opacity: 0, y: "0.5em", filter: "blur(8px)" },
+  show:   { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+}
+
+function HeroTitle({ name }: { name: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const mx = useMotionValue(0)
+  const my = useMotionValue(0)
+  const x = useSpring(mx, { stiffness: 150, damping: 15 })
+  const y = useSpring(my, { stiffness: 150, damping: 15 })
+
+  return (
+    <motion.div
+      ref={ref}
+      style={{ x, y }}
+      onMouseMove={e => {
+        const r = ref.current!.getBoundingClientRect()
+        mx.set((e.clientX - (r.left + r.width / 2)) * 0.06)
+        my.set((e.clientY - (r.top + r.height / 2)) * 0.06)
+      }}
+      onMouseLeave={() => { mx.set(0); my.set(0) }}
+      className="inline-block"
+    >
+      <motion.h1
+        aria-label={name}
+        initial="hidden"
+        animate="show"
+        variants={{ show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+        className="mt-2 pb-2 text-5xl font-black leading-[1.1] tracking-tight drop-shadow-sm sm:text-7xl lg:text-8xl"
+      >
+        {name.split("").map((ch, i) => (
+          <motion.span
+            key={i}
+            aria-hidden
+            variants={LETTER}
+            className="inline-block bg-linear-to-br from-white to-white/70 bg-clip-text text-transparent"
+          >
+            {ch === " " ? " " : ch}
+          </motion.span>
+        ))}
+      </motion.h1>
+    </motion.div>
+  )
+}
+
+
+/* ─── Auth panel (shown when the viewer isn't signed in) ───────────────────── */
+
+// Shared styling for the auth inputs; `pl-10` leaves room for a leading icon,
+// and callers add the right padding (`pr-3`, or `pr-10` when there's a trailing
+// control like the password eye).
+const AUTH_INPUT = "w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 text-sm text-white outline-none transition-colors placeholder:text-muted/50 focus:border-accent/60 focus:bg-white/[0.07]"
+
+function AuthField({ icon: Icon, ...props }: { icon: React.ComponentType<{ className?: string }> } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className="relative">
+      <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted/60" />
+      <input {...props} className={cn(AUTH_INPUT, "pr-3")} />
+    </div>
+  )
+}
+
+function AuthPasswordField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted/60" />
+      <input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn(AUTH_INPUT, "pr-10")}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShow(s => !s)}
+        aria-label={show ? "Hide password" : "Show password"}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/60 transition-colors hover:text-white"
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  )
+}
+
+// Glassy two-mode (sign in / sign up) auth card. The context's login/register
+// reload the page on success, so a successful submit just navigates onward.
+function AuthPanel() {
+  const { login, register } = useUserContext()
+  const [mode, setMode] = useState<"login" | "register">("login")
+
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [email, setEmail] = useState("")
+  const [code, setCode] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [invitationCode, setInvitationCode] = useState("")
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [codeSending, setCodeSending] = useState(false)
+  const [codeNotice, setCodeNotice] = useState("")
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  const switchMode = (m: "login" | "register") => { setMode(m); setError(""); setCodeNotice("") }
+
+  const handleSendCode = async () => {
+    const emailError = validateEmail(email)
+    if (emailError) { setError(emailError); return }
+    setError(""); setCodeNotice(""); setCodeSending(true)
+    try {
+      await api.user.sendVerificationCode(email)
+      setCodeNotice("Code sent — check your email.")
+      setCooldown(60)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send the code.")
+    } finally {
+      setCodeSending(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    try {
+      if (mode === "login") {
+        setLoading(true)
+        await login(username, password)
+      } else {
+        if (!invitationCode.trim()) { setError("Enter your invitation code."); return }
+        const ue = validateUsername(username); if (ue) { setError(ue); return }
+        const ee = validateEmail(email); if (ee) { setError(ee); return }
+        if (!code.trim()) { setError("Enter the verification code from your email."); return }
+        const pe = validatePassword(password); if (pe) { setError(pe); return }
+        if (password !== confirmPassword) { setError("Passwords do not match."); return }
+        setLoading(true)
+        await register(username, email, password, code, invitationCode)
+      }
+      // On success the context reloads the page; nothing more to do here.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
+      setLoading(false)
+    }
+  }
+
+  const sendLabel = cooldown > 0 ? `${cooldown}s` : codeSending ? "…" : "Send"
+
+  return (
+    <div className="relative flex min-h-screen flex-1 items-center justify-center overflow-hidden px-4 py-16">
+      <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] max-w-[120vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/20 blur-[140px]" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] p-7 shadow-2xl shadow-black/50 backdrop-blur-xl"
+      >
+        <div className="mb-6 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/50">Visual Novel Collection</p>
+          <h1 className="mt-1 bg-linear-to-br from-white to-white/70 bg-clip-text text-3xl font-black tracking-tight text-transparent">{USERNAME}</h1>
+        </div>
+
+        {/* Mode toggle */}
+        <div className="mb-6 flex rounded-full border border-white/10 bg-white/5 p-1">
+          {(["login", "register"] as const).map(m => (
+            <button key={m} type="button" onClick={() => switchMode(m)} className="relative flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors">
+              {mode === m && <motion.span layoutId="auth-pill" className="absolute inset-0 rounded-full bg-accent" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
+              <span className={cn("relative z-10", mode === m ? "text-black" : "text-muted hover:text-white")}>{m === "login" ? "Sign in" : "Sign up"}</span>
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Fields fade in when the mode changes (re-keyed). */}
+          <motion.div key={mode} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="flex flex-col gap-3">
+            {mode === "register" && (
+              <AuthField icon={Ticket} value={invitationCode} onChange={e => setInvitationCode(e.target.value)} placeholder="Invitation code" />
+            )}
+            <AuthField icon={User} value={username} onChange={e => setUsername(e.target.value)} placeholder={mode === "login" ? "Username or email" : "Username"} autoComplete="username" />
+            {mode === "register" && (
+              <AuthField icon={Mail} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" autoComplete="email" />
+            )}
+            {mode === "register" && (
+              <div className="flex flex-col gap-1">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted/60" />
+                    <input
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={code}
+                      onChange={e => setCode(e.target.value)}
+                      placeholder="6-digit code"
+                      className={cn(AUTH_INPUT, "pr-3")}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={codeSending || cooldown > 0}
+                    className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-40"
+                  >
+                    {sendLabel}
+                  </button>
+                </div>
+                {codeNotice && <p className="px-1 text-xs text-accent">{codeNotice}</p>}
+              </div>
+            )}
+            <AuthPasswordField value={password} onChange={setPassword} placeholder={mode === "login" ? "Password" : `Password (${PASSWORD_MIN_LENGTH}+ characters)`} />
+            {mode === "register" && (
+              <AuthPasswordField value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm password" />
+            )}
+          </motion.div>
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-accent py-2.5 text-sm font-bold text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+            {loading ? (mode === "login" ? "Signing in…" : "Creating account…") : (mode === "login" ? "Sign in" : "Create account")}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-xs text-muted">
+          {mode === "login" ? "New here? " : "Already have an account? "}
+          <button type="button" onClick={() => switchMode(mode === "login" ? "register" : "login")} className="font-semibold text-white hover:text-accent">
+            {mode === "login" ? "Create an account" : "Sign in"}
+          </button>
+        </p>
+      </motion.div>
+    </div>
+  )
+}
+
+
+/* ─── Spotify-style custom cursor ──────────────────────────────────────────── */
+
+// A precise accent dot + a spring-trailing ring. The ring swells and turns
+// accent-green over interactive elements; both react to clicks. Only on fine
+// pointers, and disabled under reduced-motion (native cursor stays). The native
+// cursor is hidden (page-scoped) once the pointer first moves.
+function CustomCursor() {
+  const x = useMotionValue(-100)
+  const y = useMotionValue(-100)
+  const ringX = useSpring(x, { stiffness: 350, damping: 28, mass: 0.6 })
+  const ringY = useSpring(y, { stiffness: 350, damping: 28, mass: 0.6 })
+  const [enabled, setEnabled] = useState(false)
+  const [moved, setMoved] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [pressed, setPressed] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!window.matchMedia("(pointer: fine)").matches) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    setEnabled(true)
+    const move = (e: MouseEvent) => {
+      x.set(e.clientX)
+      y.set(e.clientY)
+      setMoved(true)
+      const t = e.target as Element | null
+      setHovering(!!t?.closest('a, button, input, select, [role="button"], [data-cursor]'))
+    }
+    const down = () => setPressed(true)
+    const up = () => setPressed(false)
+    window.addEventListener("mousemove", move)
+    window.addEventListener("mousedown", down)
+    window.addEventListener("mouseup", up)
+    return () => {
+      window.removeEventListener("mousemove", move)
+      window.removeEventListener("mousedown", down)
+      window.removeEventListener("mouseup", up)
+    }
+  }, [x, y])
+
+  if (!enabled) return null
+
+  return (
+    <>
+      {moved && <style>{".kby-cursor,.kby-cursor *{cursor:none !important}"}</style>}
+      {/* Trailing ring */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none fixed left-0 top-0 z-[9999] -ml-4 -mt-4 h-8 w-8 rounded-full border"
+        style={{ x: ringX, y: ringY }}
+        animate={{
+          scale: pressed ? 0.8 : hovering ? 1.9 : 1,
+          borderColor: hovering ? "rgba(29,185,84,0.9)" : "rgba(255,255,255,0.4)",
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 22 }}
+      />
+      {/* Precise dot */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none fixed left-0 top-0 z-[9999] -ml-1 -mt-1 h-2 w-2 rounded-full bg-accent"
+        style={{ x, y }}
+        animate={{ scale: pressed ? 0.6 : hovering ? 0.5 : 1 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      />
+    </>
   )
 }
 
@@ -662,9 +1039,9 @@ export default function KobayashiPage() {
     resetScroll()
   }
 
-  // Scroll-collapsing hero: as the page scrolls down, the hero fades and drifts
-  // upward; scrolling back up re-reveals it. The controls bar below is sticky,
-  // so once the hero is gone the tabs/filters pin to the top of the viewport.
+  // Scroll-collapsing hero: as the page scrolls down the hero fades and drifts
+  // upward, and re-reveals on the way back up. (The toolbar pins itself to the
+  // top via the sentinel + transform below — not CSS sticky.)
   const { scrollY } = useScroll()
   const heroOpacity = useTransform(scrollY, [0, 200], [1, 0])
   const heroY       = useTransform(scrollY, [0, 200], [0, -32])
@@ -696,6 +1073,11 @@ export default function KobayashiPage() {
     }
   }, [status, barY])
 
+  // Cursor spotlight that softly follows the mouse across the results grid.
+  const spotX = useMotionValue(-9999)
+  const spotY = useMotionValue(-9999)
+  const spotlight = useMotionTemplate`radial-gradient(280px circle at ${spotX}px ${spotY}px, rgba(255,255,255,0.06), transparent 72%)`
+
   /* ── Gated states ─────────────────────────────────────────────────────── */
 
   if (authLoading) {
@@ -703,18 +1085,14 @@ export default function KobayashiPage() {
   }
 
   if (!user) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-32 text-muted">
-        <Lock className="h-12 w-12 opacity-40" />
-        <p className="text-base">Sign in to view this collection</p>
-      </div>
-    )
+    return <AuthPanel />
   }
 
   /* ── Page ─────────────────────────────────────────────────────────────── */
 
   return (
-    <main className="relative flex-1">
+    <main className="kby-cursor relative flex-1">
+      <CustomCursor />
       {/* Hero — simply fades + drifts away as the page scrolls (no background
           wash), and re-reveals on scroll up. */}
       <motion.header style={{ opacity: heroOpacity }} className="relative">
@@ -732,14 +1110,7 @@ export default function KobayashiPage() {
             >
               Visual Novel Collection
             </motion.p>
-            <motion.h1
-              initial={{ opacity: 0, y: 18, filter: "blur(14px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
-              className="mt-2 bg-linear-to-br from-white to-white/70 bg-clip-text pb-2 text-5xl font-black leading-[1.1] tracking-tight text-transparent drop-shadow-sm sm:text-7xl lg:text-8xl"
-            >
-              {data?.username ?? USERNAME}
-            </motion.h1>
+            <HeroTitle name={data?.username ?? USERNAME} />
             <motion.p
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
@@ -747,11 +1118,11 @@ export default function KobayashiPage() {
             >
               {data ? (
                 <>
-                  <span className="font-semibold text-white">{totalUnique}</span> titles
+                  <span className="font-semibold text-white"><Counter value={totalUnique} /></span> titles
                   <span className="mx-1.5 text-white/30">·</span>
-                  {marksByTab.playing.length} playing
+                  <Counter value={marksByTab.playing.length} /> playing
                   <span className="mx-1.5 text-white/30">·</span>
-                  {marksByTab.played.length} played
+                  <Counter value={marksByTab.played.length} /> played
                 </>
               ) : (
                 <span className="opacity-0">loading</span>
@@ -867,8 +1238,18 @@ export default function KobayashiPage() {
 
             {/* Results — a reserved min-height keeps the document from
                 collapsing when content swaps (loader / shorter results), so the
-                toolbar can stay pinned and the hidden title doesn't pop back. */}
-            <div className="flex min-h-screen flex-col">
+                toolbar can stay pinned and the hidden title doesn't pop back.
+                A cursor-following spotlight overlays the grid. */}
+            <div
+              className="relative flex min-h-screen flex-col"
+              onMouseMove={e => {
+                const r = e.currentTarget.getBoundingClientRect()
+                spotX.set(e.clientX - r.left)
+                spotY.set(e.clientY - r.top)
+              }}
+              onMouseLeave={() => { spotX.set(-9999); spotY.set(-9999) }}
+            >
+              <motion.div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={{ background: spotlight }} />
               {activeMarks.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-muted">
                   <Library className="h-12 w-12 opacity-40" />
@@ -882,25 +1263,20 @@ export default function KobayashiPage() {
                   <p className="text-base">{q ? `No matches for “${q}”` : "No results"}</p>
                 </div>
               ) : (
-                <motion.div
-                  // Re-key on the request so the stagger replays on every change.
-                  key={requestKey}
-                  variants={{ show: { transition: { staggerChildren: 0.035, delayChildren: 0.04 } } }}
-                  initial="hidden"
-                  animate="show"
-                  className={GRID_CLASS}
-                >
-                  {loaded.items.map(vn => (
+                // Re-key on the request so the scroll-reveal replays on change.
+                <div key={requestKey} className={cn(GRID_CLASS, "relative z-0")}>
+                  {loaded.items.map((vn, i) => (
                     <VNCell
                       key={vn.id}
                       vn={vn}
+                      index={i}
                       rating={data.ratings[markId(vn.id)] ?? 0}
                       showOriginal={showOriginal}
                       sexualLevel={sexualLevel}
                       violenceLevel={violenceLevel}
                     />
                   ))}
-                </motion.div>
+                </div>
               )}
 
               {ready && totalPages > 1 && (

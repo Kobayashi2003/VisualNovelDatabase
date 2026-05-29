@@ -568,14 +568,16 @@ function HeroTitle({ name }: { name: string }) {
         my.set((e.clientY - (r.top + r.height / 2)) * 0.06)
       }}
       onMouseLeave={() => { mx.set(0); my.set(0) }}
-      className="inline-block"
+      className="mt-2 inline-block"
     >
+      {/* The name links home; `w-fit` keeps the hit area tight to the text. */}
+      <Link href="/" aria-label="Go to home">
       <motion.h1
         aria-label={name}
         initial="hidden"
         animate="show"
         variants={{ show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
-        className="mt-2 pb-2 text-5xl font-black leading-[1.1] tracking-tight drop-shadow-sm sm:text-7xl lg:text-8xl"
+        className="flex w-fit pb-[0.18em] text-5xl font-black leading-[1.2] tracking-tight drop-shadow-sm sm:text-7xl lg:text-8xl"
       >
         {name.split("").map((ch, i) => (
           <motion.span
@@ -588,6 +590,7 @@ function HeroTitle({ name }: { name: string }) {
           </motion.span>
         ))}
       </motion.h1>
+      </Link>
     </motion.div>
   )
 }
@@ -1005,14 +1008,22 @@ export default function KobayashiPage() {
   // After a results-changing op, return to the top of the results — but if the
   // title is already hidden (toolbar pinned), stop at the pin line so the
   // toolbar stays stuck and the title stays hidden instead of popping back up.
-  // Reading the sentinel live avoids any stale pinned-state.
+  //
+  // The pinned check is read NOW (against the current layout, before React
+  // commits the change), but the scroll itself is deferred to the next frame —
+  // i.e. AFTER the new results render. This matters for search: filtering a long
+  // list down to a few matches collapses the document height, and if we scrolled
+  // against the old tall layout the browser would clamp the scroll up past the
+  // pin line and re-reveal the hero. Scrolling post-commit avoids that clamp.
   const resetScroll = () => {
     const s = sentinelRef.current
-    if (!s) { window.scrollTo({ top: 0, behavior: "smooth" }); return }
-    const rectTop = s.getBoundingClientRect().top
-    const pinned = rectTop <= 0
-    const pinTop = rectTop + window.scrollY
-    window.scrollTo({ top: pinned ? pinTop + 2 : 0, behavior: "smooth" })
+    const wasPinned = !!s && s.getBoundingClientRect().top <= 0
+    requestAnimationFrame(() => {
+      const el = sentinelRef.current
+      if (!wasPinned || !el) { window.scrollTo({ top: 0, behavior: "smooth" }); return }
+      const pinTop = el.getBoundingClientRect().top + window.scrollY
+      window.scrollTo({ top: pinTop + 2, behavior: "smooth" })
+    })
   }
 
   // Debounced, IME-safe commit of the search box to `q`. Only fires when the
@@ -1169,16 +1180,20 @@ export default function KobayashiPage() {
               <div className="flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 items-center">
               {/* Compact title that expands in once the toolbar pins — the
-                  hero's name "collapsing" down into the toolbar. */}
-              <span
+                  hero's name "collapsing" down into the toolbar. Links home;
+                  non-interactive (and untabbable) while collapsed. */}
+              <Link
+                href="/"
+                aria-label="Go to home"
                 aria-hidden={!stuck}
+                tabIndex={stuck ? 0 : -1}
                 className={cn(
-                  "overflow-hidden whitespace-nowrap text-lg font-black tracking-tight text-white transition-all duration-300",
-                  stuck ? "mr-3 max-w-[12rem] opacity-100" : "mr-0 max-w-0 opacity-0",
+                  "overflow-hidden whitespace-nowrap text-lg font-black tracking-tight text-white transition-all duration-300 hover:text-accent",
+                  stuck ? "mr-3 max-w-[12rem] opacity-100" : "pointer-events-none mr-0 max-w-0 opacity-0",
                 )}
               >
                 {data.username || USERNAME}
-              </span>
+              </Link>
               <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 backdrop-blur-sm">
                 {TABS.map(t => {
                   const active = tab === t.key

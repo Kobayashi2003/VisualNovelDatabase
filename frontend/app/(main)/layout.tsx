@@ -26,7 +26,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [headerHeight, setHeaderHeight] = useState(0)
 
   // Measure the header so the spacer below can reserve its exact height —
-  // ResizeObserver keeps the spacer in sync if the header reflows.
+  // ResizeObserver keeps the spacer in sync if the header reflows. Re-runs when
+  // `hideHeader` toggles: the header is unmounted on the Kobayashi page, so this
+  // must re-measure (and re-observe) the moment it re-appears on another route —
+  // otherwise the height stays stale at 0 and the fixed header overlaps content.
   useEffect(() => {
     const header = headerRef.current
     if (!header) return
@@ -36,7 +39,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     })
     observer.observe(header)
     return () => observer.disconnect()
-  }, [])
+  }, [hideHeader])
 
   // `mounted` gates the header/spacer until the client has hydrated, so the
   // SSR markup doesn't show a header that disappears on the first scroll tick.

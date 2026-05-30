@@ -1,7 +1,7 @@
 """procserve — small in-process supervisor for the backend's child processes.
 
-The launcher used to be a flat list of subprocess.Popen calls in run.py/prod.py
-with one log-pump thread per process and a single signal handler that ran
+The launcher used to be a flat list of subprocess.Popen calls in the launcher
+script with one log-pump thread per process and a single signal handler that ran
 .terminate() over a Python list. As the stack grew (postgres + redis + 2
 celery workers + 2 flowers + 3 flask servers + caddy = 9+ processes), that
 shape stopped scaling: start order was implicit (whatever line came first),

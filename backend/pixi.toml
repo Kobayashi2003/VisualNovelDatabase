@@ -6,14 +6,14 @@
 # dance), and every PyPI dep pinned to the same versions as requirements.txt.
 #
 # First-time setup (run once after cloning):
-#     ./setup.ps1                  # or: pixi install
+#     ./scripts/pixi-setup.ps1     # or: pixi install
 #
-# Running the backend:
-#     pixi run dev                 # Flask dev server (run.py)
-#     pixi run dev-waitress        # Waitress in dev (run.py --waitress)
-#     pixi run prod                # Production launcher (prod.py)
+# Running the backend (all modes go through launch.py):
+#     pixi run dev                 # Flask dev server (launch.py dev)
+#     pixi run dev-waitress        # Waitress in dev (launch.py dev --waitress)
+#     pixi run prod                # Production launcher (launch.py prod)
 #     pixi run prod -- --next-port 5004
-#                                  # `--` forwards extra flags to prod.py
+#                                  # `--` forwards extra flags to launch.py prod
 #
 # `pixi run` puts the env's bin/ on PATH first, so `python` and any other
 # conda-installed tools resolve to the env copies. Postgres, Redis, and
@@ -102,6 +102,9 @@ wcwidth = "==0.2.13"
 Werkzeug = "==3.1.3"
 
 [tasks]
-dev = "python run.py"
-dev-waitress = "python run.py --waitress"
-prod = "python prod.py"
+dev = "python launch.py dev"
+dev-waitress = "python launch.py dev --waitress"
+prod = "python launch.py prod"
+# DB migration CLI (migration.py). Forward args after `--`, e.g.
+#     pixi run migrate -- vndb upgrade
+migrate = "python migration.py"

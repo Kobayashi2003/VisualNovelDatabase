@@ -6,7 +6,7 @@
 # reuse the cached env without re-resolving.
 #
 # Usage:
-#   .\setup.ps1
+#   .\scripts\pixi-setup.ps1     (or from scripts/: .\pixi-setup.ps1)
 # ============================================================================
 
 [CmdletBinding()]
@@ -21,7 +21,9 @@ if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-Push-Location $PSScriptRoot
+# pixi.toml lives in the backend root, one level up from this scripts/ folder.
+$backendRoot = Split-Path $PSScriptRoot -Parent
+Push-Location $backendRoot
 try {
     Write-Host "[PIXI] Resolving and installing backend environment from pixi.toml ..." -ForegroundColor Cyan
     pixi install
@@ -32,7 +34,7 @@ try {
     Write-Host "       Next steps:" -ForegroundColor Green
     Write-Host "         pixi run dev        # Flask dev server"        -ForegroundColor Green
     Write-Host "         pixi run prod       # Production launcher"     -ForegroundColor Green
-    Write-Host "         ..\start-prod.ps1   # Full prod (Caddy + Next)" -ForegroundColor Green
+    Write-Host "         ..\..\start-prod.ps1   # Full prod (Caddy + Next)" -ForegroundColor Green
 } finally {
     Pop-Location
 }

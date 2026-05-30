@@ -1,18 +1,33 @@
-"""Spec-makers for the backend's child processes.
+"""Backend process launcher (dev + prod).
 
-Each function returns either a ProcSpec ready to hand to Supervisor, or
-None when a prerequisite is missing (binary not on PATH, env var unset,
-data directory absent). The caller is expected to filter Nones from the
-list. This module is shared by run.py and prod.py — the only divergences
-are which specs each launcher builds and a couple of per-spec flags
-(Waitress vs Flask dev server, Caddy hard-fail vs opt-in).
+Merges the former run.py (dev), prod.py (prod) and _procspecs.py (shared
+spec-makers) into a single entry point with two subcommands:
 
-Postgres is intentionally NOT built here — it runs as a Windows service
-(see backend/pg-service.ps1) so the SCM owns its shutdown. The flask/celery
-specs still declare depends_on=["postgres"]; since no postgres spec is in the
-list, Supervisor's topo sort treats that edge as already-satisfied.
+    python launch.py dev [--waitress]
+    python launch.py prod [--next-port N]
 
-Knowledge that lives here:
+(usually invoked via `pixi run dev` / `pixi run prod` — see pixi.toml).
+
+It builds a ProcSpec list for the chosen stack and hands it to
+procserve.Supervisor, which does the topological start, log aggregation and
+signal-driven reverse-topological shutdown (see procserve/__init__.py).
+
+Stacks:
+  - dev : Redis + vndb/imgserve Celery workers + Flower dashboards
+          + vndb/imgserve/userserve Flask servers (Flask dev or Waitress)
+          + Caddy edge (opt-in via USE_CADDY=true; missing binary is a warning)
+  - prod: Redis + vndb/imgserve Celery workers
+          + vndb/imgserve/userserve Waitress servers
+          + Caddy (mandatory public ingress; missing binary is a hard error)
+          No Flower (it's a dev-only celery dashboard).
+
+Postgres is intentionally NOT launched here — it runs as a Windows service
+(see backend/scripts/pg-service.ps1) so the SCM owns its shutdown (clean fast
+shutdown regardless of how the app dies). The flask/celery specs still declare
+depends_on=["postgres"]; since no postgres spec is in the list, Supervisor's
+topo sort treats that edge as already-satisfied.
+
+Knowledge that lives in the spec-makers below:
   - which binaries each service needs (so the missing-binary warning is
     centralized);
   - the dependency graph (redis before celery/flask, flask before caddy,
@@ -23,16 +38,45 @@ Knowledge that lives here:
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import shutil
-import subprocess  # noqa: F401  (re-exported for type hints in callers)
 import sys
+from logging.handlers import RotatingFileHandler
 from typing import List, Optional
 
-from procserve import ProcSpec
+from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
+from procserve import ProcSpec, Supervisor
+
+
+# Load backend/.env into the parent process *before* the spec-makers run —
+# they read PG_DATA, USE_CADDY, DATA_FOLDER, the celery broker / flower ports,
+# etc. from os.environ. The Flask children also load .env themselves (see
+# vndb/config.py), but that's too late for the launcher's own decisions.
+load_dotenv()
+
+os.makedirs("logs", exist_ok=True)
+os.environ["PYTHONUNBUFFERED"] = "1"
+
+logger = logging.getLogger("launch")
+
+
+def _setup_logging(mode: str) -> None:
+    """Log INFO+ to logs/<mode>.log and ERROR+ to the console. The spec-makers
+    below log through this same logger, so their missing-binary warnings land
+    in the file too."""
+    logger.setLevel(logging.INFO)
+    file_handler = RotatingFileHandler(f"logs/{mode}.log", maxBytes=1024 * 1024 * 5)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.ERROR)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 
 # ---------- shared binary-existence check ------------------------------------
@@ -174,13 +218,13 @@ def make_celery_spec(app_name: str) -> ProcSpec:
 
 
 def make_flower_spec(app_name: str) -> ProcSpec:
-    # celery_worker is imported here (not at module top) so the spec-maker
-    # only triggers the app's heavyweight create_app() when the launcher
-    # actually wants Flower — prod.py skips Flower entirely.
-    import celery_worker
-    config = getattr(celery_worker, f"{app_name}_config")
-    broker = config["CELERY_BROKER_URL"]
-    port = config["FLOWER_PORT"]
+    # Flower only needs the broker URL and its port. Those map straight from
+    # env (see each app's config.py: CELERY_BROKER_URL / FLOWER_PORT are read
+    # verbatim from {APP}_CELERY_BROKER_URL / {APP}_FLOWER_PORT), so read them
+    # directly instead of paying a full create_app() just to look them up.
+    upper = app_name.upper()
+    broker = os.environ[f"{upper}_CELERY_BROKER_URL"]
+    port = os.environ[f"{upper}_FLOWER_PORT"]
     return ProcSpec(
         name=f"{app_name}_flower",
         cmd=["celery", f"--broker={broker}", "flower", f"--port={port}"],
@@ -220,9 +264,59 @@ def make_flask_spec(app_name: str, *, use_waitress: bool) -> ProcSpec:
     )
 
 
-# ---------- convenience: filter Nones out -----------------------------------
+# ---------- spec assembly ----------------------------------------------------
 
 
-def collect(*maybe_specs: Optional[ProcSpec]) -> List[ProcSpec]:
-    """Drop the Nones from a positional list of optional specs."""
-    return [s for s in maybe_specs if s is not None]
+def build_specs(mode: str, *, use_waitress: bool,
+                next_port: Optional[int]) -> List[ProcSpec]:
+    """Assemble the stack for `mode` ("dev" | "prod"). Nones (missing-binary
+    skips) are filtered out at the end. The only divergences between the two
+    stacks: Flower (dev only), Waitress-vs-Flask-dev for the Flask trio, and
+    Caddy's hard-fail-vs-opt-in.
+    """
+    specs: List[Optional[ProcSpec]] = [make_redis_spec()]
+    for app in ("vndb", "imgserve"):
+        specs.append(make_celery_spec(app))
+        if mode == "dev":
+            specs.append(make_flower_spec(app))
+        specs.append(make_flask_spec(app, use_waitress=use_waitress))
+    specs.append(make_flask_spec("userserve", use_waitress=use_waitress))
+
+    if mode == "prod":
+        specs.append(make_caddy_spec(next_port=next_port, required=True))
+    else:
+        specs.append(make_caddy_spec(required=False))
+
+    return [s for s in specs if s is not None]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="VNDB backend process launcher")
+    sub = parser.add_subparsers(dest="mode", required=True)
+
+    p_dev = sub.add_parser("dev", help="Dev stack (Flask dev server + Flower)")
+    p_dev.add_argument(
+        "--waitress", action="store_true",
+        help="Use Waitress WSGI server instead of the Flask dev server",
+    )
+
+    p_prod = sub.add_parser("prod", help="Prod stack (Waitress + mandatory Caddy)")
+    p_prod.add_argument(
+        "--next-port", type=int, default=5003,
+        help="Port the Next.js standalone server listens on; Caddy proxies / "
+             "to this port. (default: 5003)",
+    )
+
+    args = parser.parse_args()
+    _setup_logging(args.mode)
+
+    if args.mode == "prod":
+        specs = build_specs("prod", use_waitress=True, next_port=args.next_port)
+    else:
+        specs = build_specs("dev", use_waitress=args.waitress, next_port=None)
+
+    Supervisor(specs, logger=logger).run()
+
+
+if __name__ == "__main__":
+    main()

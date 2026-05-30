@@ -2,11 +2,16 @@
 # Production launcher.
 #
 # Boots two child processes and forwards Ctrl+C to both:
-#   1. backend/prod.py — launched via `pixi run prod` so it runs inside the
-#      reproducible pixi env (Python 3.13 + postgresql + psycopg2 + all PyPI
-#      deps). Run backend/setup.ps1 once to materialize the env.
-#      Spawns: Postgres + Redis + 3 Waitress backends + 2 Celery workers + Caddy
+#   1. backend/launch.py prod — launched via `pixi run prod` so it runs inside
+#      the reproducible pixi env (Python 3.13 + postgresql + psycopg2 + all PyPI
+#      deps). Run backend/scripts/pixi-setup.ps1 once to materialize the env.
+#      Spawns: Redis + 3 Waitress backends + 2 Celery workers + Caddy
 #   2. Next.js standalone — node frontend/.next/standalone/server.js
+#
+# Postgres is NOT spawned by launch.py — it must already be running as a Windows
+# service (backend/scripts/pg-service.ps1). Before launching the children this
+# script verifies that service is registered + Running and that the cluster is
+# accepting TCP connections, auto-starting the service if it's merely stopped.
 #
 # Caddy is the only public ingress; frp should forward to CADDY_BIND
 # (default :30709, set in backend/.env). All four paths live behind it:
@@ -16,15 +21,23 @@
 #   /userserve/* -> Flask userserve
 #
 # Usage:
-#   .\start-prod.ps1                # start with whatever is already built
-#   .\start-prod.ps1 -Build         # `npm run build` first, then start
-#   .\start-prod.ps1 -NextPort 5004 # override the Next.js port
+#   .\start-prod.ps1                     # start with whatever is already built
+#   .\start-prod.ps1 -Build              # `npm run build` first, then start
+#   .\start-prod.ps1 -NextPort 5004      # override the Next.js port
+#   .\start-prod.ps1 -SkipPgCheck        # skip the Postgres service/readiness check
+#   .\start-prod.ps1 -PgServiceName foo  # check a differently-named PG service
 # ============================================================================
 
 [CmdletBinding()]
 param(
     [switch]$Build,
-    [int]$NextPort = 5003
+    [int]$NextPort = 5003,
+    # Postgres runs as a Windows service (backend/scripts/pg-service.ps1); this
+    # is its service name (matches that script's default).
+    [string]$PgServiceName = 'postgresql-vndb',
+    # Bypass the Postgres check entirely — for when Postgres is run some other
+    # way (different service name, container, remote host, etc.).
+    [switch]$SkipPgCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,14 +50,133 @@ $standaloneServer = Join-Path $standaloneRoot 'server.js'
 
 # Pixi is required — we launch the backend through `pixi run` so it uses
 # the env declared in backend/pixi.toml rather than whatever `python` on
-# PATH happens to be. The env is materialized by backend/setup.ps1.
+# PATH happens to be. The env is materialized by backend/scripts/pixi-setup.ps1.
 if (-not (Get-Command pixi -ErrorAction SilentlyContinue)) {
-    throw "pixi is not on PATH. Install it (scoop install pixi) and run backend\setup.ps1 once before start-prod.ps1."
+    throw "pixi is not on PATH. Install it (scoop install pixi) and run backend\scripts\pixi-setup.ps1 once before start-prod.ps1."
 }
 if (-not (Test-Path (Join-Path $backendDir '.pixi'))) {
-    Write-Host "[WARN] backend\.pixi not found — running backend\setup.ps1 to install the env." -ForegroundColor Yellow
-    & (Join-Path $backendDir 'setup.ps1')
-    if ($LASTEXITCODE -ne 0) { throw "backend\setup.ps1 failed (exit $LASTEXITCODE)" }
+    Write-Host "[WARN] backend\.pixi not found — running backend\scripts\pixi-setup.ps1 to install the env." -ForegroundColor Yellow
+    & (Join-Path $backendDir 'scripts\pixi-setup.ps1')
+    if ($LASTEXITCODE -ne 0) { throw "backend\scripts\pixi-setup.ps1 failed (exit $LASTEXITCODE)" }
+}
+
+# ---------- Postgres preflight ----------------------------------------------
+# launch.py does NOT launch Postgres; it expects the cluster to be up. The
+# canonical way is the Windows service (backend/scripts/pg-service.ps1), but
+# Postgres might equally be run another way (a differently-named service, a
+# container, a foreground postmaster, a remote host). So reachability is the
+# source of truth here: probe the port first, and only fall back to managing
+# the named service when nothing is answering on it.
+#
+#   - port reachable                       -> proceed (warn if the managed
+#                                             service looks abnormal, but a
+#                                             reachable DB is all the children
+#                                             actually need)
+#   - port dead + service Stopped          -> auto-start the service, re-probe
+#   - port dead + service missing/unstartable -> fail fast with guidance
+#     (every Flask/Celery child would otherwise die on its first connect)
+
+function Test-PgPortOpen {
+    param([string]$TargetHost, [int]$Port, [int]$TimeoutMs = 1000)
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $iar = $client.BeginConnect($TargetHost, $Port, $null, $null)
+        if ($iar.AsyncWaitHandle.WaitOne($TimeoutMs) -and $client.Connected) {
+            $client.EndConnect($iar)
+            return $true
+        }
+        return $false
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
+
+function Resolve-PgHostPort {
+    # Pull host:port out of VNDB_DB_URL in backend/.env so the readiness probe
+    # hits the same cluster the app connects to. Defaults to localhost:5432.
+    $result = @{ TargetHost = 'localhost'; Port = 5432 }
+    $envFile = Join-Path $backendDir '.env'
+    if (Test-Path $envFile) {
+        foreach ($line in Get-Content $envFile) {
+            if ($line -match '^\s*VNDB_DB_URL\s*=\s*(.+?)\s*$') {
+                $url = $Matches[1].Trim().Trim('"').Trim("'")
+                if ($url -match '@([^:/@]+):(\d+)/') {
+                    $result.TargetHost = $Matches[1]
+                    $result.Port = [int]$Matches[2]
+                }
+                break
+            }
+        }
+    }
+    return $result
+}
+
+function Ensure-Postgres {
+    $pg = Resolve-PgHostPort
+    $probeHost = if ($pg.TargetHost -in @('0.0.0.0', '::')) { 'localhost' } else { $pg.TargetHost }
+    $svc = Get-Service -Name $PgServiceName -ErrorAction SilentlyContinue
+
+    # 1. Reachability first — if the cluster already accepts connections we're
+    #    done, regardless of how it's being run.
+    Write-Host "[PG] Probing ${probeHost}:$($pg.Port) ..." -ForegroundColor Cyan
+    if (Test-PgPortOpen -TargetHost $probeHost -Port $pg.Port) {
+        if (-not $svc) {
+            Write-Host "[PG] Reachable on ${probeHost}:$($pg.Port) (service '$PgServiceName' not registered — Postgres is running another way). Proceeding." -ForegroundColor Green
+        } elseif ($svc.Status -ne 'Running') {
+            Write-Host "[PG][WARN] Reachable on ${probeHost}:$($pg.Port), but the managed service '$PgServiceName' is '$($svc.Status)' — something else is serving this port. Proceeding anyway." -ForegroundColor Yellow
+        } else {
+            Write-Host "[PG] Reachable on ${probeHost}:$($pg.Port) (service '$PgServiceName' Running)." -ForegroundColor Green
+        }
+        return
+    }
+
+    # 2. Nothing answering on the port — fall back to the managed service.
+    Write-Host "[PG] Not reachable; checking service '$PgServiceName'." -ForegroundColor Cyan
+    if (-not $svc) {
+        Write-Host "[PG][ERROR] Nothing listening on ${probeHost}:$($pg.Port) and service '$PgServiceName' is not registered." -ForegroundColor Red
+        Write-Host "            Register it once from an elevated PowerShell:" -ForegroundColor Red
+        Write-Host "              backend\scripts\pg-service.ps1 register" -ForegroundColor Red
+        Write-Host "            Or pass -SkipPgCheck if you run Postgres another way." -ForegroundColor Red
+        throw "PostgreSQL not reachable on ${probeHost}:$($pg.Port) and service '$PgServiceName' not found."
+    }
+
+    if ($svc.Status -ne 'Running') {
+        Write-Host "[PG] Service is '$($svc.Status)'; attempting Start-Service ..." -ForegroundColor Yellow
+        try {
+            Start-Service -Name $PgServiceName -ErrorAction Stop
+            (Get-Service -Name $PgServiceName).WaitForStatus('Running', '00:00:30')
+            Write-Host "[PG] Service started." -ForegroundColor Green
+        } catch {
+            Write-Host "[PG][ERROR] Could not start '$PgServiceName': $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "            Start it from an elevated PowerShell:" -ForegroundColor Red
+            Write-Host "              backend\scripts\pg-service.ps1 start" -ForegroundColor Red
+            throw "PostgreSQL service '$PgServiceName' is not running."
+        }
+    }
+
+    # 3. Service is Running now (or already was) but the port wasn't answering
+    #    a moment ago — a 'Running' service can briefly precede the postmaster
+    #    accepting TCP connections, so re-probe with a short retry window.
+    Write-Host "[PG] Waiting for ${probeHost}:$($pg.Port) to accept connections ..." -ForegroundColor Cyan
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-PgPortOpen -TargetHost $probeHost -Port $pg.Port) {
+            Write-Host "[PG] Accepting connections on ${probeHost}:$($pg.Port)." -ForegroundColor Green
+            return
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-Host "[PG][ERROR] '$PgServiceName' is Running but ${probeHost}:$($pg.Port) never accepted a connection within 30s." -ForegroundColor Red
+    Write-Host "            Inspect the cluster: backend\scripts\pg-service.ps1 status" -ForegroundColor Red
+    throw "PostgreSQL not accepting connections on ${probeHost}:$($pg.Port)."
+}
+
+if ($SkipPgCheck) {
+    Write-Host "[PG] -SkipPgCheck set; skipping PostgreSQL service/readiness check." -ForegroundColor Yellow
+} else {
+    Ensure-Postgres
 }
 
 # ---------- optional build step ---------------------------------------------
@@ -92,12 +224,12 @@ if (Test-Path $srcPublic) {
 # ---------- launch children -------------------------------------------------
 # Use Start-Process so we get a proper Process object back and can Wait/Stop
 # them individually. Both children inherit the console, so their stdout
-# interleaves into this terminal — same UX as run.py.
+# interleaves into this terminal — same UX as `pixi run dev`.
 
-Write-Host "[START] backend/prod.py via pixi (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
-# `pixi run prod -- --next-port N` -> `python prod.py --next-port N` inside
-# the pixi env. The `--` separator keeps pixi from claiming `--next-port`
-# as one of its own flags.
+Write-Host "[START] backend/launch.py prod via pixi (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
+# `pixi run prod -- --next-port N` -> `python launch.py prod --next-port N`
+# inside the pixi env. The `--` separator keeps pixi from claiming
+# `--next-port` as one of its own flags.
 $backend = Start-Process `
     -FilePath 'pixi' `
     -ArgumentList @('run', 'prod', '--', '--next-port', $NextPort) `
@@ -128,8 +260,8 @@ $children = @($backend, $frontend)
 
 function Stop-Children {
     # The graceful path is Ctrl+C in the terminal: Windows fans a CTRL_C_EVENT
-    # out to the whole console process group (this script, prod.py, node, and
-    # all of their grandchildren), and prod.py's signal_handler tears down
+    # out to the whole console process group (this script, launch.py, node, and
+    # all of their grandchildren), and launch.py's signal_handler tears down
     # Redis/Celery/Flask/Caddy in order. This function is the *backstop* for
     # the case where Ctrl+C didn't reach the children — e.g. the script was
     # killed externally. taskkill /T walks the whole process tree so grand-
@@ -151,7 +283,7 @@ try {
     while ($true) {
         Start-Sleep -Seconds 1
         if ($backend.HasExited) {
-            Write-Host "[EXIT] backend/prod.py exited with $($backend.ExitCode); stopping frontend" -ForegroundColor Yellow
+            Write-Host "[EXIT] backend/launch.py exited with $($backend.ExitCode); stopping frontend" -ForegroundColor Yellow
             break
         }
         if ($frontend.HasExited) {

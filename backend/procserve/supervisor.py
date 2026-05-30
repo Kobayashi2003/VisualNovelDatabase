@@ -38,7 +38,7 @@ class Supervisor:
         Edges that point at names not in the spec list are dropped (treated
         as already-satisfied). This is what lets the spec-maker pattern
         work: postgres isn't in the spec list at all (it runs as an external
-        Windows service — see backend/pg-service.ps1), yet the flask/celery
+        Windows service — see backend/scripts/pg-service.ps1), yet the flask/celery
         specs still declare `depends_on=["postgres"]`; the missing edge is
         treated as out-of-scope rather than missing, so they still start."""
         by_name = {s.name: s for s in self.specs}
@@ -237,7 +237,7 @@ class Supervisor:
 
         # Windows has no SIGTERM and SIGINT only reaches us when the console
         # has focus; SIGBREAK (Ctrl+Break) covers the "another tool killed
-        # the parent" case. Mirror the original run.py wiring.
+        # the parent" case. Mirror the original launcher wiring.
         if sys.platform == "win32":
             signal.signal(signal.SIGBREAK, handler)
         signal.signal(signal.SIGINT, handler)

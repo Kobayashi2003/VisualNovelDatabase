@@ -18,13 +18,14 @@
 # Cache-Control header — Flask is never hit. Cache misses fall through to
 # the Flask reverse_proxy, which runs the Redis single-flight fetch+store.
 #
-# Env vars (set by backend/run.py / backend/prod.py when launching caddy):
+# Env vars (set by backend/launch.py when launching caddy):
 #   CADDY_BIND            - bind address, e.g. ":30709"
 #   IMGSERVE_PORT         - Flask imgserve port,  e.g. 5001
 #   USERSERVE_PORT        - Flask userserve port, e.g. 5002
 #   VNDB_PORT             - Flask vndb port,      e.g. 5000
 #   NEXT_PORT             - Next.js server port,  e.g. 5003
-#                           (set by prod.py; unset under run.py, so dev
+#                           (set by `launch.py prod`; unset under `launch.py
+#                            dev`, so dev
 #                            traffic hits `next dev` on :5003 directly and
 #                            the catch-all `handle` here 502s — that's the
 #                            expected dev signal)
@@ -97,7 +98,7 @@
 	# /_next/* bundles and static assets. Backend calls never reach here —
 	# the frontend hits /vndb, /imgserve, /userserve directly (see
 	# frontend/lib/constants.ts) and the prefix matchers above intercept them.
-	# When NEXT_PORT is unset (dev: only the backend run.py is running, no
+	# When NEXT_PORT is unset (dev: only the backend launch.py is running, no
 	# Next), the proxy fails with a connection error and Caddy returns 502,
 	# which is the correct signal that the frontend isn't being served by
 	# Caddy in that mode.

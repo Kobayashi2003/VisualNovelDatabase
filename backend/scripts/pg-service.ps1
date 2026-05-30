@@ -1,7 +1,7 @@
 # ============================================================================
 # Register / unregister PostgreSQL as a Windows service.
 #
-# Why this exists: the app launchers (run.py / prod.py) no longer spawn
+# Why this exists: the app launcher (launch.py) no longer spawns
 # postgres themselves. A foreground postgres under the Python supervisor only
 # gets a clean shutdown on the narrow "Ctrl+C in the terminal" path — close
 # the console window, log off, or let start-prod.ps1's taskkill /F /T backstop
@@ -68,7 +68,8 @@ function Resolve-PgCtl {
 function Resolve-PgData {
     if ($PgData) { return $PgData }
 
-    $envFile = Join-Path $PSScriptRoot '.env'
+    # backend/.env lives one level up from this scripts/ folder.
+    $envFile = Join-Path (Split-Path $PSScriptRoot -Parent) '.env'
     if (Test-Path $envFile) {
         foreach ($line in Get-Content $envFile) {
             if ($line -match '^\s*PG_DATA\s*=\s*(.+?)\s*$') {

@@ -11,7 +11,22 @@ import { IMGSERVE_BASE_URL } from "@/lib/constants"
 import { HeaderBar } from "@/components/header/HeaderBar"
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const bgUrl = `url(${IMGSERVE_BASE_URL}/bg)`
+  // Defer the (large) page background so content images win the network first;
+  // it's fetched once the browser goes idle, after the initial render.
+  const [bgUrl, setBgUrl] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    const url = `url(${IMGSERVE_BASE_URL}/bg)`
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setBgUrl(url))
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = setTimeout(() => setBgUrl(url), 200)
+    return () => clearTimeout(t)
+  }, [])
 
   // The Kobayashi showcase hides the global search header and supplies its own
   // pin-to-top toolbar instead, so it starts flush against the viewport top.

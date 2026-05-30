@@ -5,6 +5,7 @@ import {
   VN_Small, Release_Small, Character_Small, Producer_Small,
   Staff_Small, Tag_Small, Trait_Small, User, Category, Mark,
   VNDBQueryParams, MarksQueryParams, PaginatedResponse, PublicVNCollections,
+  RelationGraph, RelationGraphNode,
 } from "./types"
 import {
   VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL,
@@ -270,6 +271,10 @@ function processSmallCharacterImages(character: Character_Small): Character_Smal
   return { ...character, image: character.image && { ...character.image, url: convertToImgserveUrl(character.image.url) } }
 }
 
+function processGraphNodeImage(node: RelationGraphNode): RelationGraphNode {
+  return { ...node, image: node.image && { ...node.image, url: convertToImgserveUrl(node.image.url), thumbnail: convertToImgserveUrl(node.image.thumbnail) } }
+}
+
 // Maps a per-item processor across the `results` array of a paginated response.
 function processVNDBResponse<T>(response: PaginatedResponse<T>, processor: (item: T) => T): PaginatedResponse<T> {
   return { ...response, results: response.results.map(processor) }
@@ -326,6 +331,20 @@ export const api = {
     trait: (id: number, params: VNDBQueryParams = {}, abortSignal?: AbortSignal) => {
       params.size = "large"; return fetchVNDBById<Trait>(`i${id}`, params, undefined, abortSignal)
     },
+  },
+
+  /* VNDB: relation graph — the connected component of VN-to-VN relations rooted
+     at a VN. Returns a single graph object (not the paginated list shape), so it
+     has its own fetcher; node cover images are mirrored through imgserve. */
+  relationGraph: async (id: number, params: VNDBQueryParams = {}, abortSignal?: AbortSignal): Promise<RelationGraph> => {
+    const queryString = new URLSearchParams(params as Record<string, string>).toString()
+    const url = `${getBaseUrl("vndb")}/v${id}/rg${queryString ? `?${queryString}` : ""}`
+    const response = await fetch(url, { method: "GET", signal: abortSignal })
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+    const data: { status: string; results: RelationGraph } = await response.json()
+    if (data.status === "ERROR" || data.status === "NOT_FOUND") throw new Error(`VNDB error! status: ${data.status}`)
+    const graph = data.results
+    return { ...graph, nodes: graph.nodes.map(processGraphNodeImage) }
   },
 
   /* VNDB: small variants (list cards, autocomplete, …) */

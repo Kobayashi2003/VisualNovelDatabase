@@ -527,3 +527,35 @@ export interface PublicVNCollections {
   collections: Array<{ category_name: string; marks: Mark[] }>
   ratings: Record<number, number>
 }
+
+
+/* ─── Relation graph ───────────────────────────────────────────────────────── */
+// The connected component of VN-to-VN relations rooted at one title, returned
+// by `/v{id}/relations/graph`. `nodes` carry display metadata; `edges` are
+// already deduplicated and oriented by the backend (directed types point
+// earliest → latest, symmetric types carry `directed: false`).
+
+export interface RelationGraphNode {
+  id: string
+  title: string
+  alttitle?: string
+  titles: VN["titles"]
+  image?: VN["image"]
+  released?: string
+  devstatus: number
+}
+
+export interface RelationGraphEdge {
+  a: string
+  b: string
+  relation: string
+  official: boolean
+  directed: boolean
+}
+
+export interface RelationGraph {
+  root: string
+  nodes: RelationGraphNode[]
+  edges: RelationGraphEdge[]
+  truncated: boolean
+}

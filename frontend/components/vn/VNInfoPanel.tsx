@@ -4,7 +4,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Network } from "lucide-react"
 import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
@@ -209,7 +209,16 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
 
       {Object.keys(relationGroups).length > 0 && (
         <div className="rounded-lg bg-surface border border-white/5 px-3 py-2 mb-3">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Relations</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Relations</p>
+            <Link
+              href={`/${vn.id}/rg`}
+              className="flex items-center gap-1 text-[11px] text-muted hover:text-accent transition-colors"
+            >
+              <Network className="w-3 h-3" />
+              Graph
+            </Link>
+          </div>
           {Object.entries(relationGroups).map(([relType, items]) => (
             <div key={relType} className="mb-2 last:mb-0">
               <p className="text-xs text-muted mb-1">{relType}</p>

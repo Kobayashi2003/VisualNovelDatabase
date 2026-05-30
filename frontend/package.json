@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
+    "@xyflow/react": "^12.10.2",
     "clsx": "^2.1.1",
+    "elkjs": "^0.11.1",
     "lucide-react": "^1.14.0",
     "motion": "^12.38.0",
     "next": "16.2.6",

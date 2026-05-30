@@ -2,6 +2,7 @@ from flask import Blueprint, abort, jsonify, request
 from vndb.tasks.resources import (
     get_resources_task, search_resources_task
 )
+from vndb.tasks.relation_graph import get_relation_graph_task, GRAPH_DEPTH_CAP
 from .common import execute_task
 
 RESOURCE_TYPE_MAP = {
@@ -37,6 +38,27 @@ def _remote_with_local_fallback(resource_type, params, response_size,
 
     return jsonify(remote_result)
 
+
+@query_bp.route('/<string:query>/rg', methods=['GET'])
+def handle_relation_graph(query):
+
+    resource_type = RESOURCE_TYPE_MAP.get(query[0].lower())
+    if resource_type != 'vn':
+        abort(400, description="Relation graph is only available for visual novels")
+
+    try:
+        int(query[1:])
+    except ValueError:
+        abort(400, description="Invalid ID format")
+
+    if QUERY_MODE == 'disabled':
+        abort(503, description="Query API is currently disabled")
+
+    params = request.args.to_dict()
+    depth = int(params.pop('depth', GRAPH_DEPTH_CAP))
+    official_only = params.pop('official_only', 'false').lower() == 'true'
+
+    return execute_task(get_relation_graph_task, True, query, depth, official_only)
 
 @query_bp.route('/<string:query>', methods=['GET'])
 def handle_query(query):

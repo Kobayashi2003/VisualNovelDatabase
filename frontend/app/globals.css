@@ -60,3 +60,4 @@ body {
 .animate-slide-up-fade {
   animation: slide-up-fade 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+

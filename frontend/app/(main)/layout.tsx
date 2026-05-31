@@ -31,8 +31,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   // The Kobayashi showcase hides the global search header and supplies its own
   // pin-to-top toolbar instead, so it starts flush against the viewport top.
+  // The relation-graph page (`/{slug}/rg`) is full-bleed with its own frosted
+  // header overlay, so the global header — and its top-edge peek — must stay out.
   const pathname = usePathname()
-  const hideHeader = pathname === "/kobayashi"
+  const hideHeader = pathname === "/kobayashi" || pathname.endsWith("/rg")
 
   // Drives the auto-hide header when the user scrolls down.
   const { trigger } = useOnScroll({ scrollThreshold: 30, throttleTime: 150, debounceTime: 200 })
@@ -50,6 +52,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const overlayOpen = useScrollLocked()
   const [pointerAtTop, setPointerAtTop] = useState(false)
   useEffect(() => {
+    // No header on these routes, so nothing to peek — don't track the pointer.
+    if (hideHeader) return
     const onMove = (e: MouseEvent) => {
       // Track the live header height (it wraps to two rows on narrow widths) so
       // moving onto the lower search row doesn't fall out of the zone and dismiss it.
@@ -68,7 +72,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       window.removeEventListener("mousemove", onMove)
       document.documentElement.removeEventListener("mouseleave", onLeave)
     }
-  }, [])
+  }, [hideHeader])
 
   // Hidden only when scrolled down AND not being peeked at the top edge. The
   // spacer / `--header-h` stay tied to `trigger`, so a peek overlays content

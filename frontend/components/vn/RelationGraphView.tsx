@@ -13,7 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react"
 import { useRouter } from "next/navigation"
-import { Crosshair, Maximize2, Plus, Minus, GripVertical, Waypoints, Tag, RefreshCw, Asterisk, ChevronUp, Settings2, Image as ImageIcon, ImageOff } from "lucide-react"
+import { Crosshair, Maximize2, Plus, Minus, GripVertical, Waypoints, Tag, RefreshCw, Asterisk, ChevronUp, Settings2, Image as ImageIcon, ImageOff, Route, CalendarArrowDown } from "lucide-react"
 import {
   ReactFlow, Background, BackgroundVariant, Panel,
   Handle, Position, MarkerType, BaseEdge, EdgeLabelRenderer,
@@ -72,10 +72,20 @@ const TOGGLE_OFF = "border-white/10 bg-elevated/60 text-muted hover:text-white"
 
 type XYPoint = { x: number; y: number }
 type Box = { x: number; y: number; w: number; h: number }
-type VNNodeData = { node: RelationGraphNode; isRoot: boolean; showCovers: boolean; dim?: boolean; pulse?: number }
+type VNNodeData = { node: RelationGraphNode; isRoot: boolean; showCovers: boolean; dim?: boolean; pulse?: number; pick?: boolean }
 type VNFlowNode = Node<VNNodeData, "vn">
-type RelationEdgeData = { points: XYPoint[]; labelX: number; labelY: number; labelHidden: boolean }
+type RelationEdgeData = { points: XYPoint[]; labelX: number; labelY: number; labelHidden: boolean; relation: string }
 type RelationFlowEdge = Edge<RelationEdgeData>
+
+// What's currently focused. All three forms collapse to a set of edges + nodes
+// (see `focusSets`) so they share one dim/highlight pass:
+//   edge     — one clicked link and its two endpoints
+//   relation — every link of the same relation type (a second tap on that link)
+//   path     — every link/node on a simple path between two chosen titles
+type FocusState =
+  | { type: "edge"; edgeId: string }
+  | { type: "relation"; relation: string; originEdgeId: string }
+  | { type: "path"; a: string; b: string }
 
 
 /* ─── Edge geometry ────────────────────────────────────────────────────────── */
@@ -180,6 +190,91 @@ function directGraph(graph: RelationGraph): RelationGraph {
   }
 }
 
+// Union of every edge and node lying on some simple (acyclic) path between two
+// titles, over the *undirected* relation graph — relations connect titles
+// regardless of arrow direction, so we walk both ways. DFS with a visited set
+// keeps each path acyclic; the caps bound the worst case (all-simple-paths is
+// exponential) while comfortably covering realistic component sizes.
+function pathUnion(edges: Edge[], start: string, end: string): { edges: Set<string>; nodes: Set<string> } | null {
+  if (start === end) return null
+  const adj = new Map<string, { to: string; id: string }[]>()
+  const link = (a: string, b: string, id: string) => {
+    const arr = adj.get(a); if (arr) arr.push({ to: b, id }); else adj.set(a, [{ to: b, id }])
+  }
+  for (const e of edges) { link(e.source, e.target, e.id); link(e.target, e.source, e.id) }
+
+  const outEdges = new Set<string>(), outNodes = new Set<string>()
+  const visited = new Set<string>([start])
+  const trail: string[] = []
+  let paths = 0
+  const MAX_PATHS = 20000, MAX_DEPTH = 40
+
+  const dfs = (node: string): void => {
+    if (node === end) {
+      paths++
+      for (const id of trail) outEdges.add(id)
+      for (const n of visited) outNodes.add(n)
+      return
+    }
+    if (trail.length >= MAX_DEPTH) return
+    for (const { to, id } of adj.get(node) ?? []) {
+      if (paths >= MAX_PATHS) return
+      if (visited.has(to)) continue
+      visited.add(to); trail.push(id)
+      dfs(to)
+      trail.pop(); visited.delete(to)
+    }
+  }
+  dfs(start)
+
+  return outEdges.size ? { edges: outEdges, nodes: outNodes } : null
+}
+
+// Year prefix of a VNDB release date ("2009-05-29" | "2009" | "TBA" | "" | undefined).
+function parseYear(released?: string): number | null {
+  const m = released?.match(/^\d{4}/)
+  return m ? Number(m[0]) : null
+}
+
+// Assign every node a layer partition for the chronological layout. Dated nodes
+// use their release year; undated nodes inherit the nearest dated node's year via
+// a multi-source breadth-first sweep (smallest year first, so they settle beside
+// their relations); any node with no dated node anywhere in its component falls
+// into a trailing "unknown" band. Returns node-id → dense partition index
+// (0 = earliest year = top, with DOWN direction).
+function yearPartitions(graph: RelationGraph): Map<string, number> {
+  const year = new Map<string, number>()
+  for (const n of graph.nodes) {
+    const y = parseYear(n.released)
+    if (y !== null) year.set(n.id, y)
+  }
+
+  const adj = new Map<string, string[]>()
+  const link = (a: string, b: string) => { const arr = adj.get(a); if (arr) arr.push(b); else adj.set(a, [b]) }
+  for (const e of graph.edges) { link(e.a, e.b); link(e.b, e.a) }
+
+  // Sorted dated nodes seed the sweep; the queue grows as undated nodes inherit a
+  // year, and the `has` guard means the first (nearest, earliest) source wins.
+  const queue = [...year.keys()].sort((a, b) => year.get(a)! - year.get(b)!)
+  for (let i = 0; i < queue.length; i++) {
+    const cur = queue[i]
+    for (const nb of adj.get(cur) ?? []) {
+      if (!year.has(nb)) { year.set(nb, year.get(cur)!); queue.push(nb) }
+    }
+  }
+
+  const sorted = [...new Set(year.values())].sort((a, b) => a - b)
+  const index = new Map(sorted.map((y, i) => [y, i]))
+  const trailing = sorted.length   // unreachable-from-any-date nodes
+
+  const partition = new Map<string, number>()
+  for (const n of graph.nodes) {
+    const y = year.get(n.id)
+    partition.set(n.id, y !== undefined ? index.get(y)! : trailing)
+  }
+  return partition
+}
+
 // ELK lays out the layered DAG AND routes the edges orthogonally around the
 // cards, keeping clearance between edges and nodes — that is what removes the
 // spurious bends, card crossings and near-overlapping lines we saw before.
@@ -197,7 +292,7 @@ const ELK_OPTIONS: Record<string, string> = {
   "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
 }
 
-async function layoutGraph(graph: RelationGraph, showCovers: boolean): Promise<{ nodes: VNFlowNode[]; edges: Edge[] }> {
+async function layoutGraph(graph: RelationGraph, showCovers: boolean, byYear: boolean): Promise<{ nodes: VNFlowNode[]; edges: Edge[] }> {
   const size = showCovers ? NODE.covers : NODE.noCovers
   const RELATION = enumMap("RELATION")
 
@@ -205,10 +300,17 @@ async function layoutGraph(graph: RelationGraph, showCovers: boolean): Promise<{
     e, id: `${e.a}-${e.b}-${e.relation}-${i}`, text: RELATION[e.relation] ?? e.relation,
   }))
 
+  // Chronological mode pins each node to a year-derived partition; ELK still does
+  // crossing reduction and orthogonal routing within and between those bands.
+  const partitions = byYear ? yearPartitions(graph) : null
+
   const laid: ElkNode = await elk.layout({
     id: "root",
-    layoutOptions: ELK_OPTIONS,
-    children: graph.nodes.map(n => ({ id: n.id, width: size.w, height: size.h })),
+    layoutOptions: partitions ? { ...ELK_OPTIONS, "elk.partitioning.activate": "true" } : ELK_OPTIONS,
+    children: graph.nodes.map(n => ({
+      id: n.id, width: size.w, height: size.h,
+      ...(partitions ? { layoutOptions: { "elk.partitioning.partition": String(partitions.get(n.id) ?? 0) } } : {}),
+    })),
     edges: descriptors.map(({ e, id }) => ({ id, sources: [e.a], targets: [e.b] })),
   })
 
@@ -257,7 +359,7 @@ async function layoutGraph(graph: RelationGraph, showCovers: boolean): Promise<{
         strokeDasharray: style.dashed ? "5 4" : undefined,
         opacity: e.official ? 0.9 : 0.4,
       },
-      data: { points, labelX: mid.x, labelY: mid.y, labelHidden: false } as RelationEdgeData,
+      data: { points, labelX: mid.x, labelY: mid.y, labelHidden: false, relation: e.relation } as RelationEdgeData,
     }
   })
 
@@ -293,7 +395,7 @@ function panExtent(nodes: VNFlowNode[], showCovers: boolean): CoordinateExtent |
 
 function VNGraphNode({ data }: NodeProps<VNFlowNode>) {
   const { showOriginal } = useSearchContext()
-  const { node, isRoot, showCovers, dim, pulse } = data
+  const { node, isRoot, showCovers, dim, pulse, pick } = data
   const title = displayTitle(node, showOriginal)
   const size = showCovers ? NODE.covers : NODE.noCovers
   const cover = node.image?.thumbnail || node.image?.url
@@ -306,6 +408,8 @@ function VNGraphNode({ data }: NodeProps<VNFlowNode>) {
         "border backdrop-blur-sm transition-[opacity,transform,border-color] duration-200",
         "bg-gradient-to-br from-elevated/95 to-surface/95 shadow-lg shadow-black/30",
         isRoot ? "border-accent ring-2 ring-accent/40" : "border-white/10 hover:border-white/40 hover:-translate-y-0.5",
+        // Path endpoint pick — overrides the resting border so it reads while choosing.
+        pick && "!border-sky-400 ring-2 ring-sky-400/60",
       )}
     >
       {/* Locate pulse — a sonar ring keyed so it restarts on each tap. */}
@@ -318,6 +422,12 @@ function VNGraphNode({ data }: NodeProps<VNFlowNode>) {
       {isRoot && (
         <span className="absolute top-1 right-1 rounded-full bg-accent/90 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-black">
           Root
+        </span>
+      )}
+
+      {pick && (
+        <span className="absolute bottom-1 right-1 rounded-full bg-sky-400/90 px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-black">
+          Path
         </span>
       )}
 
@@ -506,6 +616,8 @@ function GraphPanel({
   rootId, nodes, relations, hiddenRelations, onToggleRelation,
   showCovers, onToggleCovers, directOnly, onToggleDirect,
   showLabels, onToggleLabels, showUnofficial, onToggleUnofficial,
+  chronological, onToggleChronological,
+  pathMode, onTogglePath, pathHint, pathMsg,
   onLocate, onRefresh,
 }: {
   rootId: string
@@ -517,10 +629,16 @@ function GraphPanel({
   onToggleCovers: () => void
   directOnly: boolean
   onToggleDirect: () => void
+  chronological: boolean
+  onToggleChronological: () => void
   showLabels: boolean
   onToggleLabels: () => void
   showUnofficial: boolean
   onToggleUnofficial: () => void
+  pathMode: boolean
+  onTogglePath: () => void
+  pathHint: string | null
+  pathMsg: string | null
   onLocate: () => void
   onRefresh: () => void
 }) {
@@ -617,6 +735,22 @@ function GraphPanel({
         </button>
       </div>
 
+      <div className="flex">
+        <button onClick={onToggleChronological} title="Lay out titles in release-year order (earliest at top)" className={cn(TOGGLE_PILL, chronological ? TOGGLE_ON : TOGGLE_OFF)}>
+          <CalendarArrowDown className="h-3.5 w-3.5" />
+          Year layers
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <button onClick={onTogglePath} title="Trace every path between two titles" className={cn(TOGGLE_PILL, pathMode ? TOGGLE_ON : TOGGLE_OFF)}>
+          <Route className="h-3.5 w-3.5" />
+          Path finder
+        </button>
+        {pathHint && <p className="px-1 text-[10px] leading-snug text-sky-300/90">{pathHint}</p>}
+        {pathMsg && <p className="px-1 text-[10px] leading-snug text-yellow-400/90">{pathMsg}</p>}
+      </div>
+
       <Overview nodes={nodes} rootId={rootId} />
 
       {relations.length > 0 && (
@@ -661,10 +795,16 @@ export function RelationGraphView({ graph, onRefresh }: { graph: RelationGraph; 
   )
   useEffect(() => { localStorage.setItem("rgShowCovers", String(showCovers)) }, [showCovers])
 
+  // Chronological layering — off by default; persisted like covers.
+  const [chronological, setChronological] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("rgChronological") === "true",
+  )
+  useEffect(() => { localStorage.setItem("rgChronological", String(chronological)) }, [chronological])
+
   const [hiddenRelations, setHiddenRelations] = useState<Set<string>>(new Set())
   const [directOnly, setDirectOnly] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
-  const [showUnofficial, setShowUnofficial] = useState(true)
+  const [showUnofficial, setShowUnofficial] = useState(false)
 
   const allRelations = useMemo(() => [...new Set(graph.edges.map(e => e.relation))], [graph])
   const toggleRelation = useCallback((rel: string) => {
@@ -687,36 +827,68 @@ export function RelationGraphView({ graph, onRefresh }: { graph: RelationGraph; 
   const [initial, setInitial] = useState<{ nodes: VNFlowNode[]; edges: Edge[] }>({ nodes: [], edges: [] })
   useEffect(() => {
     let cancelled = false
-    layoutGraph(filteredGraph, showCovers).then(result => { if (!cancelled) setInitial(result) })
+    layoutGraph(filteredGraph, showCovers, chronological).then(result => { if (!cancelled) setInitial(result) })
     return () => { cancelled = true }
-  }, [filteredGraph, showCovers])
+  }, [filteredGraph, showCovers, chronological])
   const translateExtent = useMemo(() => panExtent(initial.nodes, showCovers), [initial, showCovers])
 
   // Transient presentation state, folded into the rendered nodes/edges below.
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [focus, setFocus] = useState<FocusState | null>(null)
   const [pulse, setPulse] = useState<{ id: string; stamp: number } | null>(null)
+
+  // Path-finder mode: pick two titles to trace the links between them.
+  const [pathMode, setPathMode] = useState(false)
+  const [pathStart, setPathStart] = useState<string | null>(null)
+  const [pathMsg, setPathMsg] = useState<string | null>(null)
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VNFlowNode>(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initial.edges)
 
+  // Collapse the active focus into the exact edges and nodes to highlight. Every
+  // focus form (one edge, a whole relation, a traced path) reduces to this pair,
+  // so the dim/highlight pass below treats them identically. `null` = no focus.
+  const focusSets = useMemo<{ edges: Set<string>; nodes: Set<string> } | null>(() => {
+    if (!focus) return null
+    if (focus.type === "edge") {
+      const e = initial.edges.find(x => x.id === focus.edgeId)
+      return e ? { edges: new Set([e.id]), nodes: new Set([e.source, e.target]) } : null
+    }
+    if (focus.type === "relation") {
+      const fe = new Set<string>(), fn = new Set<string>()
+      for (const e of initial.edges) {
+        if ((e.data as RelationEdgeData | undefined)?.relation === focus.relation) {
+          fe.add(e.id); fn.add(e.source); fn.add(e.target)
+        }
+      }
+      return fe.size ? { edges: fe, nodes: fn } : null
+    }
+    return pathUnion(initial.edges, focus.a, focus.b)
+  }, [focus, initial.edges])
+
+  // A layout change (filter / direct / covers) can't corrupt the highlight:
+  // `focusSets` recomputes from the new edges and yields `null` when the focused
+  // edges no longer exist, which simply clears the dimming.
+
   // The one place presentation is applied: re-derive nodes/edges from `initial`
-  // whenever it, the focused edge, the locate pulse, or the label toggle changes.
-  // Focusing an edge dims everything but that edge and its two endpoints, and
+  // whenever it, the focus, the locate pulse, or the label toggle changes.
+  // Focusing dims everything but the focused edges and their endpoints, and
   // hides every other label.
   useEffect(() => {
-    const sel = selectedEdgeId ? initial.edges.find(e => e.id === selectedEdgeId) : null
-    const keep = sel ? new Set([sel.source, sel.target]) : null
-
     setNodes(initial.nodes.map(n => ({
       ...n,
-      data: { ...n.data, dim: keep ? !keep.has(n.id) : false, pulse: pulse?.id === n.id ? pulse.stamp : undefined },
+      data: {
+        ...n.data,
+        dim: focusSets ? !focusSets.nodes.has(n.id) : false,
+        pick: pathStart === n.id,
+        pulse: pulse?.id === n.id ? pulse.stamp : undefined,
+      },
     })))
 
     setEdges(initial.edges.map(e => {
-      const selected = e.id === selectedEdgeId
-      const dimmed = !!sel && !selected
-      // A collision-hidden label still shows when its edge is the focused one
-      // (everything else is dimmed then, so it can't overlap anything).
+      const selected = focusSets ? focusSets.edges.has(e.id) : false
+      const dimmed = !!focusSets && !selected
+      // A collision-hidden label still shows when its edge is focused (everything
+      // else is dimmed then, so it can't overlap anything).
       const labelHidden = (e.data as RelationEdgeData | undefined)?.labelHidden
       const showLabel = showLabels && !dimmed && (selected || !labelHidden)
       // No zIndex bump on the focused edge: elevating it drew the line above the
@@ -728,7 +900,7 @@ export function RelationGraphView({ graph, onRefresh }: { graph: RelationGraph; 
         style: { ...e.style, opacity: dimmed ? 0.05 : selected ? 1 : e.style?.opacity, strokeWidth: selected ? 3 : e.style?.strokeWidth },
       }
     }))
-  }, [initial, selectedEdgeId, pulse, showLabels, setNodes, setEdges])
+  }, [initial, focusSets, pathStart, pulse, showLabels, setNodes, setEdges])
 
   // Re-fit when the layout changes (filter / direct / covers) so the viewport
   // stays valid — otherwise the first pan snaps it into the new translateExtent.
@@ -746,10 +918,45 @@ export function RelationGraphView({ graph, onRefresh }: { graph: RelationGraph; 
     window.setTimeout(() => setPulse(p => (p?.stamp === stamp ? null : p)), 1600)
   }, [graph.root])
 
-  const onNodeClick = useCallback<NodeMouseHandler<VNFlowNode>>((_, node) => router.push(`/${node.id}`), [router])
+  // In path mode a node click picks an endpoint (first = start, second = traces
+  // the paths and resets for the next pair); otherwise it opens the VN page.
+  const onNodeClick = useCallback<NodeMouseHandler<VNFlowNode>>((_, node) => {
+    if (!pathMode) { router.push(`/${node.id}`); return }
+    if (!pathStart) { setPathStart(node.id); setPathMsg(null); return }
+    if (pathStart === node.id) { setPathStart(null); return }  // tap the start again to undo
+    setPathStart(null)
+    // Resolve eagerly so a "no path" outcome can be reported from the click.
+    if (pathUnion(initial.edges, pathStart, node.id)) {
+      setFocus({ type: "path", a: pathStart, b: node.id }); setPathMsg(null)
+    } else {
+      setPathMsg("No path between those two titles.")
+    }
+  }, [pathMode, pathStart, router, initial.edges])
+
   // Edge focus is toggled from inside the edge (via context), so a drag there can
-  // pan instead; the pane still clears focus on a plain click.
-  const selectEdge = useCallback((edgeId: string) => setSelectedEdgeId(cur => (cur === edgeId ? null : edgeId)), [])
+  // pan instead; the pane still clears focus on a plain click. Tapping a link
+  // cycles focus: nothing → that link → every link of its relation → nothing.
+  const selectEdge = useCallback((edgeId: string) => {
+    setFocus(cur => {
+      if (cur?.type === "edge" && cur.edgeId === edgeId) {
+        const rel = (initial.edges.find(e => e.id === edgeId)?.data as RelationEdgeData | undefined)?.relation
+        return rel ? { type: "relation", relation: rel, originEdgeId: edgeId } : null
+      }
+      if (cur?.type === "relation" && cur.originEdgeId === edgeId) return null
+      return { type: "edge", edgeId }
+    })
+  }, [initial.edges])
+
+  // Toggle path mode; entering or leaving it drops any in-progress pick and any
+  // path highlight (a single-edge / relation focus is left untouched).
+  const togglePath = useCallback(() => {
+    setPathMode(v => !v)
+    setPathStart(null)
+    setFocus(cur => (cur?.type === "path" ? null : cur))
+    setPathMsg(null)
+  }, [])
+
+  const pathHint = pathMode ? (pathStart ? "Now click the destination title." : "Click the start title.") : null
 
   return (
     <EdgeSelectContext.Provider value={selectEdge}>
@@ -762,7 +969,7 @@ export function RelationGraphView({ graph, onRefresh }: { graph: RelationGraph; 
       edgeTypes={edgeTypes}
       onInit={inst => { rfRef.current = inst }}
       onNodeClick={onNodeClick}
-      onPaneClick={() => setSelectedEdgeId(null)}
+      onPaneClick={() => { setFocus(null); setPathStart(null); setPathMsg(null) }}
       fitView
       fitViewOptions={{ padding: 0.25 }}
       translateExtent={translateExtent}
@@ -786,10 +993,16 @@ export function RelationGraphView({ graph, onRefresh }: { graph: RelationGraph; 
           onToggleCovers={() => setShowCovers(v => !v)}
           directOnly={directOnly}
           onToggleDirect={() => setDirectOnly(v => !v)}
+          chronological={chronological}
+          onToggleChronological={() => setChronological(v => !v)}
           showLabels={showLabels}
           onToggleLabels={() => setShowLabels(v => !v)}
           showUnofficial={showUnofficial}
           onToggleUnofficial={() => setShowUnofficial(v => !v)}
+          pathMode={pathMode}
+          onTogglePath={togglePath}
+          pathHint={pathHint}
+          pathMsg={pathMsg}
           onLocate={onLocate}
           onRefresh={onRefresh}
         />

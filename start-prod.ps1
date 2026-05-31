@@ -23,7 +23,11 @@
 # Usage:
 #   .\start-prod.ps1                     # start with whatever is already built
 #   .\start-prod.ps1 -Build              # `npm run build` first, then start
-#   .\start-prod.ps1 -NextPort 5004      # override the Next.js port
+#   .\start-prod.ps1 -Dev                # dev-mode startup (pixi run dev + next dev,
+#                                        #   no Caddy/standalone) instead of prod
+#   .\start-prod.ps1 -Clean              # delete frontend/.next first, then start
+#                                        #   (prod: forces a rebuild; dev: next dev rebuilds)
+#   .\start-prod.ps1 -NextPort 5004      # override the Next.js port (prod + dev)
 #   .\start-prod.ps1 -SkipPgCheck        # skip the Postgres service/readiness check
 #   .\start-prod.ps1 -PgServiceName foo  # check a differently-named PG service
 # ============================================================================
@@ -31,6 +35,13 @@
 [CmdletBinding()]
 param(
     [switch]$Build,
+    # Dev-mode startup: boot the dev stack (`pixi run dev` — Flask dev
+    # servers + Flower, no mandatory Caddy) plus `next dev`, instead of the prod
+    # stack (Waitress + Caddy + Next.js standalone). No build/standalone needed.
+    [switch]$Dev,
+    # Delete frontend/.next (old build output) before starting. In prod this
+    # forces a fresh `npm run build`; in dev `next dev` recompiles from scratch.
+    [switch]$Clean,
     [int]$NextPort = 5003,
     # Postgres runs as a Windows service (backend/scripts/pg-service.ps1); this
     # is its service name (matches that script's default).
@@ -47,6 +58,10 @@ $backendDir       = Join-Path $root 'backend'
 $frontendDir      = Join-Path $root 'frontend'
 $standaloneRoot   = Join-Path $frontendDir '.next\standalone'
 $standaloneServer = Join-Path $standaloneRoot 'server.js'
+# Dev mode runs `next dev` straight through node (same as the prod standalone
+# server) rather than via npm/cmd, so Ctrl+C reaches it cleanly and taskkill /T
+# can walk its tree on the backstop path.
+$nextBin          = Join-Path $frontendDir 'node_modules\next\dist\bin\next'
 
 # Pixi is required — we launch the backend through `pixi run` so it uses
 # the env declared in backend/pixi.toml rather than whatever `python` on
@@ -179,80 +194,127 @@ if ($SkipPgCheck) {
     Ensure-Postgres
 }
 
-# ---------- optional build step ---------------------------------------------
-if ($Build) {
-    Write-Host "[BUILD] Running npm run build in frontend/" -ForegroundColor Cyan
-    Push-Location $frontendDir
-    try {
-        npm run build
-        if ($LASTEXITCODE -ne 0) { throw "npm run build failed (exit $LASTEXITCODE)" }
-    } finally {
-        Pop-Location
+# ---------- optional clean step ---------------------------------------------
+# Wipe the previous build output so a rebuild can't pick up stale chunks. In
+# prod this makes a fresh build mandatory (forced below); in dev `next dev`
+# simply recompiles into a clean .next.
+if ($Clean) {
+    $nextDir = Join-Path $frontendDir '.next'
+    if (Test-Path $nextDir) {
+        Write-Host "[CLEAN] Removing old build output: $nextDir" -ForegroundColor Cyan
+        Remove-Item -Recurse -Force $nextDir
+    } else {
+        Write-Host "[CLEAN] No existing .next to remove." -ForegroundColor Cyan
     }
 }
 
-if (-not (Test-Path $standaloneServer)) {
-    throw "Standalone build not found at $standaloneServer. Run with -Build first."
-}
-
-# ---------- mirror static + public into the standalone tree -----------------
-# Next.js standalone emits a self-contained server.js but does NOT copy the
-# static asset folders. Without this sync, browser requests for
-# /_next/static/* return 404 and the SPA shows "This page couldn't load".
-#
-# Runs every launch (not just with -Build) so a manual `npm run build`
-# outside this script — or any rebuild that changes chunk filenames — is
-# always reflected in the standalone tree. The destination folders are
-# wiped first so old chunk filenames don't linger and shadow fresh ones.
-$srcStatic = Join-Path $frontendDir '.next\static'
-if (-not (Test-Path $srcStatic)) {
-    throw "Source .next/static not found at $srcStatic. Run with -Build first."
-}
-Write-Host "[SYNC] Mirroring .next/static and public into standalone tree" -ForegroundColor Cyan
-
-$destStatic = Join-Path $standaloneRoot '.next\static'
-if (Test-Path $destStatic) { Remove-Item -Recurse -Force $destStatic }
-Copy-Item -Recurse -Force $srcStatic $destStatic
-
-$srcPublic  = Join-Path $frontendDir 'public'
-$destPublic = Join-Path $standaloneRoot 'public'
-if (Test-Path $destPublic) { Remove-Item -Recurse -Force $destPublic }
-if (Test-Path $srcPublic) {
-    Copy-Item -Recurse -Force $srcPublic $destPublic
-}
-
-# ---------- launch children -------------------------------------------------
-# Use Start-Process so we get a proper Process object back and can Wait/Stop
-# them individually. Both children inherit the console, so their stdout
+# Use Start-Process for the children so we get real Process objects back and can
+# Wait/Stop them individually. Both inherit the console, so their stdout
 # interleaves into this terminal — same UX as `pixi run dev`.
 
-Write-Host "[START] backend/launch.py prod via pixi (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
-# `pixi run prod -- --next-port N` -> `python launch.py prod --next-port N`
-# inside the pixi env. The `--` separator keeps pixi from claiming
-# `--next-port` as one of its own flags.
-$backend = Start-Process `
-    -FilePath 'pixi' `
-    -ArgumentList @('run', 'prod', '--', '--next-port', $NextPort) `
-    -WorkingDirectory $backendDir `
-    -NoNewWindow `
-    -PassThru
+if ($Dev) {
+    # ======================= DEV STARTUP ===========================
+    # Dev stack: `pixi run dev` (Flask dev servers + Flower; Caddy is opt-in via
+    # USE_CADDY and skipped by default) plus `next dev`. The browser hits Next.js
+    # directly on :$NextPort, whose rewrites (frontend/next.config.ts) proxy
+    # /vndb, /imgserve, /userserve to the Flask dev ports — so neither Caddy nor
+    # the standalone build is involved.
+    if ($Build) {
+        Write-Host "[WARN] -Build is ignored in -Dev mode; next dev compiles on demand." -ForegroundColor Yellow
+    }
+    if (-not (Test-Path $nextBin)) {
+        throw "next CLI not found at $nextBin. Run 'npm install' in frontend/ first."
+    }
 
-Write-Host "[START] Next.js standalone on :$NextPort" -ForegroundColor Green
-$nextEnv = @{ PORT = "$NextPort"; HOSTNAME = '127.0.0.1' }
-# Start-Process doesn't take an env hashtable, so set process-scoped env
-# vars before launching and unset after — server.js reads PORT/HOSTNAME at
-# startup.
-$prevPort = $env:PORT; $prevHost = $env:HOSTNAME
-$env:PORT = "$NextPort"; $env:HOSTNAME = '127.0.0.1'
-try {
-    $frontend = Start-Process `
-        -FilePath 'node' `
-        -ArgumentList @($standaloneServer) `
-        -WorkingDirectory (Split-Path $standaloneServer) `
+    Write-Host "[START] backend/launch.py dev via pixi (Flask dev + Flower)" -ForegroundColor Green
+    $backend = Start-Process `
+        -FilePath 'pixi' `
+        -ArgumentList @('run', 'dev') `
+        -WorkingDirectory $backendDir `
         -NoNewWindow `
         -PassThru
-} finally {
-    $env:PORT = $prevPort; $env:HOSTNAME = $prevHost
+
+    Write-Host "[START] Next.js dev server on http://localhost:$NextPort" -ForegroundColor Green
+    $frontend = Start-Process `
+        -FilePath 'node' `
+        -ArgumentList @($nextBin, 'dev', '--port', $NextPort) `
+        -WorkingDirectory $frontendDir `
+        -NoNewWindow `
+        -PassThru
+} else {
+    # ========================== PROD STARTUP ================================
+    # ---------- build step --------------------------------------------------
+    # -Clean wiped .next, so a build is mandatory after it; -Build requests one
+    # explicitly.
+    if ($Build -or $Clean) {
+        Write-Host "[BUILD] Running npm run build in frontend/" -ForegroundColor Cyan
+        Push-Location $frontendDir
+        try {
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "npm run build failed (exit $LASTEXITCODE)" }
+        } finally {
+            Pop-Location
+        }
+    }
+
+    if (-not (Test-Path $standaloneServer)) {
+        throw "Standalone build not found at $standaloneServer. Run with -Build (or -Clean) first."
+    }
+
+    # ---------- mirror static + public into the standalone tree -------------
+    # Next.js standalone emits a self-contained server.js but does NOT copy the
+    # static asset folders. Without this sync, browser requests for
+    # /_next/static/* return 404 and the SPA shows "This page couldn't load".
+    #
+    # Runs every launch (not just with -Build) so a manual `npm run build`
+    # outside this script — or any rebuild that changes chunk filenames — is
+    # always reflected in the standalone tree. The destination folders are
+    # wiped first so old chunk filenames don't linger and shadow fresh ones.
+    $srcStatic = Join-Path $frontendDir '.next\static'
+    if (-not (Test-Path $srcStatic)) {
+        throw "Source .next/static not found at $srcStatic. Run with -Build (or -Clean) first."
+    }
+    Write-Host "[SYNC] Mirroring .next/static and public into standalone tree" -ForegroundColor Cyan
+
+    $destStatic = Join-Path $standaloneRoot '.next\static'
+    if (Test-Path $destStatic) { Remove-Item -Recurse -Force $destStatic }
+    Copy-Item -Recurse -Force $srcStatic $destStatic
+
+    $srcPublic  = Join-Path $frontendDir 'public'
+    $destPublic = Join-Path $standaloneRoot 'public'
+    if (Test-Path $destPublic) { Remove-Item -Recurse -Force $destPublic }
+    if (Test-Path $srcPublic) {
+        Copy-Item -Recurse -Force $srcPublic $destPublic
+    }
+
+    # ---------- launch children ---------------------------------------------
+    Write-Host "[START] backend/launch.py prod via pixi (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
+    # `pixi run prod -- --next-port N` -> `python launch.py prod --next-port N`
+    # inside the pixi env. The `--` separator keeps pixi from claiming
+    # `--next-port` as one of its own flags.
+    $backend = Start-Process `
+        -FilePath 'pixi' `
+        -ArgumentList @('run', 'prod', '--', '--next-port', $NextPort) `
+        -WorkingDirectory $backendDir `
+        -NoNewWindow `
+        -PassThru
+
+    Write-Host "[START] Next.js standalone on :$NextPort" -ForegroundColor Green
+    # Start-Process doesn't take an env hashtable, so set process-scoped env
+    # vars before launching and unset after — server.js reads PORT/HOSTNAME at
+    # startup.
+    $prevPort = $env:PORT; $prevHost = $env:HOSTNAME
+    $env:PORT = "$NextPort"; $env:HOSTNAME = '127.0.0.1'
+    try {
+        $frontend = Start-Process `
+            -FilePath 'node' `
+            -ArgumentList @($standaloneServer) `
+            -WorkingDirectory (Split-Path $standaloneServer) `
+            -NoNewWindow `
+            -PassThru
+    } finally {
+        $env:PORT = $prevPort; $env:HOSTNAME = $prevHost
+    }
 }
 
 # ---------- shutdown handling -----------------------------------------------

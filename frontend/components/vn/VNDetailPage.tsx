@@ -74,7 +74,7 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
 
         {vn.description && (
           <Section title="Description">
-            <BBCodeText text={vn.description} />
+            <BBCodeText text={vn.description} collapsible />
           </Section>
         )}
 

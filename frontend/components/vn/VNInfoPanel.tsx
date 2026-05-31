@@ -207,8 +207,10 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
   if (mobile) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex gap-4">
-          <div className="w-32 shrink-0">
+        {/* Phones (< sm): cover centred on top, info card full-width below.
+            From sm up: cover left, info right. */}
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <div className="w-40 shrink-0 sm:w-32">
             <div
               className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer"
               onClick={() => vn.image && setCoverOpen(true)}
@@ -225,7 +227,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
               )}
             </div>
           </div>
-          <div className="flex-1 min-w-0">{metaCard}</div>
+          <div className="w-full min-w-0 sm:flex-1">{metaCard}</div>
         </div>
         {lightbox}
         {belowCover}

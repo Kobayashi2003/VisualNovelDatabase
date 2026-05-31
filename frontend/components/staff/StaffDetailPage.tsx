@@ -94,7 +94,7 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
 
         {staff.description && (
           <Section title="Description">
-            <BBCodeText text={staff.description} />
+            <BBCodeText text={staff.description} collapsible />
           </Section>
         )}
 

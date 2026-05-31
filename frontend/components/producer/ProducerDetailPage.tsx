@@ -90,7 +90,7 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
 
         {producer.description && (
           <Section title="Description">
-            <BBCodeText text={producer.description} />
+            <BBCodeText text={producer.description} collapsible />
           </Section>
         )}
 

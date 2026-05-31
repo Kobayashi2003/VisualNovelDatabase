@@ -78,8 +78,9 @@ export function VNStaff({ staff, editions }: VNStaffProps) {
         }
 
         return (
-          <div key={role} className="flex gap-3">
-            <span className="text-xs text-muted w-28 shrink-0 pt-0.5 font-medium">
+          // Phones (< sm): role label stacks above its credits; sm+ side-by-side.
+          <div key={role} className="flex flex-col gap-1 sm:flex-row sm:gap-3">
+            <span className="text-xs text-muted shrink-0 pt-0.5 font-medium sm:w-28">
               {roleLabel}
               <span className="ml-1 font-normal opacity-60">{entries.length}</span>
             </span>

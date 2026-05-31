@@ -59,7 +59,7 @@ export function TagDetailPage({ id }: TagDetailPageProps) {
 
         {tag.description && (
           <Section title="Description">
-            <BBCodeText text={tag.description} />
+            <BBCodeText text={tag.description} collapsible />
           </Section>
         )}
 

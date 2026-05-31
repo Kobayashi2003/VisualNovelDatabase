@@ -58,7 +58,7 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
 
         {trait.description && (
           <Section title="Description">
-            <BBCodeText text={trait.description} />
+            <BBCodeText text={trait.description} collapsible />
           </Section>
         )}
 

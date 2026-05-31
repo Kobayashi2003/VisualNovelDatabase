@@ -157,8 +157,10 @@ export function CharacterInfoPanel({
   if (mobile) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex gap-4">
-          <div className="w-28 shrink-0">
+        {/* Phones (< sm): cover centred on top, info card full-width below.
+            From sm up: cover left, info right. */}
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <div className="w-36 shrink-0 sm:w-28">
             <div
               className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer"
               onClick={() => character.image && setCoverOpen(true)}
@@ -175,7 +177,7 @@ export function CharacterInfoPanel({
               )}
             </div>
           </div>
-          {physicalCard && <div className="flex-1 min-w-0">{physicalCard}</div>}
+          {physicalCard && <div className="w-full min-w-0 sm:flex-1">{physicalCard}</div>}
         </div>
         {lightbox}
         {seiyuuCard}

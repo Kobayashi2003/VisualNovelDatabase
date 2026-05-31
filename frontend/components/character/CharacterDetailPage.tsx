@@ -80,7 +80,7 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
 
         {character.description && (
           <Section title="Description">
-            <BBCodeText text={character.description} />
+            <BBCodeText text={character.description} collapsible />
           </Section>
         )}
 

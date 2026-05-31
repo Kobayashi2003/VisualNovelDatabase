@@ -88,8 +88,10 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
 
   return (
     <div className={cn(
-      "relative flex gap-4 rounded-lg bg-surface border border-white/5 p-3",
-      clamp && "max-h-80 overflow-hidden",
+      "relative rounded-lg bg-surface border border-white/5 p-3 gap-4",
+      // Expanded cards stack the cover above the info on phones; the clamped
+      // slider preview keeps the compact cover-left layout at every width.
+      clamp ? "flex max-h-80 overflow-hidden" : "flex flex-col items-center sm:flex-row sm:items-stretch",
     )}>
       {/* Cover */}
       <div className="w-28 sm:w-32 shrink-0">
@@ -121,8 +123,8 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
         />
       )}
 
-      {/* Info */}
-      <div className="flex-1 min-w-0 flex flex-col gap-2">
+      {/* Info — w-full so it spans when stacked under the centred cover on phones. */}
+      <div className="flex-1 w-full min-w-0 flex flex-col gap-2">
         {/* Header: name + role */}
         <div className="flex items-start justify-between gap-2">
           <Link

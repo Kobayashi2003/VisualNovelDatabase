@@ -39,6 +39,9 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
   }, [imgUrl])
 
   const handleRetry = (e: React.MouseEvent) => {
+    // The button sits inside a <Link>; preventDefault stops the anchor from
+    // navigating to the card's detail page when only a retry was intended.
+    e.preventDefault()
     e.stopPropagation()
     setLoading(true)
     setError(false)

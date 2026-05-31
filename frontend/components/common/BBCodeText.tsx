@@ -2,7 +2,7 @@
  *  Shared by every entity detail page (VN / Character / Producer / Staff / …). */
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 
 
@@ -162,19 +162,73 @@ function RenderNodes({ nodes }: { nodes: Node[] }) {
 /* ─── Component ────────────────────────────────────────────────────────────── */
 interface BBCodeTextProps {
   text: string
+  /** On phones (< sm), clamp to a few lines behind a "Show more" toggle; the
+   *  full text always shows from sm up. Only the toggle appears when the text
+   *  actually overflows the clamp. */
+  collapsible?: boolean
 }
 
-export function BBCodeText({ text }: BBCodeTextProps) {
+export function BBCodeText({ text, collapsible }: BBCodeTextProps) {
   if (!text) return null
-  const paragraphs = parseVNDBMarkup(text)
+  const content = parseVNDBMarkup(text).map((nodes, i) => (
+    <p key={i}>
+      <RenderNodes nodes={nodes} />
+    </p>
+  ))
+
+  if (collapsible) return <CollapsibleText>{content}</CollapsibleText>
 
   return (
     <div className="text-sm text-white/85 leading-relaxed space-y-3">
-      {paragraphs.map((nodes, i) => (
-        <p key={i}>
-          <RenderNodes nodes={nodes} />
-        </p>
-      ))}
+      {content}
+    </div>
+  )
+}
+
+/** Phone-only collapse: clamps the text to a few lines — relying on the native
+ *  line-clamp ellipsis — with a "Show more" toggle right below. The full text
+ *  always shows from sm up; the toggle only appears when the text actually
+ *  overflows the clamp. */
+function CollapsibleText({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [overflowing, setOverflowing] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // Latch true once the collapsed text overflows, so expanding (which removes
+    // the clamp and equalises the heights) doesn't hide the "Show less" toggle.
+    const check = () => setOverflowing(prev => prev || el.scrollHeight > el.clientHeight + 4)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div>
+      <div
+        ref={ref}
+        className={cn(
+          "text-sm text-white/85 leading-relaxed",
+          // Phones: clamp to a few lines (auto trailing ellipsis). Once expanded,
+          // or from sm up, show the full text with normal paragraph spacing.
+          expanded ? "space-y-3" : "line-clamp-6",
+          "sm:space-y-3 sm:line-clamp-none",
+        )}
+      >
+        {children}
+      </div>
+      {overflowing && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="mt-1 text-xs font-medium text-accent hover:underline sm:hidden"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@
  *  onto the shared `CardItem` shape. */
 "use client"
 
+import { useRouter } from "next/navigation"
 import { cn, formatRelativeDate, shouldBlur } from "@/lib/utils"
 import { X, FolderInput, Check, Star } from "lucide-react"
 import { ImageCard } from "./ImageCard"
@@ -21,6 +22,26 @@ import type {
 } from "@/lib/types"
 
 
+/* ─── In-card secondary link ───────────────────────────────────────────────── */
+
+/** A name inside a card that navigates somewhere *other* than the card's own
+ *  target — e.g. a VN card's developer. The card is itself a `<Link>`, so this
+ *  swallows the card-navigation click (preventDefault/stopPropagation, mirroring
+ *  the in-card action buttons) and routes to its own href instead. */
+function CardCreditLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const router = useRouter()
+  return (
+    <button
+      type="button"
+      onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(href) }}
+      className="text-muted hover:text-accent transition-colors"
+    >
+      {children}
+    </button>
+  )
+}
+
+
 /* ─── Generic image card (handles content-rating blur) ─────────────────────── */
 
 type ImageProps = {
@@ -34,7 +55,7 @@ type ImageProps = {
 
 interface GenImageCardProps {
   title: string
-  msgs: string[]
+  msgs: React.ReactNode[]
   image?: ImageProps
   link?: string
   sexualLevel?: SexualLevel
@@ -213,9 +234,9 @@ export interface CardItem {
   link: string
   title: string
   /** Supplementary line for the compact row (year, role, category, …). */
-  subtitle?: string
-  /** Secondary lines for text / image cards. */
-  msgs: string[]
+  subtitle?: React.ReactNode
+  /** Secondary lines for text / image cards. May contain in-card links. */
+  msgs: React.ReactNode[]
   /** Image source for image-card entities (VN / Character); omitted otherwise. */
   image?: ImageProps
   /** Compact-row thumbnail URL. `undefined` → no thumbnail column. */
@@ -328,13 +349,19 @@ function CardsGridBase<T>({
 /* ─── Per-entity adapters ──────────────────────────────────────────────────── */
 
 const vnAdapter: CardAdapter<VN_Small> = (vn, showOriginal) => {
-  const developer = vn.developers?.[0] ? displayName(vn.developers[0], showOriginal) : ""
+  const dev = vn.developers?.[0]
+  const developer = dev
+    ? <CardCreditLink href={`/${dev.id}`}>{displayName(dev, showOriginal)}</CardCreditLink>
+    : null
   const year = vn.released ? vn.released.substring(0, 4) : ""
+  const subtitle = developer
+    ? <>{developer}{year && <><span className="text-white/30"> · </span>{year}</>}</>
+    : (year || undefined)
   return {
     id: vn.id,
     link: `/${vn.id}`,
     title: displayTitle(vn, showOriginal),
-    subtitle: [developer, year].filter(Boolean).join(" · "),
+    subtitle,
     msgs: [developer, vn.released || ""].filter(Boolean),
     image: vn.image,
     thumbnail: vn.image?.thumbnail || vn.image?.url,

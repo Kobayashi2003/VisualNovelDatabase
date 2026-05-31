@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 interface TextCardProps {
   title: string
-  msgs?: string[]
+  msgs?: React.ReactNode[]
   link?: string
   layout?: "single" | "grid"
   tooltip?: string

@@ -1,9 +1,10 @@
 /** Right-side drawer for advanced search: source / type / sort / order / filters. */
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { useScrollLock } from "@/hooks/useScrollLock"
 import { X, ArrowUp, ArrowDown, SlidersHorizontal } from "lucide-react"
 import {
   FilterState,
@@ -56,6 +57,7 @@ export function SearchPanel({
   onApply, onSave,
 }: SearchPanelProps) {
   const [mounted, setMounted] = useState(false)
+  const bodyRef = useRef<HTMLDivElement>(null)
   const [localFrom, setLocalFromRaw] = useState(initialFrom)
   const [localType, setLocalTypeRaw] = useState(initialType)
   const [localSortBy, setLocalSortBy] = useState(initialSortBy)
@@ -63,6 +65,10 @@ export function SearchPanel({
   const [localFilterState, setLocalFilterState] = useState<FilterState>(() => buildInitialState(initialType))
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Keep the page behind the drawer from scrolling — a wheel over the drawer
+  // (or past the end of its scrollable body) must not chain through to the page.
+  useScrollLock(open, bodyRef)
 
   // Re-seed staged state from the live values every time the drawer opens, so
   // closing without applying is a true cancel.
@@ -131,9 +137,11 @@ export function SearchPanel({
         className={cn(
           "fixed inset-y-0 right-0 z-50 w-80 sm:w-96",
           "flex flex-col",
-          "bg-elevated border-l border-white/10",
+          // Same translucent-panel treatment as the dialogs (BaseDialog): a touch
+          // more opaque than the cards, and more so on hover.
+          "bg-[#2a2a2f]/88 hover:bg-[#2a2a2f]/95 border-l border-white/10",
           "shadow-2xl shadow-black/60",
-          "transition-transform duration-200 ease-out",
+          "transition-[transform,background-color] duration-200 ease-out",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
@@ -153,7 +161,7 @@ export function SearchPanel({
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-6">
+        <div ref={bodyRef} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 flex flex-col gap-6">
 
           {/* Source */}
           <div>

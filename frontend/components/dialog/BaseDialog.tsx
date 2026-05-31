@@ -54,7 +54,11 @@ export function BaseDialog({ open, setOpen, title, children, className }: BaseDi
     >
       <div ref={panelRef} className={cn(
         "relative w-full max-w-md",
-        "bg-elevated border border-white/10 rounded-xl",
+        // Slightly more opaque than the translucent cards, and a touch more on
+        // hover — mirroring the VN info cards' bg-surface→bg-elevated lift (same
+        // elevated hue #2a2a2f, stepped 0.88 → 0.95).
+        "bg-[#2a2a2f]/88 hover:bg-[#2a2a2f]/95 transition-colors",
+        "border border-white/10 rounded-xl",
         "shadow-2xl shadow-black/50",
         "max-h-[80vh] overflow-y-auto overscroll-contain",
         className

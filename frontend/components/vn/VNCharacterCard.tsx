@@ -5,7 +5,7 @@
  *  voice actors) is lazily fetched and fills in. */
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { cn, shouldBlur } from "@/lib/utils"
@@ -44,6 +44,9 @@ interface VNCharacterCardProps {
   clamp?: boolean
   /** Invoked from the truncation fade — jump to this card in the expanded view. */
   onExpand?: () => void
+  /** Reports whether this character has minor/major spoiler traits, once its full
+   *  payload loads — lets a parent offer a global reveal toggle. */
+  onSpoilerTraits?: (id: string, minor: boolean, major: boolean) => void
 }
 
 /** A row of "label value" stats joined by dim middots; null entries are skipped,
@@ -64,10 +67,11 @@ function StatRow({ items }: { items: Array<[string, React.ReactNode] | null> }) 
   )
 }
 
-export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoilerLevel, clamp, onExpand }: VNCharacterCardProps) {
+export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoilerLevel, clamp, onExpand, onSpoilerTraits }: VNCharacterCardProps) {
   const { showOriginal } = useSearchContext()
   const { character: full, loading } = useCharacterFull(base.id)
   const [coverOpen, setCoverOpen] = useState(false)
+  const [revealTraits, setRevealTraits] = useState<0 | 1 | 2>(0)
 
   const blur = base.image
     ? shouldBlur(base.image.sexual, base.image.violence, sexualLevel, violenceLevel)
@@ -84,11 +88,31 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
   const bustValue =
     full?.bust != null ? `${full.bust} cm${cup ? ` (${cup})` : ""}` : (cup ?? null)
 
-  const traitGroups = full ? groupTraits(full.traits, spoilerLevel, sexualLevel) : null
+  // Trait spoilers reveal per-card — the full character (with traits) is already
+  // fetched here, so this works even when the VN has no spoiler-role characters
+  // and the panel shows no global toggle. The effective level never drops below
+  // what that toggle has already revealed.
+  const effectiveSpoiler = Math.max(spoilerLevel, revealTraits) as 0 | 1 | 2
+  const traitGroups = full ? groupTraits(full.traits, effectiveSpoiler, sexualLevel) : null
+
+  // This character's own spoiler weight in the VN — tints the card edge so a
+  // revealed spoiler character stands out from ordinary ones.
+  const charSpoiler = base.vns[0]?.spoiler ?? 0
+
+  // Once the full payload loads, tell the parent whether this character hides any
+  // spoiler traits, so a panel can show a global reveal toggle.
+  useEffect(() => {
+    if (!full || !onSpoilerTraits) return
+    const { hiddenMinor, hiddenMajor } = groupTraits(full.traits, 0, sexualLevel)
+    onSpoilerTraits(base.id, hiddenMinor > 0, hiddenMajor > 0)
+  }, [full, sexualLevel, base.id, onSpoilerTraits])
 
   return (
     <div className={cn(
-      "relative rounded-lg bg-surface border border-white/5 p-3 gap-4",
+      "relative rounded-lg bg-surface border p-3 gap-4",
+      charSpoiler === 2 ? "border-orange-500/50"
+      : charSpoiler === 1 ? "border-yellow-500/40"
+      : "border-white/5",
       // Expanded cards stack the cover above the info on phones; the clamped
       // slider preview keeps the compact cover-left layout at every width.
       clamp ? "flex max-h-80 overflow-hidden" : "flex flex-col items-center sm:flex-row sm:items-stretch",
@@ -199,7 +223,7 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
         )}
 
         {/* Traits */}
-        {traitGroups && traitGroups.groups.length > 0 && (
+        {traitGroups && (traitGroups.groups.length > 0 || traitGroups.hiddenMinor > 0 || traitGroups.hiddenMajor > 0) && (
           <div className="flex flex-col gap-1.5 mt-0.5">
             {traitGroups.groups.map(([grp, grpTraits]) => (
               <div key={grp}>
@@ -224,6 +248,30 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
                 </div>
               </div>
             ))}
+
+            {/* Per-card spoiler-trait reveal (yellow = minor, orange = major). */}
+            {(traitGroups.hiddenMinor > 0 || traitGroups.hiddenMajor > 0) && (
+              <div className="flex flex-wrap gap-1.5">
+                {traitGroups.hiddenMinor > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRevealTraits(s => (s < 1 ? 1 : s))}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors border border-yellow-500/20"
+                  >
+                    +{traitGroups.hiddenMinor} minor spoiler trait{traitGroups.hiddenMinor !== 1 ? "s" : ""}
+                  </button>
+                )}
+                {traitGroups.hiddenMajor > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRevealTraits(2)}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors border border-orange-500/20"
+                  >
+                    +{traitGroups.hiddenMajor} major spoiler trait{traitGroups.hiddenMajor !== 1 ? "s" : ""}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

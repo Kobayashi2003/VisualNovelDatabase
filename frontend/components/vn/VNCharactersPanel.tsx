@@ -3,8 +3,9 @@
  *  important. Opened from the Characters section header. */
 "use client"
 
-import { useEffect } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ChevronLeft } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { enumLabel } from "@/lib/enums"
 import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { VNCharacterCard } from "./VNCharacterCard"
@@ -27,9 +28,25 @@ export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focu
   const getRole = (c: VNCharacter): string => c.vns[0]?.role ?? "appears"
   const getSpoiler = (c: VNCharacter): number => c.vns[0]?.spoiler ?? 0
 
+  // Spoiler *traits* live only in each character's lazily-fetched full payload,
+  // which the cards already load. They report it up so the global toggle can
+  // appear even when no character is a spoiler by role.
+  const traitFlags = useRef(new Map<string, { minor: boolean; major: boolean }>())
+  const [traitMinor, setTraitMinor] = useState(false)
+  const [traitMajor, setTraitMajor] = useState(false)
+  const reportSpoilerTraits = useCallback((id: string, minor: boolean, major: boolean) => {
+    const prev = traitFlags.current.get(id)
+    if (prev && prev.minor === minor && prev.major === major) return
+    traitFlags.current.set(id, { minor, major })
+    let m = false, M = false
+    for (const v of traitFlags.current.values()) { m = m || v.minor; M = M || v.major }
+    setTraitMinor(m)
+    setTraitMajor(M)
+  }, [])
+
   const spoiler = useSpoilerLevel(
-    characters.some(c => getSpoiler(c) === 1),
-    characters.some(c => getSpoiler(c) === 2),
+    characters.some(c => getSpoiler(c) === 1) || traitMinor,
+    characters.some(c => getSpoiler(c) === 2) || traitMajor,
   )
 
   const visible = characters.filter(c => getSpoiler(c) <= spoiler.spoilerLevel)
@@ -69,7 +86,7 @@ export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focu
         {spoiler.hasAnySpoilers && (
           <button
             onClick={spoiler.cycle}
-            className="text-xs text-muted hover:text-white transition-colors shrink-0"
+            className={cn("text-xs transition-colors shrink-0", spoiler.buttonColor)}
           >
             {spoiler.buttonLabel}
           </button>
@@ -90,6 +107,7 @@ export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focu
                 sexualLevel={sexualLevel}
                 violenceLevel={violenceLevel}
                 spoilerLevel={spoiler.spoilerLevel}
+                onSpoilerTraits={reportSpoilerTraits}
               />
             </div>
           ))}
@@ -99,7 +117,7 @@ export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focu
       {hidden > 0 && spoiler.hasAnySpoilers && (
         <button
           onClick={spoiler.cycle}
-          className="self-start text-xs text-yellow-400 hover:text-yellow-300 transition-colors"
+          className={cn("self-start text-xs transition-colors", spoiler.buttonColor)}
         >
           +{hidden} hidden spoiler character{hidden !== 1 ? "s" : ""} — click to reveal
         </button>

@@ -4,6 +4,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { cn, shouldBlur } from "@/lib/utils"
 import { enumMap, enumLabel } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
@@ -41,6 +42,7 @@ interface VNCharactersProps {
 export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layout = "grid", onExpand }: VNCharactersProps) {
   const [activeRole, setActiveRole] = useState<string>("all")
   const { showOriginal } = useSearchContext()
+  const router = useRouter()
 
   // Build VA map: characterId → va entries
   const vaMap = new Map<string, VAEntry[]>()
@@ -91,7 +93,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
         {spoiler.hasAnySpoilers && (
           <button
             onClick={spoiler.cycle}
-            className="text-xs text-muted hover:text-white transition-colors shrink-0 py-1"
+            className={cn("text-xs transition-colors shrink-0 py-1", spoiler.buttonColor)}
           >
             {spoiler.buttonLabel}
           </button>
@@ -111,6 +113,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
         {visible.map(c => {
           const blurred = !!c.image && shouldBlur(c.image.sexual, c.image.violence, sexualLevel, violenceLevel)
           const role = getRole(c)
+          const charSpoiler = getSpoiler(c)
           const vaEntries = vaMap.get(c.id) ?? []
 
           // Sex spoiler: sex[1] is real sex, only show if differs from apparent AND spoilerLevel >= 2
@@ -120,7 +123,14 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
 
           return (
             <Link key={c.id} href={`/${c.id}`} className="group block h-full">
-              <div className="h-full flex flex-col rounded-lg overflow-hidden bg-surface border border-white/5 hover:border-white/20 transition-all hover:scale-[1.02] duration-200">
+              <div className={cn(
+                "h-full flex flex-col rounded-lg overflow-hidden bg-surface border transition-all hover:scale-[1.02] duration-200",
+                // Tint the edge of revealed spoiler characters so they stand out
+                // from ordinary ones (yellow = minor, orange = major).
+                charSpoiler === 2 ? "border-orange-500/50 hover:border-orange-500/70"
+                : charSpoiler === 1 ? "border-yellow-500/40 hover:border-yellow-500/60"
+                : "border-white/5 hover:border-white/20"
+              )}>
                 <div className="relative w-full aspect-3/4 shrink-0 bg-elevated">
                   {c.image ? (
                     <Image
@@ -170,9 +180,17 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
                     <div className="mt-1 flex flex-col gap-0.5">
                       {vaEntries.map((v, i) => (
                         <p key={i} className="text-xs text-muted/80 truncate">
-                          CV: <span>
+                          CV:{" "}
+                          {/* The whole card is a <Link> to the character, so the
+                              VA link swallows the card click and routes to the
+                              staff page itself. */}
+                          <button
+                            type="button"
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/${v.staff.id}`) }}
+                            className="hover:text-accent transition-colors"
+                          >
                             {displayName(v.staff, showOriginal)}
-                          </span>
+                          </button>
                           {v.note && <span className="text-muted/60"> ({v.note})</span>}
                         </p>
                       ))}

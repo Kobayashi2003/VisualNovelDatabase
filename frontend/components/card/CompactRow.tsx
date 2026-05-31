@@ -10,7 +10,7 @@ import { StarRating } from "@/components/common/StarRating"
 interface CompactRowProps {
   index: number
   title: string
-  subtitle?: string
+  subtitle?: React.ReactNode
   thumbnail?: string           // undefined = no thumbnail column; empty string = placeholder
   badges?: string[]
   markedAt?: string

@@ -1,7 +1,24 @@
 /** Locks background scrolling while a modal/overlay is open. */
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useSyncExternalStore } from "react"
+
+// Process-wide count of active scroll locks, i.e. how many overlays (dialogs,
+// the search drawer, …) are currently open. Exposed via `useScrollLocked` so
+// unrelated UI — like the header's hover-to-reveal — can tell when a modal is up
+// and bow out.
+let lockCount = 0
+const lockListeners = new Set<() => void>()
+const emitLockChange = () => lockListeners.forEach(l => l())
+
+/** Reactive `true` while any `useScrollLock(true, …)` is mounted. */
+export function useScrollLocked(): boolean {
+  return useSyncExternalStore(
+    cb => { lockListeners.add(cb); return () => lockListeners.delete(cb) },
+    () => lockCount > 0,
+    () => false,
+  )
+}
 
 // Prevents the page behind an overlay from scrolling while `locked` is true.
 // We cancel wheel/touch scrolling at the document (capture phase) rather than
@@ -17,6 +34,9 @@ export function useScrollLock(
 ) {
   useEffect(() => {
     if (!locked) return
+
+    lockCount++
+    emitLockChange()
 
     const shouldBlock = (target: EventTarget | null) => {
       const el = allowRef?.current
@@ -38,6 +58,8 @@ export function useScrollLock(
     document.addEventListener("wheel", onWheel, { passive: false, capture: true })
     document.addEventListener("touchmove", onTouchMove, { passive: false, capture: true })
     return () => {
+      lockCount--
+      emitLockChange()
       document.removeEventListener("wheel", onWheel, true)
       document.removeEventListener("touchmove", onTouchMove, true)
     }

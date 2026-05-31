@@ -10,7 +10,7 @@ import { ImageOff, RotateCw, Lock } from "lucide-react"
 interface ImageCardProps {
   title: string
   url: string
-  msgs?: string[]
+  msgs?: React.ReactNode[]
   link?: string
   restricted?: boolean
   tooltip?: string
@@ -62,12 +62,18 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
           className={cn("object-cover transition-opacity duration-300", loading || error ? "opacity-0" : "opacity-100")}
         />
       )}
-      {(loading || !imgUrl) && (
+      {imgUrl && loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-elevated">
           <div className={cn("rounded-full bg-white/10 animate-pulse", layout === "grid" ? "w-8 h-8" : "w-6 h-6")} />
         </div>
       )}
-      {error && (
+      {/* No cover at all → a static placeholder, not the perpetual loader. */}
+      {!imgUrl && (
+        <div className="absolute inset-0 flex items-center justify-center bg-elevated">
+          <ImageOff className={cn("text-muted/50", layout === "grid" ? "w-8 h-8" : "w-6 h-6")} />
+        </div>
+      )}
+      {imgUrl && error && (
         <div className={cn("absolute inset-0 flex flex-col items-center justify-center bg-elevated", layout === "grid" ? "gap-2" : "gap-1")}>
           <ImageOff className={cn("text-muted", layout === "grid" ? "w-8 h-8" : "w-6 h-6")} />
           <button onClick={handleRetry} className="p-1 rounded-full hover:bg-white/10">

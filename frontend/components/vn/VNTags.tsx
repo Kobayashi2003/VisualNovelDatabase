@@ -35,7 +35,7 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
       {spoiler.hasAnySpoilers && (
         <button
           onClick={spoiler.cycle}
-          className="text-xs text-muted hover:text-white transition-colors self-start"
+          className={cn("text-xs transition-colors self-start", spoiler.buttonColor)}
         >
           {spoiler.buttonLabel}
         </button>

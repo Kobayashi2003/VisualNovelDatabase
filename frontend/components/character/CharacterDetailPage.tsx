@@ -2,6 +2,7 @@
 "use client"
 
 import { useState } from "react"
+import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { displayName } from "@/lib/original"
 import type { Character } from "@/lib/types"
@@ -71,7 +72,7 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
           {spoiler.hasAnySpoilers && (
             <button
               onClick={spoiler.cycle}
-              className="text-xs text-muted hover:text-white transition-colors shrink-0 pt-1"
+              className={cn("text-xs transition-colors shrink-0 pt-1", spoiler.buttonColor)}
             >
               {spoiler.buttonLabel}
             </button>

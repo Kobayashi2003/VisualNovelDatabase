@@ -8,6 +8,11 @@ export type ViolenceLevel = "tame" | "violent" | "brutal"
 // our caching proxy; "direct" requests them straight from t.vndb.org.
 export type ImageSource = "imgserve" | "direct"
 
+// How the VN detail page renders its Characters section: "grid" is the default
+// thumbnail grid; "slider" shows one dense info card at a time with left/right
+// navigation.
+export type VNCharacterLayout = "grid" | "slider"
+
 
 /* ─── Pagination & query parameters ────────────────────────────────────────── */
 

@@ -8,10 +8,11 @@ import { cn, shouldBlur } from "@/lib/utils"
 import { enumMap, enumLabel } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { displayName } from "@/lib/original"
-import type { VN } from "@/lib/types"
+import type { VN, VNCharacterLayout } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
 import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { TabBar } from "@/components/common/TabBar"
+import { VNCharacterSlider } from "./VNCharacterSlider"
 
 type VNCharacter = VN["characters"][number]
 type VAEntry = VN["va"][number]
@@ -31,9 +32,13 @@ interface VNCharactersProps {
   va: VAEntry[]
   sexualLevel: string
   violenceLevel: string
+  /** "grid" (default thumbnail grid) or "slider" (one dense card at a time). */
+  layout?: VNCharacterLayout
+  /** Open the expanded characters view, optionally focused on a character. */
+  onExpand?: (charId: string) => void
 }
 
-export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNCharactersProps) {
+export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layout = "grid", onExpand }: VNCharactersProps) {
   const [activeRole, setActiveRole] = useState<string>("all")
   const { showOriginal } = useSearchContext()
 
@@ -93,6 +98,15 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
         )}
       </div>
 
+      {layout === "slider" ? (
+        <VNCharacterSlider
+          characters={visible}
+          sexualLevel={sexualLevel}
+          violenceLevel={violenceLevel}
+          spoilerLevel={spoiler.spoilerLevel}
+          onExpand={onExpand}
+        />
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 items-stretch">
         {visible.map(c => {
           const blurred = !!c.image && shouldBlur(c.image.sexual, c.image.violence, sexualLevel, violenceLevel)
@@ -198,6 +212,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel }: VNC
           </button>
         )}
       </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,7 @@
 /** Layout primitives for detail-page info panels: label row, inline list, section heading. */
 
+import { ChevronRight } from "lucide-react"
+
 export function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-2 py-1.5 border-b border-white/5 last:border-0">
@@ -31,15 +33,37 @@ export function InlineList({
   )
 }
 
-export function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+export function Section({ title, count, action, onTitleClick, children }: {
+  title: string
+  count?: number
+  action?: React.ReactNode
+  /** When set, the heading itself becomes a button (with a chevron) — e.g. the
+   *  VN page's Characters section opening the expanded card view. */
+  onTitleClick?: () => void
+  children: React.ReactNode
+}) {
+  const titleBlock = (
+    <>
+      <span className="text-sm font-bold text-white uppercase tracking-wider transition-colors group-hover:text-accent">{title}</span>
+      {count !== undefined && <span className="text-xs font-normal text-muted">{count}</span>}
+      {onTitleClick && (
+        <ChevronRight className="w-4 h-4 text-muted transition-colors group-hover:text-accent" aria-hidden />
+      )}
+    </>
+  )
+
   return (
     <div>
       {/* A short accent tick anchors the heading and lifts it off the body text
        *  without the heavy feel of a full divider — keeps the Spotify accent motif. */}
       <h2 className="flex items-center gap-2.5 mb-3">
         <span className="w-1 h-4 rounded-full bg-accent shrink-0" aria-hidden />
-        <span className="text-sm font-bold text-white uppercase tracking-wider">{title}</span>
-        {count !== undefined && <span className="text-xs font-normal text-muted">{count}</span>}
+        {onTitleClick ? (
+          <button type="button" onClick={onTitleClick} className="group flex items-center gap-2.5 cursor-pointer">
+            {titleBlock}
+          </button>
+        ) : titleBlock}
+        {action && <span className="ml-auto">{action}</span>}
       </h2>
       {children}
     </div>

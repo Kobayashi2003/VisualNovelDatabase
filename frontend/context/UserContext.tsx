@@ -2,7 +2,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
-import type { User, SexualLevel, ViolenceLevel, ImageSource } from "@/lib/types"
+import type { User, SexualLevel, ViolenceLevel, ImageSource, VNCharacterLayout } from "@/lib/types"
 import { api, setSessionExpiredHandler, clearStoredSession } from "@/lib/api"
 
 interface UserContextType {
@@ -11,6 +11,7 @@ interface UserContextType {
   defaultSexualLevel: SexualLevel
   defaultViolenceLevel: ViolenceLevel
   imageSource: ImageSource
+  vnCharacterLayout: VNCharacterLayout
   register: (username: string, email: string, password: string, code: string, invitationCode: string) => Promise<void>
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -19,6 +20,7 @@ interface UserContextType {
   updateDefaultSexualLevel: (v: SexualLevel) => void
   updateDefaultViolenceLevel: (v: ViolenceLevel) => void
   updateImageSource: (v: ImageSource) => void
+  updateVNCharacterLayout: (v: VNCharacterLayout) => void
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -41,6 +43,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [imageSource, setImageSource] = useState<ImageSource>(
     () => (typeof window !== "undefined" ? (localStorage.getItem("imageSource") as ImageSource) || "imgserve" : "imgserve")
   )
+  const [vnCharacterLayout, setVNCharacterLayout] = useState<VNCharacterLayout>(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("vnCharacterLayout") as VNCharacterLayout) || "grid" : "grid")
+  )
 
   const updateDefaultSexualLevel = (v: SexualLevel) => {
     localStorage.setItem("defaultSexualLevel", v)
@@ -55,6 +60,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const updateImageSource = (v: ImageSource) => {
     localStorage.setItem("imageSource", v)
     setImageSource(v)
+  }
+  // Picks the VN page's Characters layout (grid vs. one-card-at-a-time slider).
+  const updateVNCharacterLayout = (v: VNCharacterLayout) => {
+    localStorage.setItem("vnCharacterLayout", v)
+    setVNCharacterLayout(v)
   }
 
   // Re-establish the session on mount. The username hint marks a session that
@@ -126,7 +136,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <UserContext.Provider value={{ user, register, login, logout, changeEmail, deleteAccount, isLoading, defaultSexualLevel, defaultViolenceLevel, imageSource, updateDefaultSexualLevel, updateDefaultViolenceLevel, updateImageSource }}>
+    <UserContext.Provider value={{ user, register, login, logout, changeEmail, deleteAccount, isLoading, defaultSexualLevel, defaultViolenceLevel, imageSource, vnCharacterLayout, updateDefaultSexualLevel, updateDefaultViolenceLevel, updateImageSource, updateVNCharacterLayout }}>
       {children}
     </UserContext.Provider>
   )

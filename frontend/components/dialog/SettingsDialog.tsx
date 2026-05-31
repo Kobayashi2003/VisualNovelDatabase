@@ -8,6 +8,7 @@ import { useUserContext } from "@/context/UserContext"
 import { SexualLevelSelector } from "@/components/selector/SexualLevelSelector"
 import { ViolenceLevelSelector } from "@/components/selector/ViolenceLevelSelector"
 import { ImageSourceSelector } from "@/components/selector/ImageSourceSelector"
+import { CharacterLayoutSelector } from "@/components/selector/CharacterLayoutSelector"
 import { BaseDialog } from "@/components/dialog/BaseDialog"
 import { PasswordInput } from "@/components/input/PasswordInput"
 import { validatePassword, validateEmail } from "@/lib/validation"
@@ -34,6 +35,7 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
     defaultSexualLevel, defaultViolenceLevel,
     updateDefaultSexualLevel, updateDefaultViolenceLevel,
     imageSource, updateImageSource,
+    vnCharacterLayout, updateVNCharacterLayout,
   } = useUserContext()
 
   const [tab, setTab] = useState<Tab>("general")
@@ -215,6 +217,20 @@ export function SettingsDialog({ open, setOpen }: SettingsDialogProps) {
             </div>
             <p className="text-xs text-muted">
               Proxy loads images through the imgserve cache. Direct fetches them straight from VNDB.
+            </p>
+          </div>
+
+          <div className="border-t border-white/8" />
+
+          {/* ─── Characters ─────────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-widest">Characters</p>
+            <div className="grid grid-cols-[5rem_1fr] items-center gap-x-5">
+              <span className="text-sm text-white/70">Layout</span>
+              <CharacterLayoutSelector layout={vnCharacterLayout} setLayout={updateVNCharacterLayout} />
+            </div>
+            <p className="text-xs text-muted">
+              On a VN page, show characters as a thumbnail grid or as one detailed card at a time.
             </p>
           </div>
 

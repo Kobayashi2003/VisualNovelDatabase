@@ -3,19 +3,10 @@
 
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import type { Character } from "@/lib/types"
-
-type Trait = Character["traits"][number]
-
-// VNDB's canonical group ordering; unknown groups fall through alphabetically.
-const GROUP_ORDER = [
-  "Hair", "Eyes", "Body", "Clothes", "Items", "Accessories",
-  "Personality", "Role", "Engages in", "Engages in (Sexual)",
-  "Subject of", "Subject of (Sexual)",
-]
+import { groupTraits, type CharTrait } from "@/lib/traits"
 
 interface CharacterTraitsProps {
-  traits: Trait[]
+  traits: CharTrait[]
   spoilerLevel: 0 | 1 | 2
   sexualLevel: string
   onRevealMinor: () => void
@@ -23,43 +14,14 @@ interface CharacterTraitsProps {
 }
 
 export function CharacterTraits({ traits, spoilerLevel, sexualLevel, onRevealMinor, onRevealMajor }: CharacterTraitsProps) {
-  const SEXUAL_GROUPS = ["Engages in (Sexual)", "Subject of (Sexual)"]
-  const isExplicit = sexualLevel === "explicit"
+  const { groups, hiddenMinor, hiddenMajor } = groupTraits(traits, spoilerLevel, sexualLevel)
 
-  // Filter out sexual groups if not explicit, then apply spoiler filter
-  const filteredTraits = traits.filter(t => {
-    if (SEXUAL_GROUPS.includes(t.group_name ?? "") && !isExplicit) return false
-    return true
-  })
-
-  // Separate visible vs hidden by spoiler level
-  const visible = filteredTraits.filter(t => t.spoiler <= spoilerLevel)
-  const hiddenMinor = filteredTraits.filter(t => t.spoiler === 1 && spoilerLevel < 1).length
-  const hiddenMajor = filteredTraits.filter(t => t.spoiler === 2 && spoilerLevel < 2).length
-
-  // Group visible traits
-  const groupMap = new Map<string, Trait[]>()
-  for (const t of visible) {
-    const grp = t.group_name ?? "Other"
-    const arr = groupMap.get(grp) ?? []
-    arr.push(t)
-    groupMap.set(grp, arr)
-  }
-
-  // Sort groups: predefined order first, then alphabetical remainder
-  const allGroups = [...groupMap.keys()]
-  const sortedGroups = [
-    ...GROUP_ORDER.filter(g => groupMap.has(g)),
-    ...allGroups.filter(g => !GROUP_ORDER.includes(g)).sort(),
-  ]
-
-  const noTraits = sortedGroups.length === 0 && hiddenMinor === 0 && hiddenMajor === 0
+  const noTraits = groups.length === 0 && hiddenMinor === 0 && hiddenMajor === 0
 
   return (
     <div className="flex flex-col gap-3">
       {noTraits && <p className="text-xs text-muted italic">No traits listed.</p>}
-      {sortedGroups.map(grp => {
-        const grpTraits = groupMap.get(grp)!
+      {groups.map(([grp, grpTraits]) => {
         return (
           <div key={grp}>
             <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">{grp}</p>

@@ -17,6 +17,7 @@ import { VNTags } from "./VNTags"
 import { VNScreenshots } from "./VNScreenshots"
 import { VNStaff } from "./VNStaff"
 import { VNCharacters } from "./VNCharacters"
+import { VNCharactersPanel } from "./VNCharactersPanel"
 import { VNReleases } from "./VNReleases"
 
 interface VNDetailPageProps {
@@ -26,9 +27,18 @@ interface VNDetailPageProps {
 export function VNDetailPage({ id }: VNDetailPageProps) {
   const { data: vn, loading, error } = useEntity<VN>(id, api.by_id.vn)
   const { showOriginal } = useSearchContext()
-  const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
+  const { defaultSexualLevel, defaultViolenceLevel, vnCharacterLayout } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
+  const [charsExpanded, setCharsExpanded] = useState(false)
+  // When the expanded view is opened from a specific slide card, scroll that
+  // character's card into view; null = opened from the heading (start at top).
+  const [charsFocusId, setCharsFocusId] = useState<string | null>(null)
+
+  const openExpanded = (focusId: string | null) => {
+    setCharsFocusId(focusId)
+    setCharsExpanded(true)
+  }
 
   if (loading || error || !vn) return <DetailStatus loading={loading} error={error} />
 
@@ -46,6 +56,15 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
       aside={<>{levelSelectors("col")}<VNInfoPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} /></>}
       mobileAside={<>{levelSelectors("row")}<VNInfoPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} mobile /></>}
     >
+      {charsExpanded ? (
+        <VNCharactersPanel
+          characters={vn.characters}
+          sexualLevel={sexualLevel}
+          violenceLevel={violenceLevel}
+          focusId={charsFocusId}
+          onClose={() => setCharsExpanded(false)}
+        />
+      ) : (
       <div className="flex flex-col gap-6">
         <div>
           <h1 className="text-2xl font-bold text-white leading-tight">
@@ -66,12 +85,18 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
         )}
 
         {vn.characters.length > 0 && (
-          <Section title="Characters" count={vn.characters.length}>
+          <Section
+            title="Characters"
+            count={vn.characters.length}
+            onTitleClick={() => openExpanded(null)}
+          >
             <VNCharacters
               characters={vn.characters}
               va={vn.va}
               sexualLevel={sexualLevel}
               violenceLevel={violenceLevel}
+              layout={vnCharacterLayout}
+              onExpand={openExpanded}
             />
           </Section>
         )}
@@ -98,6 +123,7 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
           </Section>
         )}
       </div>
+      )}
     </DetailLayout>
   )
 }

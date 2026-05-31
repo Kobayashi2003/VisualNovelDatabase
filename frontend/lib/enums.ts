@@ -27,6 +27,7 @@ export const ENUMS = {
     preq: "Prequel",
     seq: "Sequel",
     side: "Side story",
+    par: "Parent story",
     set: "Same setting",
     fan: "Fandisc",
     orig: "Original game",

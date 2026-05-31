@@ -1,4 +1,4 @@
-/** VN detail sidebar: cover, hidden-by-default rating, metadata rows, relations, links, collection button. */
+/** VN detail sidebar: cover, rating + status + metadata card, relations, links, collection button. */
 "use client"
 
 import { useState } from "react"
@@ -55,18 +55,188 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
     return acc
   }, {})
 
-  // Whether the metadata card has any row worth showing.
-  const hasMetaInfo =
-    !!vn.released ||
-    vn.length != null || vn.length_minutes != null ||
-    vn.developers.length > 0 || vn.publishers.length > 0 ||
-    vn.platforms.length > 0 || vn.languages.length > 0 ||
-    vn.aliases.length > 0
+  /* ─── Shared pieces — defined once so the desktop and mobile layouts show the
+   *     same data; only the cover arrangement differs. ───────────────────── */
 
-  const infoContent = (
-    <div className="flex flex-col gap-0">
+  const lightbox = coverOpen && vn.image && (
+    <Lightbox
+      images={[{ url: vn.image.url, blurred: blur }]}
+      index={0}
+      onClose={() => setCoverOpen(false)}
+      onIndexChange={() => {}}
+    />
+  )
+
+  // Rating + dev status now live as the first rows of the info card rather than
+  // floating above it. Rating stays blurred until the eye toggle reveals it.
+  const metaCard = (
+    <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+      <InfoRow label="Rating">
+        <span className="flex items-center gap-1.5 w-full">
+          {vn.average != null ? (
+            <>
+              <span className={cn("font-semibold text-white transition-all", ratingHidden && "blur-sm select-none")}>
+                {vn.average.toFixed(2)}
+              </span>
+              <span className="text-muted">/ 100</span>
+              {vn.votecount > 0 && (
+                <span className={cn("text-muted transition-all", ratingHidden && "blur-sm select-none")}>
+                  ({vn.votecount.toLocaleString()})
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted">No rating</span>
+          )}
+          <button
+            onClick={() => setRatingHidden(h => !h)}
+            className="ml-auto p-0.5 rounded text-muted hover:text-white transition-colors"
+            title={ratingHidden ? "Show rating" : "Hide rating"}
+          >
+            {ratingHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+        </span>
+      </InfoRow>
+      {devstatusLabel && (
+        <InfoRow label="Status">
+          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", devstatusColor)}>
+            {devstatusLabel}
+          </span>
+        </InfoRow>
+      )}
+      {vn.released && (
+        <InfoRow label="Released">{vn.released}</InfoRow>
+      )}
+      {(vn.length != null || vn.length_minutes != null) && (
+        <InfoRow label="Length">
+          {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
+          {vn.length_minutes != null && vn.length_minutes > 0 && (
+            <span className="text-muted">
+              {vn.length != null && " "}
+              {vn.length != null ? "(" : ""}
+              {formatPlaytime(vn.length_minutes)}
+              {vn.length_votes > 0 && ` from ${vn.length_votes} votes`}
+              {vn.length != null ? ")" : ""}
+            </span>
+          )}
+        </InfoRow>
+      )}
+      {vn.developers.length > 0 && (
+        <InfoRow label="Developer">
+          <InlineList items={vn.developers.map(d => (
+            <Link key={d.id} href={`/${d.id}`} className="text-white/90 hover:text-accent transition-colors">
+              {displayName(d, showOriginal)}
+            </Link>
+          ))} />
+        </InfoRow>
+      )}
+      {vn.publishers.length > 0 && (
+        <InfoRow label="Publisher">
+          <div className="flex flex-col gap-1 w-full">
+            {vn.publishers.map(pub => (
+              <Link key={pub.id} href={`/${pub.id}`}
+                className="flex items-center gap-1.5 hover:text-accent transition-colors">
+                <div className="flex gap-0.5 shrink-0">
+                  {pub.languages.slice(0, 3).map(l =>
+                    LANG_ICON[l] ? <span key={l} className={LANG_ICON[l]} /> : null
+                  )}
+                </div>
+                <span className="truncate">{displayName(pub, showOriginal)}</span>
+              </Link>
+            ))}
+          </div>
+        </InfoRow>
+      )}
+      {vn.platforms.length > 0 && (
+        <InfoRow label="Platforms">
+          <PlatformIcons platforms={vn.platforms} />
+        </InfoRow>
+      )}
+      {vn.languages.length > 0 && (
+        <InfoRow label="Languages">
+          <LanguageIcons langs={vn.languages} olang={vn.olang} />
+        </InfoRow>
+      )}
+      {vn.aliases.length > 0 && (
+        <InfoRow label="Aliases">
+          <InlineList className="text-white/70" items={vn.aliases} />
+        </InfoRow>
+      )}
+    </div>
+  )
+
+  const relationsCard = Object.keys(relationGroups).length > 0 && (
+    <div className="rounded-lg bg-surface border border-white/5 px-3 py-2">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wider">Relations</p>
+        <Link
+          href={`/${vn.id}/rg`}
+          className="flex items-center gap-1 text-[11px] text-muted hover:text-accent transition-colors"
+        >
+          <Network className="w-3 h-3" />
+          Graph
+        </Link>
+      </div>
+      {Object.entries(relationGroups).map(([relType, items]) => (
+        <div key={relType} className="mb-2 last:mb-0">
+          <p className="text-xs text-muted mb-1">{relType}</p>
+          <div className="flex flex-col gap-0.5">
+            {items.map(r => (
+              <Link key={r.id} href={`/${r.id}`} className="text-xs text-white/80 hover:text-accent transition-colors truncate">
+                {displayTitle(r, showOriginal)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const extLinksBlock = vn.extlinks.length > 0 && <ExtLinks links={vn.extlinks} />
+
+  // Cards + links + collection controls below the cover — identical in both layouts.
+  const belowCover = (
+    <>
+      {relationsCard}
+      {extLinksBlock}
+      <CollectionButton type="vn" id={vn.id} />
+      <CollectionRating type="vn" id={vn.id} />
+    </>
+  )
+
+  if (mobile) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-4">
+          <div className="w-32 shrink-0">
+            <div
+              className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer"
+              onClick={() => vn.image && setCoverOpen(true)}
+            >
+              {vn.image ? (
+                <Image
+                  src={vn.image.thumbnail || vn.image.url}
+                  alt={vn.title}
+                  fill
+                  className={cn("object-cover", blur && "blur-xl scale-105")}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No cover</div>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">{metaCard}</div>
+        </div>
+        {lightbox}
+        {belowCover}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
       <div
-        className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated mb-4 cursor-pointer group"
+        className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer group"
         onClick={() => vn.image && setCoverOpen(true)}
       >
         {vn.image ? (
@@ -94,211 +264,9 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
         )}
       </div>
 
-      {/* Cover lightbox */}
-      {coverOpen && vn.image && (
-        <Lightbox
-          images={[{ url: vn.image.url, blurred: blur }]}
-          index={0}
-          onClose={() => setCoverOpen(false)}
-          onIndexChange={() => {}}
-        />
-      )}
-
-      <div className="flex items-center justify-between mb-2 px-1">
-        <div className="flex items-center gap-2">
-          {vn.average != null ? (
-            <span className={cn(
-              "text-2xl font-bold transition-all duration-200",
-              ratingHidden ? "blur-md select-none" : ""
-            )}>
-              {vn.average.toFixed(2)}
-            </span>
-          ) : (
-            <span className="text-muted text-sm">No rating</span>
-          )}
-          {vn.average != null && (
-            <span className="text-xs text-muted">/ 100</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {vn.votecount > 0 && (
-            <span className={cn("text-xs text-muted transition-all duration-200", ratingHidden ? "blur-md select-none" : "")}>
-              {vn.votecount.toLocaleString()} votes
-            </span>
-          )}
-          <button
-            onClick={() => setRatingHidden(h => !h)}
-            className="p-1 rounded text-muted hover:text-white transition-colors"
-            title={ratingHidden ? "Show rating" : "Hide rating"}
-          >
-            {ratingHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {devstatusLabel && (
-        <div className="mb-3 px-1">
-          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", devstatusColor)}>
-            {devstatusLabel}
-          </span>
-        </div>
-      )}
-
-      {hasMetaInfo && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-1 mb-3">
-          {vn.released && (
-            <InfoRow label="Released">{vn.released}</InfoRow>
-          )}
-          {(vn.length != null || vn.length_minutes != null) && (
-            <InfoRow label="Length">
-              {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
-              {vn.length_minutes != null && vn.length_minutes > 0 && (
-                <span className="text-muted">
-                  {vn.length != null && " "}
-                  {vn.length != null ? "(" : ""}
-                  {formatPlaytime(vn.length_minutes)}
-                  {vn.length_votes > 0 && ` from ${vn.length_votes} votes`}
-                  {vn.length != null ? ")" : ""}
-                </span>
-              )}
-            </InfoRow>
-          )}
-          {vn.developers.length > 0 && (
-            <InfoRow label="Developer">
-              <InlineList items={vn.developers.map(d => (
-                <Link key={d.id} href={`/${d.id}`} className="text-white/90 hover:text-accent transition-colors">
-                  {displayName(d, showOriginal)}
-                </Link>
-              ))} />
-            </InfoRow>
-          )}
-          {vn.publishers.length > 0 && (
-            <InfoRow label="Publisher">
-              <div className="flex flex-col gap-1 w-full">
-                {vn.publishers.map(pub => (
-                  <Link key={pub.id} href={`/${pub.id}`}
-                    className="flex items-center gap-1.5 hover:text-accent transition-colors">
-                    <div className="flex gap-0.5 shrink-0">
-                      {pub.languages.slice(0, 3).map(l =>
-                        LANG_ICON[l] ? <span key={l} className={LANG_ICON[l]} /> : null
-                      )}
-                    </div>
-                    <span className="truncate">{displayName(pub, showOriginal)}</span>
-                  </Link>
-                ))}
-              </div>
-            </InfoRow>
-          )}
-          {vn.platforms.length > 0 && (
-            <InfoRow label="Platforms">
-              <PlatformIcons platforms={vn.platforms} />
-            </InfoRow>
-          )}
-          {vn.languages.length > 0 && (
-            <InfoRow label="Languages">
-              <LanguageIcons langs={vn.languages} olang={vn.olang} />
-            </InfoRow>
-          )}
-          {vn.aliases.length > 0 && (
-            <InfoRow label="Aliases">
-              <InlineList className="text-white/70" items={vn.aliases} />
-            </InfoRow>
-          )}
-        </div>
-      )}
-
-      {Object.keys(relationGroups).length > 0 && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-2 mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Relations</p>
-            <Link
-              href={`/${vn.id}/rg`}
-              className="flex items-center gap-1 text-[11px] text-muted hover:text-accent transition-colors"
-            >
-              <Network className="w-3 h-3" />
-              Graph
-            </Link>
-          </div>
-          {Object.entries(relationGroups).map(([relType, items]) => (
-            <div key={relType} className="mb-2 last:mb-0">
-              <p className="text-xs text-muted mb-1">{relType}</p>
-              <div className="flex flex-col gap-0.5">
-                {items.map(r => (
-                  <Link key={r.id} href={`/${r.id}`} className="text-xs text-white/80 hover:text-accent transition-colors truncate">
-                    {displayTitle(r, showOriginal)}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {vn.extlinks.length > 0 && (
-        <div className="mb-3">
-          <ExtLinks links={vn.extlinks} />
-        </div>
-      )}
-
-      <CollectionButton type="vn" id={vn.id} />
-      <CollectionRating type="vn" id={vn.id} />
+      {lightbox}
+      {metaCard}
+      {belowCover}
     </div>
   )
-
-  if (mobile) {
-    return (
-      <div className="flex gap-4">
-        <div className="w-32 shrink-0">
-          <div className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated">
-            {vn.image ? (
-              <Image
-                src={vn.image.thumbnail || vn.image.url}
-                alt={vn.title}
-                fill
-                className={cn("object-cover", blur && "blur-xl scale-105")}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No cover</div>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0 flex flex-col gap-1 pt-1">
-          <div className="flex items-center gap-2">
-            <span className={cn("text-lg font-bold transition-all", ratingHidden ? "blur-md select-none" : "")}>
-              {vn.average != null ? vn.average.toFixed(2) : "N/A"}
-            </span>
-            <span className="text-xs text-muted">/ 100</span>
-            <button onClick={() => setRatingHidden(h => !h)} className="p-1 text-muted hover:text-white">
-              {ratingHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-          {devstatusLabel && (
-            <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium w-fit", devstatusColor)}>
-              {devstatusLabel}
-            </span>
-          )}
-          {vn.released && <span className="text-xs text-muted">{vn.released}</span>}
-          {(vn.length != null || (vn.length_minutes != null && vn.length_minutes > 0)) && (
-            <span className="text-xs text-muted">
-              {vn.length != null && (LENGTH[vn.length] ?? String(vn.length))}
-              {vn.length_minutes != null && vn.length_minutes > 0 && (
-                <>
-                  {vn.length != null ? " (" : ""}
-                  {formatPlaytime(vn.length_minutes)}
-                  {vn.length != null ? ")" : ""}
-                </>
-              )}
-            </span>
-          )}
-          {vn.developers.length > 0 && (
-            <span className="text-xs text-white/70">{vn.developers.map(d => d.name).join(", ")}</span>
-          )}
-          <CollectionButton type="vn" id={vn.id} />
-          <CollectionRating type="vn" id={vn.id} />
-        </div>
-      </div>
-    )
-  }
-
-  return infoContent
 }

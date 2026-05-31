@@ -29,10 +29,19 @@ export function TagDetailPage({ id }: TagDetailPageProps) {
 
   return (
     <DetailLayout
-      asideAlwaysVisible
       aside={
         <>
           <ContentLevelSelectors
+            sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+            violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+          />
+          <TagInfoPanel tag={tag} />
+        </>
+      }
+      mobileAside={
+        <>
+          <ContentLevelSelectors
+            direction="row"
             sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
             violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
           />

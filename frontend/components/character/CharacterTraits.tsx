@@ -3,8 +3,6 @@
 
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { ICON } from "@/lib/icons"
-import { enumLabel } from "@/lib/enums"
 import type { Character } from "@/lib/types"
 
 type Trait = Character["traits"][number]
@@ -20,12 +18,11 @@ interface CharacterTraitsProps {
   traits: Trait[]
   spoilerLevel: 0 | 1 | 2
   sexualLevel: string
-  sex?: string
   onRevealMinor: () => void
   onRevealMajor: () => void
 }
 
-export function CharacterTraits({ traits, spoilerLevel, sexualLevel, sex, onRevealMinor, onRevealMajor }: CharacterTraitsProps) {
+export function CharacterTraits({ traits, spoilerLevel, sexualLevel, onRevealMinor, onRevealMajor }: CharacterTraitsProps) {
   const SEXUAL_GROUPS = ["Engages in (Sexual)", "Subject of (Sexual)"]
   const isExplicit = sexualLevel === "explicit"
 
@@ -60,16 +57,6 @@ export function CharacterTraits({ traits, spoilerLevel, sexualLevel, sex, onReve
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Sex indicator */}
-      {sex && (ICON.CHARACTER_SEX as Record<string, string>)[sex] && (
-        <div className="flex items-center gap-1.5">
-          <span className={cn(
-            (ICON.CHARACTER_SEX as Record<string, string>)[sex],
-            "charsex-" + sex
-          )} />
-          <span className="text-xs text-muted">{enumLabel('CHARACTER_SEX', sex)}</span>
-        </div>
-      )}
       {noTraits && <p className="text-xs text-muted italic">No traits listed.</p>}
       {sortedGroups.map(grp => {
         const grpTraits = groupMap.get(grp)!

@@ -73,7 +73,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
             backgroundAttachment: "fixed",
-            "--header-h": hideHeader ? "0px" : `${headerHeight}px`,
+            // Collapses to 0 while the header is hidden so inner-scrolling pages
+            // (which size themselves to `calc(100vh - var(--header-h))`) reclaim
+            // the reserved strip. Registered with `@property` so the change animates.
+            "--header-h": hideHeader || trigger ? "0px" : `${headerHeight}px`,
           } as React.CSSProperties}
         >
           <div className="min-h-screen overflow-x-clip bg-background/80 text-white flex flex-col">
@@ -91,7 +94,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 >
                   <HeaderBar hidden={trigger} />
                 </div>
-                <div style={{ height: `${headerHeight}px` }} className={cn(!mounted && "hidden")} />
+                <div
+                  style={{ height: trigger ? 0 : `${headerHeight}px` }}
+                  className={cn("transition-[height] duration-300 ease-out", !mounted && "hidden")}
+                />
               </>
             )}
             <div className="flex-1 flex flex-col">

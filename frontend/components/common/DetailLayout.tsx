@@ -21,31 +21,28 @@ interface DetailLayoutProps {
   mobileAside?: React.ReactNode
   /** `lg` = wide sidebar (VN / Character); `sm` = narrow (Producer / Staff / …). */
   asideWidth?: "sm" | "lg"
-  /** Keep the sidebar visible on mobile instead of hiding it (Tag / Trait). */
-  asideAlwaysVisible?: boolean
   children: React.ReactNode
 }
 
 export function DetailLayout({
-  aside, mobileAside, asideWidth = "sm", asideAlwaysVisible, children,
+  aside, mobileAside, asideWidth = "sm", children,
 }: DetailLayoutProps) {
   return (
     <div
-      className="container mx-auto flex gap-6 px-4 overflow-hidden"
+      className="container mx-auto flex gap-6 px-4 overflow-hidden transition-[height] duration-300 ease-out"
       style={{ height: "calc(100vh - var(--header-h, 4rem))" }}
     >
       <aside
         className={cn(
-          "flex-col gap-3 shrink-0 overflow-y-auto py-4 pr-1",
+          "hidden lg:flex flex-col gap-3 shrink-0 overflow-y-auto py-4 pr-1",
           asideWidth === "lg" ? "w-64 xl:w-72" : "w-56 xl:w-64",
-          asideAlwaysVisible ? "flex" : "hidden lg:flex",
         )}
       >
         {aside}
       </aside>
 
       <div className="flex-1 min-w-0 overflow-y-auto py-4 pb-12">
-        {!asideAlwaysVisible && mobileAside && (
+        {mobileAside && (
           <div className="lg:hidden flex flex-col gap-3 mb-6">{mobileAside}</div>
         )}
         {children}

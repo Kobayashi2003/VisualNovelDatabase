@@ -570,7 +570,7 @@ function CollectionContent() {
   /* ─── Render ───────────────────────────────────────────────────────────── */
 
   return (
-    <div className="flex overflow-hidden" style={{ height: "calc(100vh - var(--header-height, 56px))" }}>
+    <div className="flex overflow-hidden transition-[height] duration-300 ease-out" style={{ height: "calc(100vh - var(--header-h, 56px))" }}>
       {/* Desktop sidebar */}
       <CollectionSidebar
         className="hidden lg:flex shrink-0 w-64"

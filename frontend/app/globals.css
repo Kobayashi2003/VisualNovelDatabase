@@ -21,6 +21,15 @@
   --color-muted: var(--muted);
 }
 
+/* Height of the auto-hiding top header. Registered so that `calc(100vh - …)`
+   heights on inner-scrolling pages animate when it collapses to 0. Falls back
+   to a static var on browsers without @property support. */
+@property --header-h {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 * {
   box-sizing: border-box;
 }

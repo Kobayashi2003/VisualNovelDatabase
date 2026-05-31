@@ -49,27 +49,145 @@ export function CharacterInfoPanel({
     ? `${character.birthday[1]} ${MONTH_NAMES[character.birthday[0]] ?? character.birthday[0]}`
     : null
 
-  // Measurements string
-  const hasMeasurements = character.bust || character.waist || character.hips
-  const measurements = hasMeasurements
-    ? [
-        character.bust ? `${character.bust}` : "?",
-        character.waist ? `${character.waist}` : "?",
-        character.hips ? `${character.hips}` : "?",
-      ].join("-") + (character.cup ? `, ${character.cup} cup` : "")
-    : null
+  // Bust / waist / hips each get their own row; cup size rides along the bust row.
+  const cup = character.cup ? `${character.cup.toUpperCase()} cup` : null
 
   // Whether the physical-info card has any row worth showing.
   const hasPhysical =
     !!sexApparent || !!birthday || character.age != null ||
     character.height != null || character.weight != null ||
-    !!measurements || !!character.blood_type || character.aliases.length > 0
+    character.bust != null || character.waist != null || character.hips != null ||
+    !!cup || !!character.blood_type || character.aliases.length > 0
 
-  const infoContent = (
-    <div className="flex flex-col gap-0">
-      {/* Cover */}
+  /* ─── Shared pieces — defined once so the desktop and mobile layouts show the
+   *     same data; only the cover arrangement differs. ───────────────────── */
+
+  const lightbox = coverOpen && character.image && (
+    <Lightbox
+      images={[{ url: character.image.url, blurred: blur }]}
+      index={0}
+      onClose={() => setCoverOpen(false)}
+      onIndexChange={() => {}}
+    />
+  )
+
+  const physicalCard = hasPhysical && (
+    <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+      {sexApparent && (
+        <InfoRow label="Sex">
+          <span className="flex items-center gap-1.5">
+            <span className={cn(
+              (ICON.CHARACTER_SEX as Record<string, string>)[sexApparent],
+              "charsex-" + sexApparent
+            )} />
+            <span>
+              {enumLabel('CHARACTER_SEX', sexApparent)}
+              {hasSexSpoiler && spoilerLevel < 2 && (
+                <span className="text-yellow-500/70"> (?)</span>
+              )}
+              {hasSexSpoiler && spoilerLevel >= 2 && sexReal && (
+                <span className="text-yellow-400"> → {enumLabel('CHARACTER_SEX', sexReal)}</span>
+              )}
+            </span>
+          </span>
+        </InfoRow>
+      )}
+      {birthday && (
+        <InfoRow label="Birthday">{birthday}</InfoRow>
+      )}
+      {character.age != null && (
+        <InfoRow label="Age">{character.age}</InfoRow>
+      )}
+      {character.height != null && (
+        <InfoRow label="Height">{character.height} cm</InfoRow>
+      )}
+      {character.weight != null && (
+        <InfoRow label="Weight">{character.weight} kg</InfoRow>
+      )}
+      {(character.bust != null || cup) && (
+        <InfoRow label="Bust">
+          {character.bust != null && `${character.bust} cm`}
+          {cup && (
+            <span className="text-muted">{character.bust != null ? `(${cup})` : cup}</span>
+          )}
+        </InfoRow>
+      )}
+      {character.waist != null && (
+        <InfoRow label="Waist">{character.waist} cm</InfoRow>
+      )}
+      {character.hips != null && (
+        <InfoRow label="Hips">{character.hips} cm</InfoRow>
+      )}
+      {character.blood_type && (
+        <InfoRow label="Blood type">{character.blood_type.toUpperCase()}</InfoRow>
+      )}
+      {character.aliases.length > 0 && (
+        <InfoRow label="Aliases">
+          <InlineList className="text-white/70" items={character.aliases} />
+        </InfoRow>
+      )}
+    </div>
+  )
+
+  const seiyuuCard = character.seiyuu.length > 0 && (
+    <div className="rounded-lg bg-surface border border-white/5 px-3 py-2">
+      <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Voiced by</p>
+      <div className="flex flex-col gap-1">
+        {character.seiyuu.map((s, idx) => (
+          <div key={`${s.id}-${idx}`} className="flex items-baseline gap-1.5">
+            <Link href={`/${s.id}`} className="text-xs text-white/90 hover:text-accent transition-colors">
+              {displayName(s, showOriginal)}
+            </Link>
+            {s.note && (
+              <span className="text-xs text-muted/60">({s.note})</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const collection = (
+    <>
+      <CollectionButton type="character" id={character.id} />
+      <CollectionRating type="character" id={character.id} />
+    </>
+  )
+
+  if (mobile) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-4">
+          <div className="w-28 shrink-0">
+            <div
+              className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer"
+              onClick={() => character.image && setCoverOpen(true)}
+            >
+              {character.image ? (
+                <Image
+                  src={character.image.url}
+                  alt={character.name}
+                  fill
+                  className={cn("object-cover object-top", blur && "blur-xl scale-105")}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No image</div>
+              )}
+            </div>
+          </div>
+          {physicalCard && <div className="flex-1 min-w-0">{physicalCard}</div>}
+        </div>
+        {lightbox}
+        {seiyuuCard}
+        {collection}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
       <div
-        className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated mb-4 cursor-pointer group"
+        className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer group"
         onClick={() => character.image && setCoverOpen(true)}
       >
         {character.image ? (
@@ -97,136 +215,10 @@ export function CharacterInfoPanel({
         )}
       </div>
 
-      {/* Lightbox */}
-      {coverOpen && character.image && (
-        <Lightbox
-          images={[{ url: character.image.url, blurred: blur }]}
-          index={0}
-          onClose={() => setCoverOpen(false)}
-          onIndexChange={() => {}}
-        />
-      )}
-
-      {/* Physical info */}
-      {hasPhysical && (
-      <div className="rounded-lg bg-surface border border-white/5 px-3 py-1 mb-3">
-        {sexApparent && (
-          <InfoRow label="Sex">
-            <span className="flex items-center gap-1.5">
-              <span className={cn(
-                (ICON.CHARACTER_SEX as Record<string, string>)[sexApparent],
-                "charsex-" + sexApparent
-              )} />
-              <span>
-                {enumLabel('CHARACTER_SEX', sexApparent)}
-                {hasSexSpoiler && spoilerLevel < 2 && (
-                  <span className="text-yellow-500/70"> (?)</span>
-                )}
-                {hasSexSpoiler && spoilerLevel >= 2 && sexReal && (
-                  <span className="text-yellow-400"> → {enumLabel('CHARACTER_SEX', sexReal)}</span>
-                )}
-              </span>
-            </span>
-          </InfoRow>
-        )}
-        {birthday && (
-          <InfoRow label="Birthday">{birthday}</InfoRow>
-        )}
-        {character.age != null && (
-          <InfoRow label="Age">{character.age}</InfoRow>
-        )}
-        {character.height != null && (
-          <InfoRow label="Height">{character.height} cm</InfoRow>
-        )}
-        {character.weight != null && (
-          <InfoRow label="Weight">{character.weight} kg</InfoRow>
-        )}
-        {measurements && (
-          <InfoRow label="Measurements">
-            <span>B-W-H: {measurements}</span>
-          </InfoRow>
-        )}
-        {character.blood_type && (
-          <InfoRow label="Blood type">{character.blood_type.toUpperCase()}</InfoRow>
-        )}
-        {character.aliases.length > 0 && (
-          <InfoRow label="Aliases">
-            <InlineList className="text-white/70" items={character.aliases} />
-          </InfoRow>
-        )}
-      </div>
-      )}
-
-      {/* Voiced by */}
-      {character.seiyuu.length > 0 && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-2 mb-3">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Voiced by</p>
-          <div className="flex flex-col gap-1">
-            {character.seiyuu.map((s, idx) => (
-              <div key={`${s.id}-${idx}`} className="flex items-baseline gap-1.5">
-                <Link href={`/${s.id}`} className="text-xs text-white/90 hover:text-accent transition-colors">
-                  {displayName(s, showOriginal)}
-                </Link>
-                {s.note && (
-                  <span className="text-xs text-muted/60">({s.note})</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <CollectionButton type="character" id={character.id} />
-      <CollectionRating type="character" id={character.id} />
+      {lightbox}
+      {physicalCard}
+      {seiyuuCard}
+      {collection}
     </div>
   )
-
-  if (mobile) {
-    return (
-      <div className="flex gap-4">
-        <div className="w-28 shrink-0">
-          <div className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated">
-            {character.image ? (
-              <Image
-                src={character.image.url}
-                alt={character.name}
-                fill
-                className={cn("object-cover object-top", blur && "blur-xl scale-105")}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No image</div>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5 pt-1">
-          {sexApparent && (
-            <span className="flex items-center gap-1 text-xs text-white/70">
-              <span className={cn(
-                (ICON.CHARACTER_SEX as Record<string, string>)[sexApparent],
-                "charsex-" + sexApparent
-              )} />
-              {enumLabel('CHARACTER_SEX', sexApparent)}
-              {hasSexSpoiler && spoilerLevel < 2 && <span className="text-yellow-500/70"> (?)</span>}
-              {hasSexSpoiler && spoilerLevel >= 2 && sexReal && (
-                <span className="text-yellow-400"> → {enumLabel('CHARACTER_SEX', sexReal)}</span>
-              )}
-            </span>
-          )}
-          {birthday && <span className="text-xs text-muted">{birthday}</span>}
-          {character.height != null && (
-            <span className="text-xs text-muted">{character.height} cm</span>
-          )}
-          {character.seiyuu.length > 0 && (
-            <span className="text-xs text-muted">
-              CV: {character.seiyuu.map(s => s.name).join(", ")}
-            </span>
-          )}
-          <CollectionButton type="character" id={character.id} />
-          <CollectionRating type="character" id={character.id} />
-        </div>
-      </div>
-    )
-  }
-
-  return infoContent
 }

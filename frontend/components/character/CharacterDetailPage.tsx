@@ -90,7 +90,6 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
               traits={character.traits}
               spoilerLevel={spoiler.spoilerLevel}
               sexualLevel={sexualLevel}
-              sex={character.sex?.[0]}
               onRevealMinor={() => spoiler.setSpoilerLevel(1)}
               onRevealMajor={() => spoiler.setSpoilerLevel(2)}
             />

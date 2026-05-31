@@ -44,7 +44,8 @@ export function CollectionRating({ type, id }: CollectionRatingProps) {
 
   return (
     <div className="mt-3 flex items-center gap-2">
-      <span className="text-sm text-muted">My Rating</span>
+      {/* Label is redundant on the compact small-screen panels — stars alone read fine. */}
+      <span className="hidden lg:inline text-sm text-muted">My Rating</span>
       <StarRating value={rating} onChange={handleChange} size={20} />
     </div>
   )

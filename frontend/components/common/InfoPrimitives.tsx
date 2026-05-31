@@ -34,9 +34,12 @@ export function InlineList({
 export function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">
-        {title}
-        {count !== undefined && <span className="ml-1.5 text-xs font-normal">{count}</span>}
+      {/* A short accent tick anchors the heading and lifts it off the body text
+       *  without the heavy feel of a full divider — keeps the Spotify accent motif. */}
+      <h2 className="flex items-center gap-2.5 mb-3">
+        <span className="w-1 h-4 rounded-full bg-accent shrink-0" aria-hidden />
+        <span className="text-sm font-bold text-white uppercase tracking-wider">{title}</span>
+        {count !== undefined && <span className="text-xs font-normal text-muted">{count}</span>}
       </h2>
       {children}
     </div>

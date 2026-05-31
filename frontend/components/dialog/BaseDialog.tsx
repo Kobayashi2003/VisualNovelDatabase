@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { X } from "lucide-react"
+import { useScrollLock } from "@/hooks/useScrollLock"
 
 interface BaseDialogProps {
   open: boolean
@@ -16,10 +17,15 @@ interface BaseDialogProps {
 
 export function BaseDialog({ open, setOpen, title, children, className }: BaseDialogProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const mouseDownTarget = useRef<EventTarget | null>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Keep the page behind the dialog from scrolling (which would otherwise drive
+  // the auto-hiding header and leave the dialog interacting with a moving page).
+  useScrollLock(open, panelRef)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,11 +52,11 @@ export function BaseDialog({ open, setOpen, title, children, className }: BaseDi
         }
       }}
     >
-      <div className={cn(
+      <div ref={panelRef} className={cn(
         "relative w-full max-w-md",
         "bg-elevated border border-white/10 rounded-xl",
         "shadow-2xl shadow-black/50",
-        "max-h-[80vh] overflow-y-auto",
+        "max-h-[80vh] overflow-y-auto overscroll-contain",
         className
       )}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">

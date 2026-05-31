@@ -28,10 +28,19 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
 
   return (
     <DetailLayout
-      asideAlwaysVisible
       aside={
         <>
           <ContentLevelSelectors
+            sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+            violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+          />
+          <TraitInfoPanel trait={trait} />
+        </>
+      }
+      mobileAside={
+        <>
+          <ContentLevelSelectors
+            direction="row"
             sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
             violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
           />

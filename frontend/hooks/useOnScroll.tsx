@@ -15,9 +15,20 @@ interface ScrollState {
   scrollDirection: "up" | "down" | null
 }
 
+// How long to freeze the trigger after it flips, covering the header's 300ms
+// show/hide transition plus a small buffer, so the resulting layout resize can't
+// bounce it back.
+const SETTLE_MS = 350
+
 // `trigger` flips true once the user has scrolled past `scrollThreshold`
 // downward, and back to false as soon as they scroll upward at all — the
 // "hide on scroll down, show on scroll up" pattern.
+//
+// Listens in the *capture* phase on `document` so it sees scrolling from any
+// element, not just the window: the detail and collection pages scroll inside
+// inner `overflow-y-auto` containers, whose `scroll` events don't bubble to
+// `window`. Capture catches them regardless of input method (wheel, touch,
+// scrollbar, keyboard), and `e.target` tells us which element actually scrolled.
 export const useOnScroll = ({
   scrollThreshold = 50,
   debounceTime = 100,
@@ -30,25 +41,57 @@ export const useOnScroll = ({
   })
 
   const lastScrollY = useRef(0)
+  // The element whose scroll we're currently tracking. When it changes (e.g.
+  // navigating to another page, or switching between the sidebar and the main
+  // column), we re-baseline instead of computing a bogus delta across elements.
+  const lastTarget = useRef<EventTarget | null>(null)
+  const pendingTarget = useRef<EventTarget | null>(null)
+  // Mirror of `trigger` readable synchronously, plus a timestamp until which we
+  // suppress further toggles. Toggling the header animates a layout that resizes
+  // inner scroll containers; that resize clamps scrollTop and fires scroll events
+  // which would otherwise flip the trigger straight back — a hide/show flicker.
+  const triggerRef = useRef(false)
+  const settleUntil = useRef(0)
   const throttleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleScroll = useCallback(() => {
-    const currentScrollY = window.scrollY
+    const target = pendingTarget.current
+    if (!target) return
+
+    // Viewport scrolling targets the document; inner containers target the element.
+    const isViewport =
+      target === document ||
+      target === document.documentElement ||
+      target === document.body
+    const currentScrollY = isViewport ? window.scrollY : (target as HTMLElement).scrollTop
+
+    // Switched to a different scroll container — re-baseline, don't trigger.
+    if (target !== lastTarget.current) {
+      lastTarget.current = target
+      lastScrollY.current = currentScrollY
+      return
+    }
+
     const direction = currentScrollY > lastScrollY.current ? "down" : "up"
     const scrollDifference = Math.abs(currentScrollY - lastScrollY.current)
 
     // Ignore sub-5px movement so trackpad jitter doesn't toggle the trigger.
-    if (scrollDifference >= 5) {
-      setScrollState(prev => ({
-        trigger: direction === "down"
-          ? (currentScrollY > scrollThreshold || prev.trigger)
-          : false,
-        scrollY: currentScrollY,
-        scrollDirection: direction,
-      }))
-      lastScrollY.current = currentScrollY
+    if (scrollDifference < 5) return
+    lastScrollY.current = currentScrollY
+
+    // Within the settle window after a toggle, keep tracking position but don't
+    // re-evaluate the trigger — this is where the resize-induced scroll lands.
+    if (Date.now() < settleUntil.current) return
+
+    const nextTrigger = direction === "down"
+      ? (currentScrollY > scrollThreshold || triggerRef.current)
+      : false
+    if (nextTrigger !== triggerRef.current) {
+      triggerRef.current = nextTrigger
+      settleUntil.current = Date.now() + SETTLE_MS
     }
+    setScrollState({ trigger: nextTrigger, scrollY: currentScrollY, scrollDirection: direction })
   }, [scrollThreshold])
 
   const throttledScrollHandler = useCallback(() => {
@@ -70,15 +113,16 @@ export const useOnScroll = ({
 
   // Throttle keeps state flowing during continuous scroll; debounce
   // guarantees a final update once the user stops.
-  const combinedScrollHandler = useCallback(() => {
+  const combinedScrollHandler = useCallback((e: Event) => {
+    pendingTarget.current = e.target
     throttledScrollHandler()
     debouncedScrollHandler()
   }, [throttledScrollHandler, debouncedScrollHandler])
 
   useEffect(() => {
-    window.addEventListener("scroll", combinedScrollHandler)
+    document.addEventListener("scroll", combinedScrollHandler, true)
     return () => {
-      window.removeEventListener("scroll", combinedScrollHandler)
+      document.removeEventListener("scroll", combinedScrollHandler, true)
       if (throttleTimeout.current) clearTimeout(throttleTimeout.current)
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
     }

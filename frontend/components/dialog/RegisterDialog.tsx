@@ -158,7 +158,7 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
         <button
           type="submit"
           disabled={disabled || loading}
-          className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white font-bold text-sm transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-black font-semibold text-sm transition-all disabled:opacity-40 flex items-center justify-center gap-2"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
           {loading ? "Creating account..." : "Sign up"}

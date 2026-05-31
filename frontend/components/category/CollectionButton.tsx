@@ -1,4 +1,5 @@
-/** "Add to Collection" button on detail pages — toggles marks per user category. */
+/** "Add to Collection" button on detail pages — opens a panel to toggle marks
+ *  per user category. */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
@@ -6,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { useUserContext } from "@/context/UserContext"
 import { COLLECTION_TYPE_MAP } from "@/lib/constants"
+import { CollectionDialog } from "./CollectionDialog"
 import type { Category } from "@/lib/types"
 
 type ResourceType = "vn" | "release" | "character" | "producer" | "staff" | "tag" | "trait"
@@ -46,10 +48,17 @@ export function CollectionButton({ type, id }: CollectionButtonProps) {
     await refresh()
   }
 
+  // Create a collection and add the current item to it in one step.
+  const create = async (name: string) => {
+    const cat = await api.category.create(type, name)
+    await api.category.addMark(type, cat.id, markId)
+    await refresh()
+  }
+
   return (
-    <div className="relative mt-3">
+    <div className="mt-3">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen(true)}
         className={cn(
           "w-full py-2 rounded-lg text-sm font-semibold transition-colors",
           isAnyMarked ? "bg-accent text-black hover:bg-accent/80" : "bg-white/10 text-white hover:bg-white/20"
@@ -57,20 +66,14 @@ export function CollectionButton({ type, id }: CollectionButtonProps) {
       >
         {isAnyMarked ? "In Collection ✓" : "Add to Collection"}
       </button>
-      {open && categories.length > 0 && (
-        <div className="absolute z-20 top-full mt-1 w-full bg-elevated border border-white/10 rounded-lg shadow-lg overflow-hidden">
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => toggle(cat.id)}
-              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-white/10 transition-colors"
-            >
-              <span className="text-white/90">{cat.category_name}</span>
-              {markedCatIds.has(cat.id) && <span className="text-accent text-xs">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      <CollectionDialog
+        open={open}
+        setOpen={setOpen}
+        categories={categories}
+        markedCatIds={markedCatIds}
+        onToggle={toggle}
+        onCreate={create}
+      />
     </div>
   )
 }

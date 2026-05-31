@@ -44,8 +44,8 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
   const devstatusLabel = DEVSTATUS[vn.devstatus]
   const devstatusColor =
     vn.devstatus === 0 ? "bg-green-500/20 text-green-400" :
-    vn.devstatus === 1 ? "bg-yellow-500/20 text-yellow-400" :
-    "bg-red-500/20 text-red-400"
+      vn.devstatus === 1 ? "bg-yellow-500/20 text-yellow-400" :
+        "bg-red-500/20 text-red-400"
 
   // Group relations by type
   const relationGroups = vn.relations.reduce<Record<string, typeof vn.relations>>((acc, r) => {
@@ -63,7 +63,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
       images={[{ url: vn.image.url, blurred: blur }]}
       index={0}
       onClose={() => setCoverOpen(false)}
-      onIndexChange={() => {}}
+      onIndexChange={() => { }}
     />
   )
 
@@ -121,8 +121,18 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           )}
         </InfoRow>
       )}
+      {vn.platforms.length > 0 && (
+        <InfoRow label="Platforms">
+          <PlatformIcons platforms={vn.platforms} />
+        </InfoRow>
+      )}
+      {vn.languages.length > 0 && (
+        <InfoRow label="Languages">
+          <LanguageIcons langs={vn.languages} olang={vn.olang} />
+        </InfoRow>
+      )}
       {vn.developers.length > 0 && (
-        <InfoRow label="Developer">
+        <InfoRow label="Developer" stacked>
           <InlineList items={vn.developers.map(d => (
             <Link key={d.id} href={`/${d.id}`} className="text-white/90 hover:text-accent transition-colors">
               {displayName(d, showOriginal)}
@@ -131,7 +141,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
         </InfoRow>
       )}
       {vn.publishers.length > 0 && (
-        <InfoRow label="Publisher">
+        <InfoRow label="Publisher" stacked>
           <div className="flex flex-col gap-1 w-full">
             {vn.publishers.map(pub => (
               <Link key={pub.id} href={`/${pub.id}`}
@@ -147,18 +157,8 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           </div>
         </InfoRow>
       )}
-      {vn.platforms.length > 0 && (
-        <InfoRow label="Platforms">
-          <PlatformIcons platforms={vn.platforms} />
-        </InfoRow>
-      )}
-      {vn.languages.length > 0 && (
-        <InfoRow label="Languages">
-          <LanguageIcons langs={vn.languages} olang={vn.olang} />
-        </InfoRow>
-      )}
       {vn.aliases.length > 0 && (
-        <InfoRow label="Aliases">
+        <InfoRow label="Aliases" stacked>
           <InlineList className="text-white/70" items={vn.aliases} />
         </InfoRow>
       )}

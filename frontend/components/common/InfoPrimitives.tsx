@@ -2,12 +2,17 @@
 
 import { ChevronRight } from "lucide-react"
 
-export function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function InfoRow({ label, children, stacked }: { label: string; children: React.ReactNode; stacked?: boolean }) {
   return (
     // On phones (< sm) the label stacks above the value; from sm up it returns to
-    // the fixed-width label column beside the value.
-    <div className="flex flex-col gap-0.5 py-1.5 border-b border-white/5 last:border-0 sm:flex-row sm:gap-2">
-      <span className="text-xs text-muted shrink-0 pt-0.5 sm:w-24">{label}</span>
+    // the fixed-width label column beside the value — unless `stacked` is set, in
+    // which case the label always sits above the value at every width.
+    <div className={
+      stacked
+        ? "flex flex-col gap-0.5 py-1.5 border-b border-white/5 last:border-0"
+        : "flex flex-col gap-0.5 py-1.5 border-b border-white/5 last:border-0 sm:flex-row sm:gap-2"
+    }>
+      <span className={stacked ? "text-xs text-muted shrink-0 pt-0.5" : "text-xs text-muted shrink-0 pt-0.5 sm:w-24"}>{label}</span>
       <div className="flex-1 text-xs text-white/90 flex flex-wrap gap-1">{children}</div>
     </div>
   )

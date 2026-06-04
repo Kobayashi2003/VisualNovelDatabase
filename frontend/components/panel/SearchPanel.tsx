@@ -46,14 +46,15 @@ interface SearchPanelProps {
   initialType: string
   initialSortBy: string
   initialOrder: string
-  onApply: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>) => void
-  onSave?: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>) => void
+  initialFilterState: FilterState
+  onApply: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>, filterState: FilterState) => void
+  onSave?: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>, filterState: FilterState) => void
 }
 
 export function SearchPanel({
   open, setOpen,
   initialFrom,
-  initialType, initialSortBy, initialOrder,
+  initialType, initialSortBy, initialOrder, initialFilterState,
   onApply, onSave,
 }: SearchPanelProps) {
   const [mounted, setMounted] = useState(false)
@@ -62,7 +63,7 @@ export function SearchPanel({
   const [localType, setLocalTypeRaw] = useState(initialType)
   const [localSortBy, setLocalSortBy] = useState(initialSortBy)
   const [localOrder, setLocalOrder] = useState(initialOrder)
-  const [localFilterState, setLocalFilterState] = useState<FilterState>(() => buildInitialState(initialType))
+  const [localFilterState, setLocalFilterState] = useState<FilterState>(initialFilterState)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -78,7 +79,7 @@ export function SearchPanel({
     setLocalTypeRaw(initialType)
     setLocalSortBy(initialSortBy)
     setLocalOrder(initialOrder)
-    setLocalFilterState(buildInitialState(initialType))
+    setLocalFilterState(initialFilterState)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -105,13 +106,13 @@ export function SearchPanel({
 
   const handleApply = () => {
     const filterParams = buildFilterParams(localType, localFilterState, localFrom)
-    onApply(localFrom, localType, localSortBy, localOrder, filterParams)
+    onApply(localFrom, localType, localSortBy, localOrder, filterParams, localFilterState)
     setOpen(false)
   }
 
   const handleApplyOnly = () => {
     const filterParams = buildFilterParams(localType, localFilterState, localFrom)
-    onSave?.(localFrom, localType, localSortBy, localOrder, filterParams)
+    onSave?.(localFrom, localType, localSortBy, localOrder, filterParams, localFilterState)
     setOpen(false)
   }
 

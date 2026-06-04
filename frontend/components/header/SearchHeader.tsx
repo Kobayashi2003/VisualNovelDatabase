@@ -10,6 +10,7 @@ import { SearchBar } from "@/components/input/SearchBar"
 import { SubmitButton } from "@/components/button/SubmitButton"
 import { IconButton } from "@/components/button/IconButton"
 import { SearchPanel } from "@/components/panel/SearchPanel"
+import { FilterState, buildInitialState } from "@/lib/config"
 
 interface SearchHeaderProps {
   hidden?: boolean
@@ -24,6 +25,10 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
   const [sortOrder, setSortOrder] = useState("desc")
   const [searchQuery, setSearchQuery] = useState("")
   const [filtersParams, setFiltersParams] = useState<Record<string, string>>({})
+  // The full panel state behind `filtersParams`, kept so reopening the panel shows
+  // the filters actually in effect instead of a blank form (which would mislead the
+  // user into thinking the next search carries no filters when it still does).
+  const [filtersState, setFiltersState] = useState<FilterState>(() => buildInitialState(searchType))
   // `filtersType` tracks which entity type the stored `filtersParams` belongs to,
   // so filters from a previous search don't leak into a query for a different type.
   const [filtersType, setFiltersType] = useState<string>(searchType)
@@ -53,22 +58,24 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
     setLoading(false)
   }
 
-  const handlePanelApply = (from: string, type: string, sort: string, order: string, filters: Record<string, string>) => {
+  const handlePanelApply = (from: string, type: string, sort: string, order: string, filters: Record<string, string>, state: FilterState) => {
     setSearchFrom(from)
     setSearchType(type)
     setSortBy(sort)
     setSortOrder(order)
     setFiltersParams(filters)
+    setFiltersState(state)
     setFiltersType(type)
     handleSubmit(undefined, { from, type, sortByVal: sort, order, filters })
   }
 
-  const handlePanelSave = (from: string, type: string, sort: string, order: string, filters: Record<string, string>) => {
+  const handlePanelSave = (from: string, type: string, sort: string, order: string, filters: Record<string, string>, state: FilterState) => {
     setSearchFrom(from)
     setSearchType(type)
     setSortBy(sort)
     setSortOrder(order)
     setFiltersParams(filters)
+    setFiltersState(state)
     setFiltersType(type)
   }
 
@@ -122,6 +129,7 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
         initialType={searchType}
         initialSortBy={sortBy}
         initialOrder={sortOrder}
+        initialFilterState={filtersType === searchType ? filtersState : buildInitialState(searchType)}
         onApply={handlePanelApply}
         onSave={handlePanelSave}
       />

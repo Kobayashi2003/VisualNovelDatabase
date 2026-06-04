@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { isScrollLocked } from "@/hooks/useScrollLock"
 
 interface UseOnScrollParams {
   scrollThreshold?: number
@@ -114,6 +115,12 @@ export const useOnScroll = ({
   // Throttle keeps state flowing during continuous scroll; debounce
   // guarantees a final update once the user stops.
   const combinedScrollHandler = useCallback((e: Event) => {
+    // While an overlay is open (dialog / search drawer), ignore scroll entirely:
+    // the drawer's own `overflow-y-auto` body emits capture-phase scroll events
+    // that would otherwise read as page scrolling and flip the auto-hide header,
+    // resizing the layout behind the backdrop. The next real page scroll after
+    // the overlay closes re-baselines via the target-changed check below.
+    if (isScrollLocked()) return
     pendingTarget.current = e.target
     throttledScrollHandler()
     debouncedScrollHandler()

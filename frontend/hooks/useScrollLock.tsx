@@ -11,6 +11,11 @@ let lockCount = 0
 const lockListeners = new Set<() => void>()
 const emitLockChange = () => lockListeners.forEach(l => l())
 
+/** Non-reactive read of the lock state, for use inside event handlers. */
+export function isScrollLocked(): boolean {
+  return lockCount > 0
+}
+
 /** Reactive `true` while any `useScrollLock(true, …)` is mounted. */
 export function useScrollLocked(): boolean {
   return useSyncExternalStore(
@@ -38,21 +43,46 @@ export function useScrollLock(
     lockCount++
     emitLockChange()
 
-    const shouldBlock = (target: EventTarget | null) => {
-      const el = allowRef?.current
-      if (el && target instanceof Node && el.contains(target)) {
-        // Let the dialog scroll itself, but block (and prevent chaining) once it
-        // has nothing left to scroll in that area.
-        return el.scrollHeight <= el.clientHeight
+    // Walk up from the event target to `root` (inclusive) and return the nearest
+    // element that can actually scroll vertically — the drawer body, or a nested
+    // scroller like the entity-picker dropdown. `null` means nothing here scrolls.
+    const findScroller = (target: EventTarget | null, root: HTMLElement) => {
+      let node = target instanceof HTMLElement ? target
+        : target instanceof Node ? target.parentElement : null
+      while (node && node !== root.parentElement) {
+        if (node.scrollHeight > node.clientHeight) {
+          const overflowY = getComputedStyle(node).overflowY
+          if (overflowY === "auto" || overflowY === "scroll") return node
+        }
+        node = node.parentElement
       }
-      return true
+      return null
     }
 
     const onWheel = (e: WheelEvent) => {
-      if (shouldBlock(e.target)) e.preventDefault()
+      const root = allowRef?.current
+      // Anything outside the allowed area (or no allowed area at all) is locked.
+      if (!root || !(e.target instanceof Node) || !root.contains(e.target)) {
+        e.preventDefault()
+        return
+      }
+      // Inside the drawer: let the active scroller move, but stop the wheel from
+      // chaining to the page once it has hit the top/bottom edge in that direction.
+      const scroller = findScroller(e.target, root)
+      if (!scroller) { e.preventDefault(); return }
+      const atTop = scroller.scrollTop <= 0 && e.deltaY < 0
+      const atBottom =
+        scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1 && e.deltaY > 0
+      if (atTop || atBottom) e.preventDefault()
     }
     const onTouchMove = (e: TouchEvent) => {
-      if (shouldBlock(e.target)) e.preventDefault()
+      const root = allowRef?.current
+      // Touch lacks a usable delta here, so block unless the touched area itself
+      // (or a nested scroller within it) has room to scroll.
+      if (!root || !(e.target instanceof Node) || !root.contains(e.target)
+          || !findScroller(e.target, root)) {
+        e.preventDefault()
+      }
     }
 
     document.addEventListener("wheel", onWheel, { passive: false, capture: true })

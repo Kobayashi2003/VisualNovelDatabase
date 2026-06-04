@@ -70,6 +70,16 @@ class Supervisor:
 
     # ---------- launch / shutdown ------------------------------------------
 
+    def _pump_logs(self, spec: ProcSpec, proc: subprocess.Popen) -> None:
+        # proc.stdout is text-mode with stderr merged in. Iterating yields
+        # lines as the child flushes them; the loop exits when the child
+        # closes its stdout (i.e. it exited).
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            self.logger.info(f"{spec.prefix} {line}")
+            print(f"{spec.prefix} {line}")
+
     def _start_one(self, spec: ProcSpec) -> None:
         print(f"{spec.prefix} starting")
         self.logger.info(f"{spec.prefix} starting: {' '.join(spec.cmd)}")
@@ -97,49 +107,9 @@ class Supervisor:
             target=self._pump_logs, args=(spec, proc), daemon=True
         ).start()
 
-    def _pump_logs(self, spec: ProcSpec, proc: subprocess.Popen) -> None:
-        # proc.stdout is text-mode with stderr merged in. Iterating yields
-        # lines as the child flushes them; the loop exits when the child
-        # closes its stdout (i.e. it exited).
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            line = line.rstrip("\n")
-            self.logger.info(f"{spec.prefix} {line}")
-            print(f"{spec.prefix} {line}")
-
     def start_all(self) -> None:
         for spec in self._topological_order():
             self._start_one(spec)
-
-    def stop_all(self) -> None:
-        """Stop every running child in reverse-topological order.
-
-        Reverse-topo means dependents (Flask) go down before their deps
-        (Postgres) — avoids a tail of "connection refused" log spam from
-        Flask while Postgres is already gone.
-
-        Per-child shutdown is a three-step escalation:
-          1. If `spec.stop_cmd` is set, run it and wait up to
-             `spec.stop_timeout` for the child to exit on its own — the hook
-             for any child that needs a real graceful stop rather than the
-             abrupt terminate() below. No spec currently sets it (postgres,
-             the original user, now runs as a Windows service).
-          2. If the graceful path is unset or didn't finish in time, send
-             terminate() (Ctrl-Break on Windows process groups, SIGTERM
-             elsewhere) and wait again.
-          3. Last resort: kill() (TerminateProcess / SIGKILL).
-        """
-        with self._lock:
-            if self._stopping:
-                return
-            self._stopping = True
-
-        order = list(reversed(self._topological_order()))
-        for spec in order:
-            proc = self.processes.get(spec.name)
-            if proc is None or proc.poll() is not None:
-                continue
-            self._stop_one(spec, proc)
 
     def _stop_one(self, spec: ProcSpec, proc: subprocess.Popen) -> None:
         timeout = max(0.5, float(spec.stop_timeout))
@@ -208,6 +178,36 @@ class Supervisor:
             except Exception as e:
                 self.logger.error(f"{spec.prefix} kill failed: {e}")
                 print(f"{spec.prefix} kill failed: {e}", file=sys.stderr)
+
+    def stop_all(self) -> None:
+        """Stop every running child in reverse-topological order.
+
+        Reverse-topo means dependents (Flask) go down before their deps
+        (Postgres) — avoids a tail of "connection refused" log spam from
+        Flask while Postgres is already gone.
+
+        Per-child shutdown is a three-step escalation:
+          1. If `spec.stop_cmd` is set, run it and wait up to
+             `spec.stop_timeout` for the child to exit on its own — the hook
+             for any child that needs a real graceful stop rather than the
+             abrupt terminate() below. No spec currently sets it (postgres,
+             the original user, now runs as a Windows service).
+          2. If the graceful path is unset or didn't finish in time, send
+             terminate() (Ctrl-Break on Windows process groups, SIGTERM
+             elsewhere) and wait again.
+          3. Last resort: kill() (TerminateProcess / SIGKILL).
+        """
+        with self._lock:
+            if self._stopping:
+                return
+            self._stopping = True
+
+        order = list(reversed(self._topological_order()))
+        for spec in order:
+            proc = self.processes.get(spec.name)
+            if proc is None or proc.poll() is not None:
+                continue
+            self._stop_one(spec, proc)
 
     # ---------- introspection ----------------------------------------------
 

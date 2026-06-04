@@ -39,3 +39,9 @@ export type CollectionTypeItem = typeof COLLECTION_TYPES[number]
 // Lookup table form of `COLLECTION_TYPES` for O(1) access by type name.
 export const COLLECTION_TYPE_MAP: Record<string, CollectionTypeItem> =
   Object.fromEntries(COLLECTION_TYPES.map(c => [c.type, c]))
+
+// Reverse lookup: single-letter VNDB route prefix (`"v"`) → high-level type
+// name (`"vn"`). Used where only the route letter is in hand (e.g. the search
+// panel maps its `v`/`c`/… type onto the userserve collection endpoints).
+export const ROUTE_TO_TYPE: Record<string, string> =
+  Object.fromEntries(COLLECTION_TYPES.map(c => [c.route, c.type]))

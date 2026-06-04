@@ -1,11 +1,11 @@
 /** Single-line dense row used by the collection page's "compact" view. */
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { X, FolderInput, Check } from "lucide-react"
 import { cn, formatRelativeDate } from "@/lib/utils"
 import { StarRating } from "@/components/common/StarRating"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 
 interface CompactRowProps {
   index: number
@@ -59,7 +59,7 @@ export function CompactRow({
       {thumbnail !== undefined && (
         <div className="w-10 h-14 shrink-0 rounded overflow-hidden bg-white/5">
           {thumbnail ? (
-            <Image src={thumbnail} alt={title || ""} width={40} height={56} className="w-full h-full object-cover" unoptimized />
+            <ImageWithFallback src={thumbnail} alt={title || ""} width={40} height={56} className="w-full h-full object-cover" fallbackClassName="w-full h-full" unoptimized />
           ) : (
             <div className="w-full h-full bg-white/10" />
           )}

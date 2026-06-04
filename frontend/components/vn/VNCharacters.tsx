@@ -2,7 +2,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { cn, shouldBlur } from "@/lib/utils"
@@ -13,6 +12,7 @@ import type { VN, VNCharacterLayout } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
 import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { TabBar } from "@/components/common/TabBar"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 import { VNCharacterSlider } from "./VNCharacterSlider"
 
 type VNCharacter = VN["characters"][number]
@@ -133,7 +133,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
               )}>
                 <div className="relative w-full aspect-3/4 shrink-0 bg-elevated">
                   {c.image ? (
-                    <Image
+                    <ImageWithFallback
                       src={c.image.url}
                       alt={c.name}
                       fill

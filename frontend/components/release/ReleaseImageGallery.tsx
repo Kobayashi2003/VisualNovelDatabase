@@ -2,10 +2,10 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { cn, shouldBlur } from "@/lib/utils"
 import type { Release } from "@/lib/types"
 import { Lightbox, type LightboxImage } from "@/components/common/Lightbox"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 
 type ReleaseImage = Release["images"][number]
 
@@ -32,7 +32,7 @@ export function ReleaseImageGallery({ images, sexualLevel, violenceLevel }: Rele
             onClick={() => setLightboxIndex(i)}
             className="relative w-24 h-14 rounded overflow-hidden bg-elevated shrink-0 hover:ring-2 hover:ring-accent transition-all"
           >
-            <Image
+            <ImageWithFallback
               src={img.thumbnail}
               alt={`Image ${i + 1}`}
               fill

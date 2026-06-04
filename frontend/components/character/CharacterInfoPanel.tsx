@@ -2,7 +2,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { cn, shouldBlur } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
@@ -13,6 +12,7 @@ import { ICON } from "@/lib/icons"
 import { enumLabel } from "@/lib/enums"
 import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { Lightbox } from "@/components/common/Lightbox"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 import type { Character } from "@/lib/types"
 
 const MONTH_NAMES = [
@@ -166,7 +166,7 @@ export function CharacterInfoPanel({
               onClick={() => character.image && setCoverOpen(true)}
             >
               {character.image ? (
-                <Image
+                <ImageWithFallback
                   src={character.image.url}
                   alt={character.name}
                   fill
@@ -194,7 +194,7 @@ export function CharacterInfoPanel({
       >
         {character.image ? (
           <>
-            <Image
+            <ImageWithFallback
               src={character.image.url}
               alt={character.name}
               fill
@@ -204,6 +204,7 @@ export function CharacterInfoPanel({
                 blur && "blur-xl scale-105"
               )}
               onLoad={() => setImgLoaded(true)}
+              onError={() => setImgLoaded(true)}
             />
             {!imgLoaded && (
               <div className="absolute inset-0 flex items-center justify-center">

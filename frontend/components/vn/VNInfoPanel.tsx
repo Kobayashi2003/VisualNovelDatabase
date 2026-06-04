@@ -2,7 +2,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Eye, EyeOff, Network } from "lucide-react"
 import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
@@ -17,6 +16,7 @@ import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { PlatformIcons } from "@/components/common/PlatformIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
 import { Lightbox } from "@/components/common/Lightbox"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 import type { VN } from "@/lib/types"
 
 
@@ -216,7 +216,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
               onClick={() => vn.image && setCoverOpen(true)}
             >
               {vn.image ? (
-                <Image
+                <ImageWithFallback
                   src={vn.image.thumbnail || vn.image.url}
                   alt={vn.title}
                   fill
@@ -243,7 +243,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
       >
         {vn.image ? (
           <>
-            <Image
+            <ImageWithFallback
               src={vn.image.thumbnail || vn.image.url}
               alt={vn.title}
               fill
@@ -253,6 +253,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
                 blur && "blur-xl scale-105"
               )}
               onLoad={() => setImgLoaded(true)}
+              onError={() => setImgLoaded(true)}
             />
             {!imgLoaded && (
               <div className="absolute inset-0 flex items-center justify-center">

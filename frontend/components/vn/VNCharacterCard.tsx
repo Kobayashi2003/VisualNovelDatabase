@@ -6,7 +6,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { cn, shouldBlur } from "@/lib/utils"
 import { enumLabel } from "@/lib/enums"
@@ -16,6 +15,7 @@ import { groupTraits } from "@/lib/traits"
 import { useSearchContext } from "@/context/SearchContext"
 import { useCharacterFull } from "@/hooks/useCharacterFull"
 import { InlineList } from "@/components/common/InfoPrimitives"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 import { BBCodeText } from "@/components/common/BBCodeText"
 import { Lightbox } from "@/components/common/Lightbox"
 import type { VN } from "@/lib/types"
@@ -124,7 +124,7 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
           onClick={() => base.image && setCoverOpen(true)}
         >
           {base.image ? (
-            <Image
+            <ImageWithFallback
               src={base.image.url}
               alt={base.name}
               fill

@@ -11,10 +11,12 @@ import { cn } from "@/lib/utils"
 type ImageWithFallbackProps = Omit<ImageProps, "onError"> & {
   /** Extra classes for the fallback box (sizing for the non-`fill` case). */
   fallbackClassName?: string
+  /** Notified when the image fails — e.g. to dismiss a parent's loading skeleton. */
+  onError?: () => void
 }
 
 export function ImageWithFallback({
-  className, fallbackClassName, alt, fill, ...props
+  className, fallbackClassName, alt, fill, onError, ...props
 }: ImageWithFallbackProps) {
   const [failed, setFailed] = useState(false)
   // Bumping the key remounts the <img>, forcing a fresh network attempt.
@@ -51,7 +53,7 @@ export function ImageWithFallback({
       alt={alt}
       fill={fill}
       className={className}
-      onError={() => setFailed(true)}
+      onError={() => { setFailed(true); onError?.() }}
       {...props}
     />
   )

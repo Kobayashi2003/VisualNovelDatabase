@@ -2,12 +2,12 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { cn, shouldBlur } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle } from "@/lib/original"
 import type { VN } from "@/lib/types"
 import { Lightbox, type LightboxImage } from "@/components/common/Lightbox"
+import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 
 type Screenshot = VN["screenshots"][number]
 
@@ -54,7 +54,7 @@ export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScr
                 className="relative w-24 h-14 rounded overflow-hidden bg-elevated shrink-0 hover:ring-2 hover:ring-accent transition-all"
                 title={group.releaseTitle}
               >
-                <Image
+                <ImageWithFallback
                   src={s.thumbnail}
                   alt={`Screenshot ${flatIdx + 1}`}
                   fill

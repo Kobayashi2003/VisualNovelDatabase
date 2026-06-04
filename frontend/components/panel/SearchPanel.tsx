@@ -5,7 +5,11 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { useScrollLock } from "@/hooks/useScrollLock"
-import { X, ArrowUp, ArrowDown, SlidersHorizontal } from "lucide-react"
+import { useUserContext } from "@/context/UserContext"
+import { api } from "@/lib/api"
+import { ROUTE_TO_TYPE } from "@/lib/constants"
+import type { Category } from "@/lib/types"
+import { X, ArrowUp, ArrowDown, ChevronDown, SlidersHorizontal } from "lucide-react"
 import {
   FilterState,
   buildInitialState,
@@ -14,6 +18,35 @@ import {
   getDefaultSortOption,
 } from "@/lib/config"
 import { FiltersForm } from "@/components/dialog/FiltersForm"
+
+// Sentinels for the collection-scope picker. "" → no restriction (search the
+// whole catalogue); "all" → the union of every collection of the active type.
+const COLLECTION_NONE = ""
+const COLLECTION_ALL = "all"
+
+// Translate the chosen collection scope into a VNDB `id` filter (e.g.
+// "v17,v22"). Returns null when no scope is active. An *active but empty* scope
+// yields a sentinel id ("v0") that matches nothing, so searching an empty
+// collection honestly returns no results instead of silently falling back to
+// the whole catalogue.
+function collectionIdFilter(
+  collection: string,
+  routeType: string,
+  categories: Category[],
+): string | null {
+  if (!collection) return null
+  let markIds: number[]
+  if (collection === COLLECTION_ALL) {
+    const seen = new Set<number>()
+    for (const cat of categories) for (const m of cat.marks) seen.add(m.id)
+    markIds = Array.from(seen)
+  } else {
+    const cat = categories.find(c => String(c.id) === collection)
+    markIds = cat ? cat.marks.map(m => m.id) : []
+  }
+  if (markIds.length === 0) return `${routeType}0`
+  return markIds.map(id => `${routeType}${id}`).join(",")
+}
 
 const FROM_OPTIONS = [
   { value: "both", label: "Both" },
@@ -47,16 +80,18 @@ interface SearchPanelProps {
   initialSortBy: string
   initialOrder: string
   initialFilterState: FilterState
-  onApply: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>, filterState: FilterState) => void
-  onSave?: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>, filterState: FilterState) => void
+  initialCollection: string
+  onApply: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>, filterState: FilterState, collection: string) => void
+  onSave?: (from: string, type: string, sortBy: string, order: string, filterParams: Record<string, string>, filterState: FilterState, collection: string) => void
 }
 
 export function SearchPanel({
   open, setOpen,
   initialFrom,
-  initialType, initialSortBy, initialOrder, initialFilterState,
+  initialType, initialSortBy, initialOrder, initialFilterState, initialCollection,
   onApply, onSave,
 }: SearchPanelProps) {
+  const { user } = useUserContext()
   const [mounted, setMounted] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [localFrom, setLocalFromRaw] = useState(initialFrom)
@@ -64,8 +99,25 @@ export function SearchPanel({
   const [localSortBy, setLocalSortBy] = useState(initialSortBy)
   const [localOrder, setLocalOrder] = useState(initialOrder)
   const [localFilterState, setLocalFilterState] = useState<FilterState>(initialFilterState)
+  // Restrict the search to one of the signed-in user's collections (or all of
+  // them). Held here as the selected category id / sentinel; converted to an
+  // `id` filter only at apply time.
+  const [localCollection, setLocalCollection] = useState(initialCollection)
+  const [categories, setCategories] = useState<Category[]>([])
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Load the user's collections for the active type while the drawer is open, so
+  // the scope picker reflects exactly what can be searched. Cleared when signed
+  // out. Re-runs on type change because collections are per entity type.
+  useEffect(() => {
+    if (!open || !user) { setCategories([]); return }
+    let cancelled = false
+    api.category.get(ROUTE_TO_TYPE[localType] ?? localType)
+      .then(data => { if (!cancelled) setCategories(data) })
+      .catch(() => { if (!cancelled) setCategories([]) })
+    return () => { cancelled = true }
+  }, [open, user, localType])
 
   // Keep the page behind the drawer from scrolling — a wheel over the drawer
   // (or past the end of its scrollable body) must not chain through to the page.
@@ -80,6 +132,7 @@ export function SearchPanel({
     setLocalSortBy(initialSortBy)
     setLocalOrder(initialOrder)
     setLocalFilterState(initialFilterState)
+    setLocalCollection(initialCollection)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -95,24 +148,32 @@ export function SearchPanel({
     setLocalSortBy(getDefaultSortOption(localType, f))
   }
 
-  // Type change → reset sort + clear filters (filters are per-type).
+  // Type change → reset sort + clear filters and collection scope (both are
+  // per-type; the collection list is re-fetched by the effect above).
   const setLocalType = (t: string) => {
     setLocalTypeRaw(t)
     setLocalSortBy(getDefaultSortOption(t, localFrom))
     setLocalFilterState(buildInitialState(t))
+    setLocalCollection(COLLECTION_NONE)
   }
 
   const sortOptions = getSortOptions(localType, localFrom)
 
-  const handleApply = () => {
+  // Merge the collection-scope `id` filter into the params the form produced.
+  const buildParams = () => {
     const filterParams = buildFilterParams(localType, localFilterState, localFrom)
-    onApply(localFrom, localType, localSortBy, localOrder, filterParams, localFilterState)
+    const idFilter = user ? collectionIdFilter(localCollection, localType, categories) : null
+    if (idFilter) filterParams.id = idFilter
+    return filterParams
+  }
+
+  const handleApply = () => {
+    onApply(localFrom, localType, localSortBy, localOrder, buildParams(), localFilterState, localCollection)
     setOpen(false)
   }
 
   const handleApplyOnly = () => {
-    const filterParams = buildFilterParams(localType, localFilterState, localFrom)
-    onSave?.(localFrom, localType, localSortBy, localOrder, filterParams, localFilterState)
+    onSave?.(localFrom, localType, localSortBy, localOrder, buildParams(), localFilterState, localCollection)
     setOpen(false)
   }
 
@@ -257,6 +318,28 @@ export function SearchPanel({
               </button>
             </div>
           </div>
+
+          {/* Collections — signed-in only. Limits the search to the entities
+              the user has marked, by injecting an `id` filter at apply time. */}
+          {user && (
+            <div>
+              <SectionHeading>Collections</SectionHeading>
+              <div className="relative">
+                <select
+                  value={localCollection}
+                  onChange={e => setLocalCollection(e.target.value)}
+                  className="appearance-none w-full pl-3 pr-8 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 cursor-pointer"
+                >
+                  <option value={COLLECTION_NONE}>All site</option>
+                  <option value={COLLECTION_ALL}>All collections</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={String(c.id)}>{c.category_name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+              </div>
+            </div>
+          )}
 
           {/* Filters */}
           <div>

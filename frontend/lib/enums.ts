@@ -227,27 +227,8 @@ export const ENUMS = {
 
 
 /* ─── Per-group type aliases ───────────────────────────────────────────────── */
-// One `keyof typeof ENUMS.X` per group, so consumers can type-narrow values
-// they got out of a VN/Release/Character payload.
-
+// The group key, used by the enum accessors below to constrain their argument.
 type EnumGroup = keyof typeof ENUMS
-type StaffRole = keyof typeof ENUMS.STAFF_ROLE
-type Medium = keyof typeof ENUMS.MEDIUM
-type Language = keyof typeof ENUMS.LANGUAGE
-type Platform = keyof typeof ENUMS.PLATFORM
-type Length = keyof typeof ENUMS.LENGTH
-type DevStatus = keyof typeof ENUMS.DEVSTATUS
-type Voiced = keyof typeof ENUMS.VOICED
-type RType = keyof typeof ENUMS.RTYPE
-type CharacterRole = keyof typeof ENUMS.CHARACTER_ROLE
-type Type = keyof typeof ENUMS.TYPE
-type Category = keyof typeof ENUMS.CATEGORY
-type CharacterSex = keyof typeof ENUMS.CHARACTER_SEX
-
-export type {
-  StaffRole, Medium, Language, Platform, Length, DevStatus,
-  Voiced, RType, CharacterRole, Type, Category, CharacterSex,
-}
 
 
 /* ─── Accessors ────────────────────────────────────────────────────────────── */

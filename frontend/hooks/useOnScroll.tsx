@@ -53,6 +53,9 @@ export const useOnScroll = ({
   // which would otherwise flip the trigger straight back — a hide/show flicker.
   const triggerRef = useRef(false)
   const settleUntil = useRef(0)
+  // True from a toggle until the first scroll sample seen *after* the settle
+  // window closes — see the re-baseline note in `handleScroll`.
+  const settling = useRef(false)
   const throttleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -85,12 +88,27 @@ export const useOnScroll = ({
     // re-evaluate the trigger — this is where the resize-induced scroll lands.
     if (Date.now() < settleUntil.current) return
 
+    // First sample after the settle window closes. The throttle/debounce (up to
+    // ~150–200ms) can defer the tail of the resize-induced clamp past the 350ms
+    // window; that deferred event would compare against a stale mid-animation
+    // baseline and read as a genuine scroll-*up*, flipping the header back on.
+    // On a short page — e.g. while a list is still loading and the content only
+    // just overflows — hiding the header removes the only overflow, so the clamp
+    // snaps scrollTop to 0, and that misread re-show then re-creates the overflow,
+    // oscillating into a visible flicker. Re-baseline once here instead of
+    // evaluating, so the clamp can't masquerade as user intent.
+    if (settling.current) {
+      settling.current = false
+      return
+    }
+
     const nextTrigger = direction === "down"
       ? (currentScrollY > scrollThreshold || triggerRef.current)
       : false
     if (nextTrigger !== triggerRef.current) {
       triggerRef.current = nextTrigger
       settleUntil.current = Date.now() + SETTLE_MS
+      settling.current = true
     }
     setScrollState({ trigger: nextTrigger, scrollY: currentScrollY, scrollDirection: direction })
   }, [scrollThreshold])

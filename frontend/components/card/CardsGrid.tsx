@@ -122,7 +122,10 @@ function CardRatingOverlay({ value, onRate, size }: {
           {value}
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-1 z-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Interactive star bar is hover-revealed, so it's useless on touch and a
+          mis-tap hazard near the card link — hide it below `sm`. The read-only
+          rating badge above stays so mobile users still see their score. */}
+      <div className="absolute inset-x-0 bottom-1 z-10 hidden sm:flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="rounded-full bg-black/80 px-1 py-0.5 backdrop-blur-sm">
           <StarRating value={value} onChange={onRate} size={size} />
         </div>
@@ -332,7 +335,9 @@ function CardsGridBase<T>({
                   onChange={value => onRate!(card.id, value)}
                   size={14}
                   className={cn(
-                    "transition-opacity",
+                    // Hidden on touch (mirrors the compact row + image overlay) to
+                    // avoid mis-taps; `hidden`/`sm:flex` override StarRating's `flex`.
+                    "transition-opacity hidden sm:flex",
                     (ratingsMap?.[card.id] ?? 0) > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                   )}
                 />

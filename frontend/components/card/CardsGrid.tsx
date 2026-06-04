@@ -123,9 +123,9 @@ function CardRatingOverlay({ value, onRate, size }: {
         </div>
       )}
       {/* Interactive star bar is hover-revealed, so it's useless on touch and a
-          mis-tap hazard near the card link — hide it below `sm`. The read-only
+          mis-tap hazard near the card link — hide it below `lg`. The read-only
           rating badge above stays so mobile users still see their score. */}
-      <div className="absolute inset-x-0 bottom-1 z-10 hidden sm:flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute inset-x-0 bottom-1 z-10 hidden lg:flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="rounded-full bg-black/80 px-1 py-0.5 backdrop-blur-sm">
           <StarRating value={value} onChange={onRate} size={size} />
         </div>

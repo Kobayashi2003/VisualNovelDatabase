@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   // Dev-only proxy: in prod Caddy intercepts /vndb, /imgserve, /userserve
   // before they reach Next.js (see Caddyfile), so these rewrites are a no-op
   // in prod. In dev (`next dev` with no Caddy), the browser hits Next.js
-  // directly on :5003 and these rewrites forward to the Flask ports.
+  // directly on :5004 and these rewrites forward to the Flask ports.
   async rewrites() {
     return [
       {

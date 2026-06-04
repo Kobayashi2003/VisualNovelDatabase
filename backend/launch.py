@@ -14,10 +14,10 @@ signal-driven reverse-topological shutdown (see procserve/__init__.py).
 
 Stacks:
   - dev : Redis + vndb/imgserve Celery workers + Flower dashboards
-          + vndb/imgserve/userserve Flask servers (Flask dev or Waitress)
+          + vndb/imgserve/userserve/transserve Flask servers (Flask dev or Waitress)
           + Caddy edge (opt-in via USE_CADDY=true; missing binary is a warning)
   - prod: Redis + vndb/imgserve Celery workers
-          + vndb/imgserve/userserve Waitress servers
+          + vndb/imgserve/userserve/transserve Waitress servers
           + Caddy (mandatory public ingress; missing binary is a hard error)
           No Flower (it's a dev-only celery dashboard).
 
@@ -161,6 +161,7 @@ def make_caddy_spec(next_port: Optional[int] = None,
     env["IMGSERVE_PORT"]  = os.environ.get("IMGSERVE_PORT",  "5001")
     env["USERSERVE_PORT"] = os.environ.get("USERSERVE_PORT", "5002")
     env["VNDB_PORT"]      = os.environ.get("VNDB_PORT",      "5000")
+    env["TRANSSERVE_PORT"] = os.environ.get("TRANSSERVE_PORT", "5003")
     if next_port is not None:
         env["NEXT_PORT"] = str(next_port)
     env.setdefault("CADDY_BIND", ":30709")
@@ -281,6 +282,7 @@ def build_specs(mode: str, *, use_waitress: bool,
             specs.append(make_flower_spec(app))
         specs.append(make_flask_spec(app, use_waitress=use_waitress))
     specs.append(make_flask_spec("userserve", use_waitress=use_waitress))
+    specs.append(make_flask_spec("transserve", use_waitress=use_waitress))
 
     if mode == "prod":
         specs.append(make_caddy_spec(next_port=next_port, required=True))
@@ -302,9 +304,9 @@ def main():
 
     p_prod = sub.add_parser("prod", help="Prod stack (Waitress + mandatory Caddy)")
     p_prod.add_argument(
-        "--next-port", type=int, default=5003,
+        "--next-port", type=int, default=5004,
         help="Port the Next.js standalone server listens on; Caddy proxies / "
-             "to this port. (default: 5003)",
+             "to this port. (default: 5004)",
     )
 
     args = parser.parse_args()

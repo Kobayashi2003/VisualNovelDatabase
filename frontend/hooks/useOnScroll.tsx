@@ -1,157 +1,81 @@
-/** Hook that tracks vertical scroll position, direction, and a debounced trigger flag. */
+/** Tracks viewport scroll to drive the auto-hiding header: shown at the top of
+ *  the page and whenever the user scrolls up a short distance, hidden once they
+ *  scroll back down. */
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect } from "react"
 import { isScrollLocked } from "@/hooks/useScrollLock"
 
 interface UseOnScrollParams {
-  scrollThreshold?: number
-  debounceTime?: number
-  throttleTime?: number
+  /** Within this distance of the top, the header is always shown. */
+  topThreshold?: number
+  /** Cumulative upward scroll needed to reveal the header again mid-page. */
+  revealThreshold?: number
 }
 
 interface ScrollState {
+  /** True when the header should be hidden. */
   trigger: boolean
-  scrollY: number
-  scrollDirection: "up" | "down" | null
 }
 
-// How long to freeze the trigger after it flips, covering the header's 300ms
-// show/hide transition plus a small buffer, so the resulting layout resize can't
-// bounce it back.
-const SETTLE_MS = 350
-
-// `trigger` flips true once the user has scrolled past `scrollThreshold`
-// downward, and back to false as soon as they scroll upward at all — the
-// "hide on scroll down, show on scroll up" pattern.
-//
-// Listens in the *capture* phase on `document` so it sees scrolling from any
-// element, not just the window: the detail and collection pages scroll inside
-// inner `overflow-y-auto` containers, whose `scroll` events don't bubble to
-// `window`. Capture catches them regardless of input method (wheel, touch,
-// scrollbar, keyboard), and `e.target` tells us which element actually scrolled.
+// Only the *viewport* scroll matters here. The detail and collection pages
+// scroll inside inner `overflow-y-auto` containers at lg+, so the window never
+// scrolls on them and the header stays pinned — which is what we want now that
+// hiding it no longer reclaims its strip. Below lg those pages fall back to
+// normal page scroll, so the auto-hide applies to them too.
 export const useOnScroll = ({
-  scrollThreshold = 50,
-  debounceTime = 100,
-  throttleTime = 100,
+  topThreshold = 30,
+  revealThreshold = 64,
 }: UseOnScrollParams = {}): ScrollState => {
-  const [scrollState, setScrollState] = useState<ScrollState>({
-    trigger: false,
-    scrollY: 0,
-    scrollDirection: null,
-  })
-
-  const lastScrollY = useRef(0)
-  // The element whose scroll we're currently tracking. When it changes (e.g.
-  // navigating to another page, or switching between the sidebar and the main
-  // column), we re-baseline instead of computing a bogus delta across elements.
-  const lastTarget = useRef<EventTarget | null>(null)
-  const pendingTarget = useRef<EventTarget | null>(null)
-  // Mirror of `trigger` readable synchronously, plus a timestamp until which we
-  // suppress further toggles. Toggling the header animates a layout that resizes
-  // inner scroll containers; that resize clamps scrollTop and fires scroll events
-  // which would otherwise flip the trigger straight back — a hide/show flicker.
-  const triggerRef = useRef(false)
-  const settleUntil = useRef(0)
-  // True from a toggle until the first scroll sample seen *after* the settle
-  // window closes — see the re-baseline note in `handleScroll`.
-  const settling = useRef(false)
-  const throttleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const handleScroll = useCallback(() => {
-    const target = pendingTarget.current
-    if (!target) return
-
-    // Viewport scrolling targets the document; inner containers target the element.
-    const isViewport =
-      target === document ||
-      target === document.documentElement ||
-      target === document.body
-    const currentScrollY = isViewport ? window.scrollY : (target as HTMLElement).scrollTop
-
-    // Switched to a different scroll container — re-baseline, don't trigger.
-    if (target !== lastTarget.current) {
-      lastTarget.current = target
-      lastScrollY.current = currentScrollY
-      return
-    }
-
-    const direction = currentScrollY > lastScrollY.current ? "down" : "up"
-    const scrollDifference = Math.abs(currentScrollY - lastScrollY.current)
-
-    // Ignore sub-5px movement so trackpad jitter doesn't toggle the trigger.
-    if (scrollDifference < 5) return
-    lastScrollY.current = currentScrollY
-
-    // Within the settle window after a toggle, keep tracking position but don't
-    // re-evaluate the trigger — this is where the resize-induced scroll lands.
-    if (Date.now() < settleUntil.current) return
-
-    // First sample after the settle window closes. The throttle/debounce (up to
-    // ~150–200ms) can defer the tail of the resize-induced clamp past the 350ms
-    // window; that deferred event would compare against a stale mid-animation
-    // baseline and read as a genuine scroll-*up*, flipping the header back on.
-    // On a short page — e.g. while a list is still loading and the content only
-    // just overflows — hiding the header removes the only overflow, so the clamp
-    // snaps scrollTop to 0, and that misread re-show then re-creates the overflow,
-    // oscillating into a visible flicker. Re-baseline once here instead of
-    // evaluating, so the clamp can't masquerade as user intent.
-    if (settling.current) {
-      settling.current = false
-      return
-    }
-
-    const nextTrigger = direction === "down"
-      ? (currentScrollY > scrollThreshold || triggerRef.current)
-      : false
-    if (nextTrigger !== triggerRef.current) {
-      triggerRef.current = nextTrigger
-      settleUntil.current = Date.now() + SETTLE_MS
-      settling.current = true
-    }
-    setScrollState({ trigger: nextTrigger, scrollY: currentScrollY, scrollDirection: direction })
-  }, [scrollThreshold])
-
-  const throttledScrollHandler = useCallback(() => {
-    if (!throttleTimeout.current) {
-      throttleTimeout.current = setTimeout(() => {
-        handleScroll()
-        throttleTimeout.current = null
-      }, throttleTime)
-    }
-  }, [handleScroll, throttleTime])
-
-  const debouncedScrollHandler = useCallback(() => {
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
-    debounceTimeout.current = setTimeout(() => {
-      handleScroll()
-      debounceTimeout.current = null
-    }, debounceTime)
-  }, [handleScroll, debounceTime])
-
-  // Throttle keeps state flowing during continuous scroll; debounce
-  // guarantees a final update once the user stops.
-  const combinedScrollHandler = useCallback((e: Event) => {
-    // While an overlay is open (dialog / search drawer), ignore scroll entirely:
-    // the drawer's own `overflow-y-auto` body emits capture-phase scroll events
-    // that would otherwise read as page scrolling and flip the auto-hide header,
-    // resizing the layout behind the backdrop. The next real page scroll after
-    // the overlay closes re-baselines via the target-changed check below.
-    if (isScrollLocked()) return
-    pendingTarget.current = e.target
-    throttledScrollHandler()
-    debouncedScrollHandler()
-  }, [throttledScrollHandler, debouncedScrollHandler])
+  const [trigger, setTrigger] = useState(false)
 
   useEffect(() => {
-    document.addEventListener("scroll", combinedScrollHandler, true)
-    return () => {
-      document.removeEventListener("scroll", combinedScrollHandler, true)
-      if (throttleTimeout.current) clearTimeout(throttleTimeout.current)
-      if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
-    }
-  }, [combinedScrollHandler])
+    let lastY = window.scrollY
+    // Distance scrolled up since the last downward move; once it passes
+    // `revealThreshold` we reveal the header even away from the top.
+    let upDistance = 0
+    let frame = 0
 
-  return scrollState
+    const evaluate = () => {
+      frame = 0
+      // The page is locked behind an overlay (dialog / search drawer): it can't
+      // scroll, so freeze the header state and ignore any stray events.
+      if (isScrollLocked()) return
+
+      const y = window.scrollY
+      const delta = y - lastY
+      lastY = y
+
+      // Near the top: always shown, and reset the upward accumulator.
+      if (y <= topThreshold) {
+        upDistance = 0
+        setTrigger(false)
+        return
+      }
+      if (delta > 0) {
+        // Scrolling down — hide, and forget any partial upward progress.
+        upDistance = 0
+        setTrigger(true)
+      } else if (delta < 0) {
+        // Scrolling up — reveal once the accumulated distance is enough.
+        upDistance -= delta
+        if (upDistance >= revealThreshold) setTrigger(false)
+      }
+    }
+
+    // Coalesce the burst of scroll events into one read per frame.
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(evaluate)
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    evaluate()
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [topThreshold, revealThreshold])
+
+  return { trigger }
 }

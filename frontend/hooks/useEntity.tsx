@@ -2,7 +2,7 @@
  *  loading / error state. Shared by every entity detail page. */
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import type { VNDBQueryParams } from "@/lib/types"
 
 /** A by-id fetcher from `lib/api` (`api.by_id.vn`, `api.by_id.character`, …). */
@@ -16,12 +16,9 @@ interface EntityState<T> {
 
 export function useEntity<T>(id: number, fetcher: EntityFetcher<T>): EntityState<T> {
   const [state, setState] = useState<EntityState<T>>({ data: null, loading: true, error: null })
-  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    abortRef.current?.abort()
     const ctrl = new AbortController()
-    abortRef.current = ctrl
     setState({ data: null, loading: true, error: null })
 
     fetcher(id, {}, ctrl.signal)

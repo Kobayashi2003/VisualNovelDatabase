@@ -9,6 +9,8 @@ import {
   isValidNumberInput, isValidDateInput, isValidDate,
 } from "@/lib/config"
 import { EntityFilter } from "@/components/input/EntityFilter"
+import { EntityModeFilter } from "@/components/input/EntityModeFilter"
+import { IconSelect } from "@/components/input/IconSelect"
 
 
 /* ─── Shared styles & small primitives ─────────────────────────────────────── */
@@ -118,6 +120,17 @@ function NumberFilterComparable({ filter, value, onChange }: {
 }
 
 function SelectFilter({ filter, value, onChange }: { filter: SelectField; value: string; onChange: (k: string, v: string) => void }) {
+  // Language / platform: custom dropdown so each option can show its sprite icon
+  // (native <option> can't render the flag/platform sprites).
+  if (filter.iconType) {
+    return (
+      <div>
+        <FieldLabel label={filter.label} />
+        <IconSelect value={value} options={filter.options} iconType={filter.iconType}
+          onChange={v => onChange(filter.value, v)} />
+      </div>
+    )
+  }
   // Render as segmented buttons when there are few short-labeled options;
   // otherwise fall back to a native <select>.
   const useToggle = filter.options.length <= 3 ||
@@ -240,12 +253,59 @@ export function FiltersForm({ type, filterState, source, setFilterState }: Filte
       ...filterState,
       entityOptions: { ...filterState.entityOptions, [k]: { ...entityOpt(k), ...patch } },
     })
+  // A merged tag/trait group shares one spoil/lie setting across all its
+  // buckets, so write the same patch to every bucket's options at once.
+  const setGroupOption = (keys: string[], patch: Partial<{ spoil: boolean; lie: boolean }>) =>
+    setFilterState({
+      ...filterState,
+      entityOptions: {
+        ...filterState.entityOptions,
+        ...Object.fromEntries(keys.map(k => [k, { ...entityOpt(k), ...patch }])),
+      },
+    })
+
+  // Buckets rendered inside a merged group are hidden from the plain entity list.
+  const groupedValues = new Set((f.entityGroups ?? []).flatMap(g => g.modes.map(m => m.value)))
 
   const hasAny = f.text?.length || f.number?.length || f.select?.length || f.date?.length || f.entity?.length
 
   return (
     <div className="flex flex-col gap-4">
-      {f.entity?.map(field => (
+      {f.entityGroups?.map(group => {
+        const keys = group.modes.map(m => m.value)
+        const opt = entityOpt(keys[0])
+        return (
+          <div key={group.label} className="flex flex-col gap-1.5">
+            <EntityModeFilter
+              label={group.label}
+              entityType={group.entityType}
+              modes={group.modes}
+              values={Object.fromEntries(keys.map(k => [k, filterState.entity?.[k] ?? []]))}
+              onChange={next => setFilterState({ ...filterState, entity: { ...filterState.entity, ...next } })}
+              source={source}
+            />
+            {group.spoilable && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <MiniToggle
+                  label="Include spoilers"
+                  on={opt.spoil}
+                  onToggle={() => setGroupOption(keys, { spoil: !opt.spoil })}
+                />
+                {/* `exclude lies` is local-only — the Kana API can't filter lies. */}
+                {source === "local" && (
+                  <MiniToggle
+                    label="Exclude lies"
+                    on={opt.lie}
+                    disabled={!opt.spoil}
+                    onToggle={() => setGroupOption(keys, { lie: !opt.lie })}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {f.entity?.filter(field => !groupedValues.has(field.value)).map(field => (
         <div key={field.value} className="flex flex-col gap-1.5">
           <EntityFilter
             label={field.label}

@@ -54,10 +54,11 @@ export function BaseDialog({ open, setOpen, title, children, className }: BaseDi
     >
       <div ref={panelRef} className={cn(
         "relative w-full max-w-md",
-        // Slightly more opaque than the translucent cards, and a touch more on
-        // hover — mirroring the VN info cards' bg-surface→bg-elevated lift (same
-        // elevated hue #2a2a2f, stepped 0.88 → 0.95).
-        "bg-[#2a2a2f]/88 hover:bg-[#2a2a2f]/95 transition-colors",
+        // The shared elevated-overlay translucency standard (see --elevated /
+        // --elevated-hover in globals.css), the same one the search drawer and
+        // popover menus use. `bg-[var(--elevated)]` rather than `bg-elevated` so
+        // the dialog keeps its un-blurred fill over the dark modal backdrop.
+        "bg-[var(--elevated)] hover:bg-[var(--elevated-hover)] transition-colors",
         "border border-white/10 rounded-xl",
         "shadow-2xl shadow-black/50",
         "max-h-[80vh] overflow-y-auto overscroll-contain",

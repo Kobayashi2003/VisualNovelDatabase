@@ -570,7 +570,11 @@ function CollectionContent() {
   /* ─── Render ───────────────────────────────────────────────────────────── */
 
   return (
-    <div className="flex overflow-hidden transition-[height] duration-300 ease-out" style={{ height: "calc(100vh - var(--header-h, 56px))" }}>
+    // At lg+ this is a two-column shell (sidebar + main) that scrolls inside a
+    // viewport-height box. Below lg the sidebar collapses to an overlay, so we
+    // drop the fixed height / inner scroll and let the page scroll normally —
+    // which also lets the global header auto-hide on scroll.
+    <div className="flex lg:h-[calc(100vh_-_var(--header-h,56px))] lg:overflow-hidden">
       {/* Desktop sidebar */}
       <CollectionSidebar
         className="hidden lg:flex shrink-0 w-64"
@@ -610,17 +614,8 @@ function CollectionContent() {
       )}
 
       {/* Main content */}
-      <div className={cn("flex-1 min-w-0 overflow-y-auto", editMode && "pb-24")}>
+      <div className={cn("flex-1 min-w-0 lg:overflow-y-auto", editMode && "pb-24")}>
         <div className="px-4 lg:px-6 py-6 max-w-7xl mx-auto">
-
-          {/* Mobile: sidebar toggle */}
-          <button
-            className="lg:hidden flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-elevated text-sm text-muted hover:text-white hover:bg-white/10 transition-colors"
-            onClick={() => setShowMobileSidebar(true)}
-          >
-            <Menu className="w-4 h-4" />
-            Collections
-          </button>
 
           {/* Unauthenticated */}
           {!user && !authLoading && (
@@ -661,6 +656,17 @@ function CollectionContent() {
                   fixed to `marked_at desc` and shows a snippet, so those
                   controls have nothing to act on. */}
               <div className="flex flex-wrap items-center gap-2 mb-4">
+                {/* Mobile: sidebar toggle — sits left of the search box on small
+                    screens; the desktop sidebar is always visible at lg+. */}
+                <button
+                  className="lg:hidden shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-elevated border border-white/10 text-sm text-muted hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setShowMobileSidebar(true)}
+                  title="Collections"
+                >
+                  <Menu className="w-4 h-4" />
+                  <span className="hidden sm:inline">Collections</span>
+                </button>
+
                 {!isShelf && (
                   <div className="flex-1 min-w-40 lg:w-64 lg:flex-none relative">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/60" />

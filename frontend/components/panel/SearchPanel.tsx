@@ -9,7 +9,7 @@ import { useUserContext } from "@/context/UserContext"
 import { api } from "@/lib/api"
 import { ROUTE_TO_TYPE } from "@/lib/constants"
 import type { Category } from "@/lib/types"
-import { X, ArrowUp, ArrowDown, ChevronDown, SlidersHorizontal } from "lucide-react"
+import { X, ChevronDown, SlidersHorizontal } from "lucide-react"
 import {
   FilterState,
   buildInitialState,
@@ -199,9 +199,11 @@ export function SearchPanel({
         className={cn(
           "fixed inset-y-0 right-0 z-50 w-80 sm:w-96",
           "flex flex-col",
-          // Same translucent-panel treatment as the dialogs (BaseDialog): a touch
-          // more opaque than the cards, and more so on hover.
-          "bg-[#2a2a2f]/88 hover:bg-[#2a2a2f]/95 border-l border-white/10",
+          // Shared elevated-overlay translucency standard (see --elevated /
+          // --elevated-hover in globals.css). `bg-[var(--elevated)]` rather than
+          // `bg-elevated` so the global `.bg-elevated` transition rule doesn't
+          // override this drawer's combined transform+colour transition below.
+          "bg-[var(--elevated)] hover:bg-[var(--elevated-hover)] border-l border-white/10",
           "shadow-2xl shadow-black/60",
           "transition-[transform,background-color] duration-200 ease-out",
           open ? "translate-x-0" : "translate-x-full"
@@ -267,55 +269,37 @@ export function SearchPanel({
             </div>
           </div>
 
-          {/* Sort */}
-          <div>
-            <SectionHeading>Sort By</SectionHeading>
-            <div className="grid grid-cols-2 gap-1">
-              {sortOptions.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setLocalSortBy(opt.value)}
-                  className={cn(
-                    "px-3 py-2 rounded-lg text-sm text-left transition-all duration-150",
-                    localSortBy === opt.value
-                      ? "bg-accent/20 text-accent font-semibold border border-accent/40"
-                      : "text-muted hover:text-white hover:bg-white/10 border border-transparent"
-                  )}
+          {/* Sort + Order — two equal-width dropdowns on one row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <SectionHeading>Sort By</SectionHeading>
+              <div className="relative">
+                <select
+                  value={localSortBy}
+                  onChange={e => setLocalSortBy(e.target.value)}
+                  className="appearance-none w-full pl-3 pr-8 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 cursor-pointer"
                 >
-                  {opt.label}
-                </button>
-              ))}
+                  {sortOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+              </div>
             </div>
-          </div>
 
-          {/* Order */}
-          <div>
-            <SectionHeading>Order</SectionHeading>
-            <div className="flex rounded-full border border-white/10 overflow-hidden">
-              <button
-                onClick={() => setLocalOrder("asc")}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-all duration-150",
-                  localOrder === "asc"
-                    ? "bg-white/15 text-white"
-                    : "text-muted hover:text-white hover:bg-white/10"
-                )}
-              >
-                <ArrowUp className="w-3 h-3" />
-                Ascending
-              </button>
-              <button
-                onClick={() => setLocalOrder("desc")}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-all duration-150",
-                  localOrder === "desc"
-                    ? "bg-white/15 text-white"
-                    : "text-muted hover:text-white hover:bg-white/10"
-                )}
-              >
-                <ArrowDown className="w-3 h-3" />
-                Descending
-              </button>
+            <div className="min-w-0">
+              <SectionHeading>Order</SectionHeading>
+              <div className="relative">
+                <select
+                  value={localOrder}
+                  onChange={e => setLocalOrder(e.target.value)}
+                  className="appearance-none w-full pl-3 pr-8 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 cursor-pointer"
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+              </div>
             </div>
           </div>
 

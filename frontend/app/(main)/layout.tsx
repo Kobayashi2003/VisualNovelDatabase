@@ -5,7 +5,6 @@ import { useRef, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useOnScroll } from "@/hooks/useOnScroll"
-import { useScrollLocked } from "@/hooks/useScrollLock"
 import { UserProvider } from "@/context/UserContext"
 import { SearchProvider } from "@/context/SearchContext"
 import { IMGSERVE_BASE_URL } from "@/lib/constants"
@@ -36,48 +35,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname()
   const hideHeader = pathname === "/kobayashi" || pathname.endsWith("/rg")
 
-  // Drives the auto-hide header when the user scrolls down.
-  const { trigger } = useOnScroll({ scrollThreshold: 30, throttleTime: 150, debounceTime: 200 })
+  // Drives the auto-hide header (`trigger` === hidden): shown at the top of the
+  // page and after a short scroll up, hidden once the user scrolls back down.
+  // It slides out of view via a transform rather than collapsing its reserved
+  // strip, so toggling it never reflows the page.
+  const { trigger: headerHidden } = useOnScroll()
 
   const [mounted, setMounted] = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
-
-  // Reveal the auto-hidden header when the pointer reaches the top edge.
-  // Cases where it must NOT fire:
-  //   - header already shown (`!trigger`) → `headerHidden` below is a no-op;
-  //   - an overlay is open (dialog / search drawer) → the header sits behind it
-  //     at a lower z-index, so a peek would be invisible noise (`overlayOpen`);
-  //   - touch input → there's no pointer, so `mousemove` simply never fires.
-  const overlayOpen = useScrollLocked()
-  const [pointerAtTop, setPointerAtTop] = useState(false)
-  useEffect(() => {
-    // No header on these routes, so nothing to peek — don't track the pointer.
-    if (hideHeader) return
-    const onMove = (e: MouseEvent) => {
-      // Track the live header height (it wraps to two rows on narrow widths) so
-      // moving onto the lower search row doesn't fall out of the zone and dismiss it.
-      const zone = (headerRef.current?.offsetHeight || 64) + 8
-      // Only the middle horizontal third reveals the header, so brushing the top
-      // corners (e.g. reaching for window controls) doesn't pop it open.
-      const w = window.innerWidth
-      const inMiddleThird = e.clientX >= w / 3 && e.clientX <= (w * 2) / 3
-      const atTop = e.clientY <= zone && inMiddleThird
-      setPointerAtTop(prev => (prev === atTop ? prev : atTop))
-    }
-    const onLeave = () => setPointerAtTop(false)
-    window.addEventListener("mousemove", onMove)
-    document.documentElement.addEventListener("mouseleave", onLeave)
-    return () => {
-      window.removeEventListener("mousemove", onMove)
-      document.documentElement.removeEventListener("mouseleave", onLeave)
-    }
-  }, [hideHeader])
-
-  // Hidden only when scrolled down AND not being peeked at the top edge. The
-  // spacer / `--header-h` stay tied to `trigger`, so a peek overlays content
-  // instead of reflowing it.
-  const headerHidden = trigger && !(pointerAtTop && !overlayOpen)
 
   // Measure the header so the spacer below can reserve its exact height —
   // ResizeObserver keeps the spacer in sync if the header reflows. Re-runs when
@@ -112,10 +78,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
             backgroundAttachment: "fixed",
-            // Collapses to 0 while the header is hidden so inner-scrolling pages
-            // (which size themselves to `calc(100vh - var(--header-h))`) reclaim
-            // the reserved strip. Registered with `@property` so the change animates.
-            "--header-h": hideHeader || trigger ? "0px" : `${headerHeight}px`,
+            // Height reserved for the fixed header so inner-scrolling pages can
+            // size themselves to `calc(100vh - var(--header-h))`. Constant while
+            // the header exists (it auto-hides by sliding over content, not by
+            // reclaiming this strip); only the header-less routes drop it to 0.
+            "--header-h": hideHeader ? "0px" : `${headerHeight}px`,
           } as React.CSSProperties}
         >
           <div className="min-h-screen overflow-x-clip bg-background/80 text-white flex flex-col">
@@ -126,16 +93,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   className={cn(
                     "fixed top-0 left-0 right-0 z-10",
                     "bg-background/90 backdrop-blur-sm",
-                    "transition-opacity duration-300",
-                    headerHidden ? "opacity-0 -z-10" : "opacity-100",
+                    // Slide out of view rather than fade: transform is composited,
+                    // so showing/hiding doesn't repaint the frosted blur or the
+                    // content behind it. Off-screen, the blur isn't computed at all.
+                    "transition-transform duration-300 ease-out will-change-transform",
+                    headerHidden ? "-translate-y-full" : "translate-y-0",
                     !mounted && "hidden"
                   )}
                 >
                   <HeaderBar hidden={headerHidden} />
                 </div>
+                {/* Constant spacer reserving the header's strip — never animated,
+                    so the page never reflows as the header shows/hides. */}
                 <div
-                  style={{ height: trigger ? 0 : `${headerHeight}px` }}
-                  className={cn("transition-[height] duration-300 ease-out", !mounted && "hidden")}
+                  style={{ height: `${headerHeight}px` }}
+                  className={cn(!mounted && "hidden")}
                 />
               </>
             )}

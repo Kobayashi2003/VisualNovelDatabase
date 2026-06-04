@@ -2,13 +2,20 @@
 
 :root {
   --background: #0e0e10;
-  /* Surfaces are intentionally translucent: paired with the `backdrop-filter`
-     rule below they read as frosted deep-glass over the page gradient rather
-     than flat black — a more Spotify-like sense of depth. Kept fairly opaque so
-     content stays legible; hovering an info surface firms it up further (below). */
+  /* Translucent surface standard — two tiers, each with a hover step. Paired
+     with the `backdrop-filter` rule below they read as frosted deep-glass over
+     the page gradient rather than flat black (a more Spotify-like depth). Kept
+     fairly opaque so content stays legible.
+       • surface  — base cards / inputs.
+       • elevated — overlays that float above them: dialogs, the search drawer,
+                    and popover menus (dropdowns). The single source of truth for
+                    that "panel" translucency; consume via `bg-elevated` or, where
+                    backdrop-blur isn't wanted, `bg-[var(--elevated)]`.
+     Hovering either tier firms the glass up one step (rules below). */
   --surface: rgba(28, 28, 32, 0.74);
-  --elevated: rgba(42, 42, 47, 0.8);
   --surface-hover: rgba(32, 32, 36, 0.88);
+  --elevated: rgba(42, 42, 47, 0.88);
+  --elevated-hover: rgba(42, 42, 47, 0.95);
   --accent: #1DB954;
   --accent-hover: #1ED760;
   --foreground: #FFFFFF;
@@ -24,15 +31,6 @@
   --color-accent-hover: var(--accent-hover);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
-}
-
-/* Height of the auto-hiding top header. Registered so that `calc(100vh - …)`
-   heights on inner-scrolling pages animate when it collapses to 0. Falls back
-   to a static var on browsers without @property support. */
-@property --header-h {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 0px;
 }
 
 * {
@@ -68,6 +66,9 @@ body {
    panel reads as lifting toward the viewer. */
 .bg-surface:hover {
   background-color: var(--surface-hover);
+}
+.bg-elevated:hover {
+  background-color: var(--elevated-hover);
 }
 
 ::-webkit-scrollbar {

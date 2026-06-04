@@ -28,10 +28,11 @@ export function DetailLayout({
   aside, mobileAside, asideWidth = "sm", children,
 }: DetailLayoutProps) {
   return (
-    <div
-      className="container mx-auto flex gap-6 px-4 overflow-hidden transition-[height] duration-300 ease-out"
-      style={{ height: "calc(100vh - var(--header-h, 4rem))" }}
-    >
+    // At lg+ the page is a two-column shell whose columns scroll independently
+    // inside a viewport-height box. Below lg it collapses to one column, so we
+    // drop the fixed height / inner scroll and let the whole page scroll
+    // normally — which also lets the global header auto-hide on scroll.
+    <div className="container mx-auto flex gap-6 px-4 lg:h-[calc(100vh_-_var(--header-h,4rem))] lg:overflow-hidden">
       <aside
         className={cn(
           "hidden lg:flex flex-col gap-3 shrink-0 overflow-y-auto py-4 pr-1",
@@ -41,7 +42,7 @@ export function DetailLayout({
         {aside}
       </aside>
 
-      <div className="flex-1 min-w-0 overflow-y-auto py-4 pb-12">
+      <div className="flex-1 min-w-0 lg:overflow-y-auto py-4 pb-12">
         {mobileAside && (
           <div className="lg:hidden flex flex-col gap-3 mb-6">{mobileAside}</div>
         )}

@@ -10,11 +10,24 @@ import { ENUMS } from "@/lib/enums"
 export interface BaseField { value: string; label: string }
 export interface TextField extends BaseField { allowEmpty?: boolean; placeholder?: string }
 export interface NumberField extends BaseField { integer?: boolean; comparable?: boolean; placeholder?: string }
-export interface SelectField extends BaseField { default?: string; comparable?: boolean; options: { value: string; label: string }[] }
+export interface SelectField extends BaseField { default?: string; comparable?: boolean; iconType?: "LANGUAGE" | "PLATFORM"; options: { value: string; label: string }[] }
 export interface DateField extends BaseField { availableFormats: string[]; comparable?: boolean; placeholder?: string }
 export type EntityType = "tag" | "trait" | "staff" | "producer"
 export interface EntityItem { id: string; label: string }
 export interface EntityField extends BaseField { entityType: EntityType; spoilable?: boolean }
+
+// A set of entity buckets presented as one combined picker: the same entity
+// (tag / trait) added in different "modes" — include, directed, or exclude —
+// each of which maps to its own backend filter param (`tag` / `dtag` /
+// `tag_exclude`). The buckets still live in `entity`/`entityOptions` (so state
+// and param-building are unchanged); this only drives the merged UI.
+export type EntityMode = "include" | "directed" | "exclude"
+export interface EntityGroupField {
+  label: string
+  entityType: EntityType
+  spoilable?: boolean
+  modes: { mode: EntityMode; value: string }[]
+}
 
 // Controlled state for the search panel form, grouped by field kind.
 // `*Comparable` variants pair an operator with the user-entered value.
@@ -109,12 +122,23 @@ export const isValidSelect = (value: string, comparable = false): boolean => {
 // Adding a new field here automatically wires it into the search panel form,
 // initial state, and query parameter builder.
 
-export const searchFilters: Record<string, { text?: TextField[]; number?: NumberField[]; select?: SelectField[]; date?: DateField[]; entity?: EntityField[] }> = {
+export const searchFilters: Record<string, { text?: TextField[]; number?: NumberField[]; select?: SelectField[]; date?: DateField[]; entity?: EntityField[]; entityGroups?: EntityGroupField[] }> = {
   v: {
+    entityGroups: [
+      {
+        label: "Tag", entityType: "tag", spoilable: true,
+        modes: [
+          { mode: "include",  value: "tag" },
+          { mode: "directed", value: "dtag" },
+          { mode: "exclude",  value: "tag_exclude" },
+        ],
+      },
+    ],
     entity: [
-      { value: "tag",       label: "Tag",          entityType: "tag",      spoilable: true },
-      { value: "dtag",     label: "Directed Tag",  entityType: "tag",      spoilable: true },
-      { value: "staff",     label: "Staff",         entityType: "staff" },
+      { value: "tag",         label: "Tag",          entityType: "tag",      spoilable: true },
+      { value: "dtag",       label: "Directed Tag",  entityType: "tag",      spoilable: true },
+      { value: "tag_exclude", label: "Exclude Tag",   entityType: "tag",      spoilable: true },
+      { value: "staff",       label: "Staff",         entityType: "staff" },
       { value: "developer", label: "Developer",     entityType: "producer" },
     ],
     text: [
@@ -126,9 +150,9 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
       { value: "votecount", label: "Vote Count", integer: true, comparable: true, placeholder: "Number of votes" },
     ],
     select: [
-      { value: "lang", label: "Language", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
-      { value: "olang", label: "Original Language", default: "ja", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
-      { value: "platform", label: "Platform", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.PLATFORM).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "lang", label: "Language", default: "any", iconType: "LANGUAGE", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "olang", label: "Original Language", default: "ja", iconType: "LANGUAGE", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "platform", label: "Platform", default: "any", iconType: "PLATFORM", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.PLATFORM).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "length", label: "Length", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LENGTH).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "devstatus", label: "Dev Status", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.DEVSTATUS).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "has_description", label: "Has Description", default: "any", options: [{ value: "any", label: "Any" }, { value: "1", label: "Yes" }, { value: "0", label: "No" }] },
@@ -149,8 +173,8 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
     ],
     number: [{ value: "minage", label: "Minimum Age", integer: true, comparable: true, placeholder: "Integer" }],
     select: [
-      { value: "lang", label: "Language", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
-      { value: "platform", label: "Platform", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.PLATFORM).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "lang", label: "Language", default: "any", iconType: "LANGUAGE", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "platform", label: "Platform", default: "any", iconType: "PLATFORM", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.PLATFORM).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "medium", label: "Medium", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.MEDIUM).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "voiced", label: "Voiced", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.VOICED).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "rtype", label: "Release Type", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.RTYPE).map(([k, v]) => ({ value: k, label: v }))] },
@@ -163,10 +187,21 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
     date: [{ value: "released", label: "Release Date", availableFormats: ["YYYY-MM-DD", "YYYY-MM", "YYYY"], comparable: true, placeholder: "YYYY-MM-DD / YYYY-MM / YYYY" }],
   },
   c: {
+    entityGroups: [
+      {
+        label: "Trait", entityType: "trait", spoilable: true,
+        modes: [
+          { mode: "include",  value: "trait" },
+          { mode: "directed", value: "dtrait" },
+          { mode: "exclude",  value: "trait_exclude" },
+        ],
+      },
+    ],
     entity: [
-      { value: "trait",  label: "Trait",          entityType: "trait", spoilable: true },
-      { value: "dtrait", label: "Directed Trait",  entityType: "trait", spoilable: true },
-      { value: "seiyuu", label: "Seiyuu",          entityType: "staff" },
+      { value: "trait",         label: "Trait",          entityType: "trait", spoilable: true },
+      { value: "dtrait",        label: "Directed Trait",  entityType: "trait", spoilable: true },
+      { value: "trait_exclude", label: "Exclude Trait",   entityType: "trait", spoilable: true },
+      { value: "seiyuu",        label: "Seiyuu",          entityType: "staff" },
     ],
     text: [
       { value: "vn", label: "Visual Novel" },
@@ -191,14 +226,14 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
   p: {
     text: [{ value: "extlink", label: "External Link" }],
     select: [
-      { value: "lang", label: "Language", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "lang", label: "Language", default: "any", iconType: "LANGUAGE", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "type", label: "Type", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.TYPE).map(([k, v]) => ({ value: k, label: v }))] },
     ],
   },
   s: {
     text: [{ value: "extlink", label: "External Link" }],
     select: [
-      { value: "lang", label: "Language", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
+      { value: "lang", label: "Language", default: "any", iconType: "LANGUAGE", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.LANGUAGE).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "gender", label: "Gender", default: "any", options: [{ value: "any", label: "Any" }, { value: "m", label: "Male" }, { value: "f", label: "Female" }] },
       { value: "role", label: "Role", default: "any", options: [{ value: "any", label: "Any" }, ...Object.entries(ENUMS.STAFF_ROLE).map(([k, v]) => ({ value: k, label: v }))] },
       { value: "ismain", label: "Is Main", default: "any", options: [{ value: "any", label: "Any" }, { value: "1", label: "Yes" }, { value: "0", label: "No" }] },

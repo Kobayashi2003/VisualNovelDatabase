@@ -660,6 +660,21 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
                 lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
             ))
 
+    # tag exclusion. Same spoiler/lie tiers as the include variants, but the
+    # matched set is negated: a VN is kept only when it does NOT match the
+    # expression. De Morgan is handled automatically by the SQL NOT wrapper,
+    # so `A,B` excludes VNs having either, `A+B` excludes only those having both.
+    for tag_param, max_spoiler, exclude_lies in (
+        ('tag_exclude', 0, False),
+        ('tag_exclude_spoil', 2, False),
+        ('tag_exclude_spoil_exclude_lies', 2, True),
+    ):
+        if tag_value := params.get(tag_param):
+            filters.append(~process_multi_value_expression(
+                tag_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
+            ))
+
     if anime_id := params.get('anime_id'): #TODO
         raise ValueError("The 'anime_id' search field is not available for local searches.")
 
@@ -892,6 +907,19 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     ):
         if trait_value := params.get(trait_param):
             filters.append(process_multi_value_expression(
+                trait_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+            ))
+
+    # trait exclusion. Mirrors the tag exclusion above: a character is kept
+    # only when it does NOT match the expression (NOT pushed down by SQL).
+    for trait_param, max_spoiler, exclude_lies in (
+        ('trait_exclude', 0, False),
+        ('trait_exclude_spoil', 2, False),
+        ('trait_exclude_spoil_exclude_lies', 2, True),
+    ):
+        if trait_value := params.get(trait_param):
+            filters.append(~process_multi_value_expression(
                 trait_value,
                 lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
             ))

@@ -73,6 +73,10 @@ export function EntityFilter({ label, entityType, value, source, onChange }: Ent
   const abortRef     = useRef<AbortController | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef     = useRef<HTMLInputElement>(null)
+  // Set right before we re-focus the input after a pick, so the synchronous
+  // onFocus (which still sees the pre-pick `results`) doesn't reopen the just
+  // closed dropdown. Consumed on the next focus.
+  const suppressOpenRef = useRef(false)
 
   /* Close dropdown when clicking outside */
   useEffect(() => {
@@ -130,7 +134,11 @@ export function EntityFilter({ label, entityType, value, source, onChange }: Ent
     onChange([...value, { id: result.id, label: result.name }])
     setQuery("")
     setResults([])
+    setLoading(false)
     setOpen(false)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
+    suppressOpenRef.current = true
     inputRef.current?.focus()
   }
 
@@ -169,7 +177,10 @@ export function EntityFilter({ label, entityType, value, source, onChange }: Ent
             onChange={handleChange}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={handleCompositionEnd}
-            onFocus={() => { if (results.length > 0 || loading) setOpen(true) }}
+            onFocus={() => {
+              if (suppressOpenRef.current) { suppressOpenRef.current = false; return }
+              if (results.length > 0 || loading) setOpen(true)
+            }}
             placeholder=""
             className="flex-1 min-w-20 bg-transparent text-white text-sm placeholder:text-muted outline-none py-0.5"
           />

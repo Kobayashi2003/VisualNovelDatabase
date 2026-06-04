@@ -215,11 +215,33 @@ def build_filter(filter_set: dict[str, VNDBFilter], key: str, value: Any) -> lis
 
     return [key, operator, filter_value]
 
+def negate_filters(node: list) -> list:
+    """Push a logical NOT down to the leaves of a built Kana filter.
+
+    The Kana API has no top-level negation, but every tag/trait leaf supports
+    the `!=` operator ("does not have this tag/trait"). De Morgan lets us negate
+    an arbitrary AND/OR tree by swapping the combinators and inverting each leaf
+    operator. Only valid for trees whose leaves are plain `[name, op, value]`
+    predicates (true for tag/trait expressions, which never contain NESTED
+    filters).
+    """
+    if not node:
+        return node
+    if node[0] in ('and', 'or'):
+        flipped = 'or' if node[0] == 'and' else 'and'
+        return [flipped] + [negate_filters(child) for child in node[1:]]
+    name, operator, value = node
+    return [name, '!=' if operator == '=' else '=', value]
+
 def build_filters(filter_set: dict[str, VNDBFilter], filters: dict[str, Any]) -> list:
     result = []
     for key, value in filters.items():
         if key in ['and', 'or']:
             result.append([key] + [build_filters(filter_set, item) for item in value])
+        elif key == '_not':
+            # `value` is a normal filter subtree; build it, then negate the
+            # whole built expression via De Morgan (see negate_filters).
+            result.append(negate_filters(build_filters(filter_set, value)))
         else:
             result.append(build_filter(filter_set, key, value))
     return [] if not result else result[0] if len(result) == 1 else ["and"] + result
@@ -532,6 +554,17 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
     if dtag_spoil := params.get('dtag_spoil'):
         filters.append(parse_tag_expression(dtag_spoil, directly=True, spoil=True))
 
+    # tag exclusion. Kana has no top-level NOT, so wrap the parsed tag tree in
+    # a `_not` marker that build_filters negates (per-leaf `!=`, see
+    # negate_filters). `tag_exclude` caps at spoiler 0, `tag_exclude_spoil` at 2.
+    if tag_exclude := params.get('tag_exclude'):
+        if parsed := parse_tag_expression(tag_exclude):
+            filters.append({"_not": parsed})
+
+    if tag_exclude_spoil := params.get('tag_exclude_spoil'):
+        if parsed := parse_tag_expression(tag_exclude_spoil, spoil=True):
+            filters.append({"_not": parsed})
+
     # Handle fields that may contain multiple values
     multi_value_fields = ['lang', 'platform', 'released', 'olang']
     for field in multi_value_fields:
@@ -683,6 +716,16 @@ def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if dtrait_spoil := params.get('dtrait_spoil'):
         filters.append(parse_trait_expression(dtrait_spoil, directly=True, spoil=True))
+
+    # trait exclusion. Same `_not` mechanism as tag exclusion above.
+    # `trait_exclude` caps at spoiler 0, `trait_exclude_spoil` at 2.
+    if trait_exclude := params.get('trait_exclude'):
+        if parsed := parse_trait_expression(trait_exclude):
+            filters.append({"_not": parsed})
+
+    if trait_exclude_spoil := params.get('trait_exclude_spoil'):
+        if parsed := parse_trait_expression(trait_exclude_spoil, spoil=True):
+            filters.append({"_not": parsed})
 
     multi_value_fields = ['role']
     for field in multi_value_fields:

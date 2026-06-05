@@ -28,7 +28,7 @@ function parseVNDBMarkup(raw: string): Node[][] {
  *  doesn't end the match early. Returns -1 when there is no balanced close. */
 function findClosingTag(text: string, from: number, tagName: string): number {
   const opening = tagName === "url" ? "\\[url(?:=[^\\]]+)?\\]" : `\\[${tagName}\\]`
-  const re = new RegExp(`${opening}|\\[/${tagName}\\]`, "g")
+  const re = new RegExp(`${opening}|\\[/${tagName}\\]`, "gi")
   re.lastIndex = from
   let depth = 1
   let m: RegExpExecArray | null
@@ -55,18 +55,19 @@ function parseInline(text: string): Node[] {
     }
 
     // An opening tag at position i?
-    const open = text.slice(i).match(/^\[(url=([^\]]+)|i|b|s|spoiler|raw)\]/)
+    const open = text.slice(i).match(/^\[(url=([^\]]+)|i|b|s|spoiler|raw)\]/i)
     if (open) {
       const urlHref = open[2]
-      const tagName = urlHref ? "url" : open[1]
+      const tagName = urlHref ? "url" : open[1].toLowerCase()
       const contentStart = i + open[0].length
 
       // `[raw]` content is literal (not re-parsed); every other tag must skip
       // past nested same-name tags to find its real close — crucially, this
       // stops a nested tag's close (e.g. an inner `[/url]`) from being
       // mistaken for the outer tag's own close.
+      const rawClose = tagName === "raw" ? /\[\/raw\]/i.exec(text.slice(contentStart)) : null
       const closeIdx = tagName === "raw"
-        ? text.indexOf("[/raw]", contentStart)
+        ? (rawClose !== null ? contentStart + rawClose.index : -1)
         : findClosingTag(text, contentStart, tagName)
 
       if (closeIdx !== -1) {

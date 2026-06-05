@@ -20,7 +20,7 @@ interface SwitchButtonProps {
 export function SwitchButton({ options, selected, onSelect, disabled, className }: SwitchButtonProps) {
   return (
     <div className={cn(
-      "flex flex-row items-center",
+      "flex items-center",
       "rounded-full border border-white/10",
       "overflow-hidden",
       disabled && "opacity-40 cursor-not-allowed",

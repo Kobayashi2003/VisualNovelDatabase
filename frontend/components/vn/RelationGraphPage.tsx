@@ -58,7 +58,7 @@ export function RelationGraphPage({ id }: { id: number }) {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(29,185,84,0.10),transparent_55%)]" />
 
       {/* Frosted header overlay — floats above the canvas, fades into it. */}
-      <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-background/90 via-background/50 to-transparent px-5 pb-8 pt-3">
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-linear-to-b from-background/90 via-background/50 to-transparent px-5 pb-8 pt-3">
         <Link
           href={`/${rootId}`}
           aria-label="Back to visual novel"

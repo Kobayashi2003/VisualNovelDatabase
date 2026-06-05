@@ -91,7 +91,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <div
                   ref={headerRef}
                   className={cn(
-                    "fixed top-0 left-0 right-0 z-10",
+                    "fixed inset-x-0 top-0 z-10",
                     "bg-background/90 backdrop-blur-sm",
                     // Slide out of view rather than fade: transform is composited,
                     // so showing/hiding doesn't repaint the frosted blur or the

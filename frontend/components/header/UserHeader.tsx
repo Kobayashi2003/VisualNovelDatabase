@@ -46,7 +46,7 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
   /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
-    <div className={cn("flex flex-row items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1", className)}>
       {isLoading ? (
         <>
           <GhostButton />

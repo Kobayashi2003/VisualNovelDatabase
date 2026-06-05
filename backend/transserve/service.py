@@ -57,6 +57,35 @@ class TranslationService:
         return operations.count_entries(self.source_lang, self.target_lang)
 
     # ------------------------------------------------------------------
+    # Passage translation memory (long-form description text)
+    # ------------------------------------------------------------------
+
+    def lookup_passage(self, text: str) -> str | None:
+        """Return the stored translation for one whole passage, or None."""
+        return operations.lookup_passage(text, self.source_lang, self.target_lang)
+
+    def lookup_passages_batch(self, texts: Iterable[str]) -> dict[str, str | None]:
+        """Translate several passages at once via the translation memory."""
+        return operations.lookup_passages_batch(texts, self.source_lang, self.target_lang)
+
+    def init_passages(self, entries: Iterable[dict], default_entity: str | None = None,
+                      default_category: str | None = None, replace: bool = False) -> int:
+        """Initialize the passage memory from `entries` (with `replace=True` the
+        language pair is cleared first). Markup preservation is validated."""
+        return operations.init_passages(
+            entries, default_entity, default_category,
+            self.source_lang, self.target_lang, replace)
+
+    def append_passages(self, entries: Iterable[dict], default_entity: str | None = None,
+                        default_category: str | None = None) -> int:
+        """Append/merge `entries` into the passage memory (upsert by source hash)."""
+        return operations.upsert_passages(
+            entries, default_entity, default_category, self.source_lang, self.target_lang)
+
+    def count_passages(self) -> int:
+        return operations.count_passages(self.source_lang, self.target_lang)
+
+    # ------------------------------------------------------------------
     # Text translation (reserved — not implemented yet)
     # ------------------------------------------------------------------
 

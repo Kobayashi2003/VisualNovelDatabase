@@ -650,7 +650,7 @@ function CollectionContent() {
               </div>
 
               {/* Content level selectors */}
-              <div className="flex flex-row gap-2 mb-3">
+              <div className="flex gap-2 mb-3">
                 <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={setSexualLevel} className="w-full" />
                 <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel} className="w-full" />
               </div>

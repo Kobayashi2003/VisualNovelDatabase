@@ -308,7 +308,7 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
         <button
           type="button"
           onClick={onExpand}
-          className="group/fade absolute inset-x-0 bottom-0 flex items-end justify-center pb-2.5 pt-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent transition-colors"
+          className="group/fade absolute inset-x-0 bottom-0 flex items-end justify-center pb-2.5 pt-20 bg-linear-to-t from-black/95 via-black/70 to-transparent transition-colors"
         >
           <span className="text-xs font-medium text-white/70 group-hover/fade:text-accent transition-colors">
             Show full details ›

@@ -15,6 +15,7 @@ from . import operations
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 DEFAULT_DICTIONARY_FILE = os.path.join(DATA_DIR, 'dictionary.json')
+DEFAULT_PASSAGES_FILE = os.path.join(DATA_DIR, 'passages.json')
 
 
 def register_commands(app):
@@ -25,6 +26,7 @@ def register_commands(app):
     app.cli.add_command(backup_db)
     app.cli.add_command(restore_db)
     app.cli.add_command(seed_dictionary)
+    app.cli.add_command(seed_passages)
 
 
 @click.command('init-db')
@@ -128,6 +130,56 @@ def seed_dictionary(file_path, replace):
     total = operations.count_entries(source_lang, target_lang)
     click.echo(f"Seeded {submitted} entries ({source_lang}->{target_lang}); "
                f"dictionary now holds {total} entries for this pair.")
+
+
+@click.command('seed-passages')
+@click.option('-f', '--file', 'file_path', default=DEFAULT_PASSAGES_FILE,
+              help='Path to the passages JSON file.')
+@click.option('--replace', is_flag=True,
+              help='Clear the language pair before loading (full reinitialize).')
+@with_appcontext
+def seed_passages(file_path, replace):
+    """Seed the passage translation memory from a JSON file
+    (default: data/passages.json).
+
+    File shape:
+        {
+          "source_lang": "en", "target_lang": "ja",
+          "passages": [
+            {"source": "English description …",
+             "target": "日本語訳 …",
+             "entity_type": "tag" | "trait" | ...}
+          ]
+        }
+    `source_lang` / `target_lang` are optional (default en->ja). Each translation
+    is validated to preserve the source's VNDB markup tokens; a bad entry aborts
+    the seed with a precise error.
+    """
+    if not os.path.exists(file_path):
+        click.echo(f"Passages file not found: {file_path}", err=True)
+        raise click.Abort()
+
+    with open(file_path, encoding='utf-8') as f:
+        data = json.load(f)
+
+    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'ja')
+    passages = data.get('passages') or []
+    entries = [p for p in passages if p.get('source') and p.get('target')]
+
+    if not entries:
+        click.echo("No entries found in the passages file.", err=True)
+        raise click.Abort()
+
+    try:
+        submitted = operations.init_passages(
+            entries, source_lang=source_lang, target_lang=target_lang, replace=replace)
+    except operations.ValidationError as e:
+        click.echo(f"Seed aborted: {e.message}", err=True)
+        raise click.Abort()
+    total = operations.count_passages(source_lang, target_lang)
+    click.echo(f"Seeded {submitted} passages ({source_lang}->{target_lang}); "
+               f"memory now holds {total} passages for this pair.")
 
 
 @click.command('backup-db')

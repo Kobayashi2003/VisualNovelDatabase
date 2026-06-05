@@ -150,7 +150,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
                       No image
                     </div>
                   )}
-                  <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-linear-to-t from-black/80 to-transparent">
+                  <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-linear-to-t from-black/80 to-transparent">
                     <span className="text-xs text-white/70">{ROLE_LABEL[role] ?? role}</span>
                   </div>
                 </div>

@@ -88,7 +88,7 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
   /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
-    <div className={cn("flex flex-row items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1", className)}>
       <IconButton
         icon={<RefreshCw className="w-4 h-4" />}
         onClick={() => router.refresh()}

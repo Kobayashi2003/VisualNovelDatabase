@@ -16,7 +16,7 @@ export function HeaderNavi({ className }: HeaderNaviProps) {
   const isHomePage = pathname === "/"
 
   return (
-    <div className={cn("flex flex-row items-center gap-1 select-none", className)}>
+    <div className={cn("flex items-center gap-1 select-none", className)}>
       {!isHomePage && (
         <BackButton handleBack={() => router.back()} />
       )}

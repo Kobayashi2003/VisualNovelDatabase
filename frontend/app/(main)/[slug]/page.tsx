@@ -133,7 +133,7 @@ function SearchResultsContent({ slug }: { slug: string }) {
             <GridLayoutSwitch layout={layout} setLayout={setLayout} />
           </div>
           {/* Row 2: level selectors — always side-by-side (abbreviated labels on mobile) */}
-          <div className="flex flex-row gap-2">
+          <div className="flex gap-2">
             <SexualLevelSelector sexualLevel={sexualLevel} setSexualLevel={setSexualLevel} className="w-full" />
             <ViolenceLevelSelector violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel} className="w-full" />
           </div>

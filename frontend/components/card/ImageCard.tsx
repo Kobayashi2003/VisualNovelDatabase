@@ -118,7 +118,7 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
     <div className={cn(
       "bg-surface hover:bg-elevated",
       "rounded-lg p-3 border border-white/5",
-      "flex flex-row gap-3",
+      "flex gap-3",
       "hover:bg-elevated transition-all duration-300",
       link ? "cursor-pointer" : "cursor-default",
       className

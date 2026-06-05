@@ -18,7 +18,7 @@ interface ViolenceLevelSelectorProps {
 export function ViolenceLevelSelector({ violenceLevel, setViolenceLevel, className }: ViolenceLevelSelectorProps) {
   return (
     <div className={cn(
-      "flex flex-row items-center rounded-full border border-white/10 overflow-hidden",
+      "flex items-center rounded-full border border-white/10 overflow-hidden",
       className
     )}>
       {LEVELS.map((level) => (

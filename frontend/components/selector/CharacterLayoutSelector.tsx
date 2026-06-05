@@ -17,7 +17,7 @@ interface CharacterLayoutSelectorProps {
 export function CharacterLayoutSelector({ layout, setLayout, className }: CharacterLayoutSelectorProps) {
   return (
     <div className={cn(
-      "flex flex-row items-center rounded-full border border-white/10 overflow-hidden",
+      "flex items-center rounded-full border border-white/10 overflow-hidden",
       className
     )}>
       {LAYOUTS.map((opt) => (

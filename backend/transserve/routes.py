@@ -151,6 +151,86 @@ def dictionary_delete(word):
 
 
 # ----------------------------------------
+# Passage translation memory (descriptions)
+# ----------------------------------------
+
+@api_bp.route('/passage/lookup', methods=['POST'])
+def passage_lookup_batch():
+    """Batch passage lookup. Body: {"texts": ["...", ...], "fallback"?: bool}.
+
+    Returns {"results": {text: translation, ...}, "matched": {text: bool, ...}}.
+    `fallback` mirrors /dictionary/lookup: false (default) maps an unknown
+    passage to null; true echoes the original source text so a display caller
+    always has something to render."""
+    body = request.get_json(silent=True) or {}
+    texts = body.get('texts')
+    if not isinstance(texts, list):
+        raise ValidationError("Body must include a 'texts' list.")
+    fallback = bool(body.get('fallback', False))
+
+    found = _service().lookup_passages_batch(texts)  # {text: translation | None}
+    matched = {t: found.get(t) is not None for t in texts}
+    if fallback:
+        results = {t: (found[t] if found.get(t) is not None else t) for t in texts}
+    else:
+        results = found
+    return jsonify({"results": results, "matched": matched})
+
+
+@api_bp.route('/passage', methods=['GET'])
+def passage_list():
+    """Paginated listing. Query: ?entity_type=&search=&page=&limit=&source=&target=."""
+    from . import operations
+    source = request.args.get('source', 'en')
+    target = request.args.get('target', 'ja')
+    return jsonify(operations.list_passages(
+        source_lang=source,
+        target_lang=target,
+        entity_type=request.args.get('entity_type'),
+        search=request.args.get('search'),
+        page=int(request.args.get('page', 1)),
+        limit=int(request.args.get('limit', 50)),
+    ))
+
+
+@api_bp.route('/passage/init', methods=['POST'])
+def passage_init():
+    """Initialize the passage memory. Body:
+        {"entries": [{"source","target","entity_type"?,"category"?}, ...],
+         "entity_type"?: default, "category"?: default, "replace"?: bool}
+    With replace=true the language pair is cleared first. Each translation is
+    validated to preserve the source's VNDB markup tokens."""
+    body = request.get_json(silent=True) or {}
+    entries = body.get('entries')
+    if not isinstance(entries, list) or not entries:
+        raise ValidationError("Body must include a non-empty 'entries' list.")
+    count = _service().init_passages(
+        entries,
+        default_entity=body.get('entity_type'),
+        default_category=body.get('category'),
+        replace=bool(body.get('replace', False)),
+    )
+    return jsonify({"status": "ok", "submitted": count}), 201
+
+
+@api_bp.route('/passage', methods=['POST'])
+def passage_append():
+    """Append/merge passages (upsert). Body:
+        {"entries": [{"source","target","entity_type"?,"category"?}, ...],
+         "entity_type"?: default, "category"?: default}"""
+    body = request.get_json(silent=True) or {}
+    entries = body.get('entries')
+    if not isinstance(entries, list) or not entries:
+        raise ValidationError("Body must include a non-empty 'entries' list.")
+    count = _service().append_passages(
+        entries,
+        default_entity=body.get('entity_type'),
+        default_category=body.get('category'),
+    )
+    return jsonify({"status": "ok", "submitted": count}), 201
+
+
+# ----------------------------------------
 # Text translation (reserved — not implemented)
 # ----------------------------------------
 

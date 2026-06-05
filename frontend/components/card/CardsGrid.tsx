@@ -220,7 +220,7 @@ export function CollectionWrapper({
       )}
 
       {markedAt && !editMode && (
-        <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 text-xs text-white/80 bg-linear-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-b">
+        <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 text-xs text-white/80 bg-linear-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-b">
           Added {formatRelativeDate(markedAt)}
         </div>
       )}

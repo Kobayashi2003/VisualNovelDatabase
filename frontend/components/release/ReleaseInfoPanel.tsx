@@ -44,6 +44,8 @@ export function ReleaseInfoPanel({ release }: { release: Release }) {
     release.voiced != null || release.freeware != null ||
     !!release.gtin || !!release.catalog
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex flex-col gap-3">
       {hasInfo && (

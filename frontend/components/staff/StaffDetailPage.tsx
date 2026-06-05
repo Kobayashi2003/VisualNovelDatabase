@@ -56,6 +56,8 @@ export function StaffDetailPage({ id }: StaffDetailPageProps) {
 
   if (loading || error || !staff) return <DetailStatus loading={loading} error={error} />
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   // Tab bar: a tab with a known count of 0 is hidden; a tab still loading
   // (count null) stays visible without a badge.
   const tabDefs: { value: StaffTab; label: string; count: number | null }[] = [

@@ -71,6 +71,8 @@ export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focu
     document.getElementById(`vnchar-${focusId}`)?.scrollIntoView({ block: "start" })
   }, [focusId])
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header: back + title + spoiler toggle */}

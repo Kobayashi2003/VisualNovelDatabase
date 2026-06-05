@@ -41,6 +41,8 @@ export function VNScreenshots({ screenshots, sexualLevel, violenceLevel }: VNScr
     seenReleases.get(rid)!.items.push({ screenshot: s, flatIdx: idx })
   })
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex flex-col gap-4">
       {groups.map(group => (

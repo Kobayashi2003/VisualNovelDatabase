@@ -871,6 +871,8 @@ export default function KobayashiPage() {
   const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const { showOriginal } = useSearchContext()
 
+  /* ── State ─────────────────────────────────────────────────────────────── */
+
   const [sexualLevel, setSexualLevel]     = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
@@ -896,6 +898,8 @@ export default function KobayashiPage() {
   // Marks the toolbar's natural position; used both for the pin transform and
   // to compute where to scroll back to after a results-changing operation.
   const sentinelRef = useRef<HTMLDivElement>(null)
+
+  /* ── Effects, derived state & handlers ─────────────────────────────────── */
 
   /* Fetch the two collections once a signed-in viewer is present. */
   useEffect(() => {

@@ -99,6 +99,8 @@ function CollectionContent() {
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
+  /* ─── State ────────────────────────────────────────────────────────────── */
+
   /* URL-driven filters */
   const type    = searchParams.get("type")  ?? "vn"
   const cidRaw  = searchParams.get("cid")   ?? "all"
@@ -129,6 +131,8 @@ function CollectionContent() {
   const [view, setView]                           = useState<ViewMode>("grid")
 
   const abortRef = useRef<AbortController | null>(null)
+
+  /* ─── Derived state & effects ──────────────────────────────────────────── */
 
   /* Search input: local state + IME-safe debounced commit to URL */
   const [searchInput, setSearchInput] = useState(q)

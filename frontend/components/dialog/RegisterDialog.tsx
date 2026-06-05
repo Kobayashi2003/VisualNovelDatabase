@@ -83,6 +83,8 @@ export function RegisterDialog({ open, setOpen, handleRegister, disabled, classN
 
   const sendCodeLabel = cooldown > 0 ? `Resend in ${cooldown}s` : codeSending ? "Sending..." : "Send code"
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <BaseDialog open={open} setOpen={setOpen} title="Sign up" className={className}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

@@ -54,6 +54,8 @@ export function CollectionDialog({
     }
   }
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <BaseDialog open={open} setOpen={handleSetOpen} title="Add to Collection" className="max-w-xs">
       <div className="flex flex-col gap-1">

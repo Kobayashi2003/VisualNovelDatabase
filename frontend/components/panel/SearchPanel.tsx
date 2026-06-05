@@ -19,6 +19,9 @@ import {
 } from "@/lib/config"
 import { FiltersForm } from "@/components/dialog/FiltersForm"
 
+
+/* ─── Constants & helpers ──────────────────────────────────────────────────── */
+
 // Sentinels for the collection-scope picker. "" → no restriction (search the
 // whole catalogue); "all" → the union of every collection of the active type.
 const COLLECTION_NONE = ""
@@ -72,6 +75,8 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
+/* ─── Search drawer ────────────────────────────────────────────────────────── */
+
 interface SearchPanelProps {
   open: boolean
   setOpen: (open: boolean) => void
@@ -104,6 +109,8 @@ export function SearchPanel({
   // `id` filter only at apply time.
   const [localCollection, setLocalCollection] = useState(initialCollection)
   const [categories, setCategories] = useState<Category[]>([])
+
+  /* ── Effects ───────────────────────────────────────────────────────────── */
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -141,6 +148,8 @@ export function SearchPanel({
     document.addEventListener("keydown", handler)
     return () => document.removeEventListener("keydown", handler)
   }, [open, setOpen])
+
+  /* ── Handlers ──────────────────────────────────────────────────────────── */
 
   // Source change → sort list depends on source, so reset to its default.
   const setLocalFrom = (f: string) => {
@@ -180,6 +189,8 @@ export function SearchPanel({
   const handleClearFilters = () => {
     setLocalFilterState(buildInitialState(localType))
   }
+
+  /* ── Render ────────────────────────────────────────────────────────────── */
 
   if (!mounted) return null
 

@@ -30,10 +30,14 @@ function HomeContent() {
   const { updateKey, updateMultipleKeys } = useUrlParams()
   const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
 
+  /* ─── URL-derived params ───────────────────────────────────────────────── */
+
   const currentPage = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1
   // "00" is the "any" sentinel from YearSelector / MonthSelector.
   const selectedYear = searchParams.get("year") || `${new Date().getFullYear()}`
   const selectedMonth = searchParams.get("month") || `${(new Date().getMonth() + 1).toString().padStart(2, "0")}`
+
+  /* ─── State ────────────────────────────────────────────────────────────── */
 
   const [status, setStatus] = useState<"loading" | "error" | "notFound" | null>(null)
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
@@ -45,6 +49,8 @@ function HomeContent() {
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
   const abortRef = useRef<AbortController | null>(null)
+
+  /* ─── Data fetching ────────────────────────────────────────────────────── */
 
   const fetchVNs = async () => {
     abortRef.current?.abort()
@@ -74,6 +80,8 @@ function HomeContent() {
       setStatusMsg("Failed to fetch VNs. Please try again.")
     }
   }
+
+  /* ─── Month navigation ─────────────────────────────────────────────────── */
 
   // Date arrow guards: don't let the user step past the supported VNDB range
   // (1985-01 through next-year-12).
@@ -106,6 +114,8 @@ function HomeContent() {
     fetchVNs()
     return () => abortRef.current?.abort()
   }, [currentPage, selectedYear, selectedMonth])
+
+  /* ─── Render ────────────────────────────────────────────────────────────── */
 
   return (
     <main className="container mx-auto flex-1 flex flex-col p-4 pb-8">

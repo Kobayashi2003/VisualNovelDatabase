@@ -37,6 +37,8 @@ export function VNTags({ tags, sexualLevel }: VNTagsProps) {
     return acc
   }, {})
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex flex-col gap-4">
       {spoiler.hasAnySpoilers && (

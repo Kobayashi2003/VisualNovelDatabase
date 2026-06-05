@@ -23,6 +23,9 @@ import type { VN } from "@/lib/types"
 
 type VNCharacter = VN["characters"][number]
 
+
+/* ─── Constants & helpers ──────────────────────────────────────────────────── */
+
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -67,6 +70,8 @@ function StatRow({ items }: { items: Array<[string, React.ReactNode] | null> }) 
     </div>
   )
 }
+
+/* ─── Character card ───────────────────────────────────────────────────────── */
 
 export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoilerLevel, clamp, onExpand, onSpoilerTraits }: VNCharacterCardProps) {
   const { showOriginal } = useSearchContext()

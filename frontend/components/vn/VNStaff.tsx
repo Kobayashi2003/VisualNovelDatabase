@@ -45,6 +45,8 @@ export function VNStaff({ staff, editions }: VNStaffProps) {
   // Check if we have any multi-edition roles
   const hasEditions = editions.length > 1
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex flex-col gap-4">
       {orderedRoles.map(role => {
@@ -91,6 +93,9 @@ export function VNStaff({ staff, editions }: VNStaffProps) {
     </div>
   )
 }
+
+
+/* ─── Staff name list ──────────────────────────────────────────────────────── */
 
 function StaffList({ entries }: { entries: StaffEntry[] }) {
   const { showOriginal } = useSearchContext()

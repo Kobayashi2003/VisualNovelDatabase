@@ -44,6 +44,8 @@ export function Lightbox({ images, index, onClose, onIndexChange }: LightboxProp
     return () => document.removeEventListener("keydown", handler)
   }, [onClose, prev, next])
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   if (!mounted) return null
   const img = images[index]
   if (!img) return null

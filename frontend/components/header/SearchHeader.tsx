@@ -85,6 +85,8 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
     setFiltersType(type)
   }
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className={cn("flex flex-row items-center gap-1", className)}>
       <IconButton

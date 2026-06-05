@@ -51,6 +51,8 @@ function SearchResultsContent({ slug }: { slug: string }) {
 
   const currentPage = parseInt(searchParams.get("page") || "1")
 
+  /* ─── State ────────────────────────────────────────────────────────────── */
+
   const [status, setStatus] = useState<"loading" | "error" | "notFound" | null>(null)
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
   const [totalPages, setTotalPages] = useState(0)
@@ -69,6 +71,8 @@ function SearchResultsContent({ slug }: { slug: string }) {
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
   const abortRef = useRef<AbortController | null>(null)
+
+  /* ─── Data fetching ────────────────────────────────────────────────────── */
 
   const fetchItems = async () => {
     abortRef.current?.abort()
@@ -116,6 +120,8 @@ function SearchResultsContent({ slug }: { slug: string }) {
     fetchItems()
     return () => abortRef.current?.abort()
   }, [currentPage, searchParams.toString(), type, sortBy])
+
+  /* ─── Render ────────────────────────────────────────────────────────────── */
 
   return (
     <main className="container mx-auto flex-1 flex flex-col p-4 pb-8">

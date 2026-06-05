@@ -37,6 +37,8 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
 
   if (loading || error || !character) return <DetailStatus loading={loading} error={error} />
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   const levelSelectors = (direction: "row" | "col") => (
     <ContentLevelSelectors
       direction={direction}

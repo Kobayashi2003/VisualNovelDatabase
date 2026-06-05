@@ -1,0 +1,1 @@
+- TODO:当前transserve的能力只会用在vn详情页以及character详情页中的Tags与Traits面板中，待扩展

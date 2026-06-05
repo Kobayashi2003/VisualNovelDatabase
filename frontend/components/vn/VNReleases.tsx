@@ -60,6 +60,8 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
     })
   }
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className="flex flex-col gap-3">
       {[...groups.entries()].map(([lang, groupReleases]) => {

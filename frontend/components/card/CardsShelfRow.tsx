@@ -114,6 +114,8 @@ export function CardsShelfRow({
     el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 200), behavior: "smooth" })
   }
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   // A shelf that resolved to nothing (e.g. all its marks 404'd) renders nothing.
   if (!loading && items.length === 0) return null
 

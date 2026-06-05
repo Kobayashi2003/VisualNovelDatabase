@@ -2,6 +2,9 @@
 
 import { ChevronRight } from "lucide-react"
 
+
+/* ─── InfoRow — label + value row ──────────────────────────────────────────── */
+
 export function InfoRow({ label, children, stacked }: { label: string; children: React.ReactNode; stacked?: boolean }) {
   return (
     // On phones (< sm) the label stacks above the value; from sm up it returns to
@@ -17,6 +20,8 @@ export function InfoRow({ label, children, stacked }: { label: string; children:
     </div>
   )
 }
+
+/* ─── InlineList — comma-joined inline values ──────────────────────────────── */
 
 /** Renders a list of values inline, joined by a separator that is dimmer than
  *  the values themselves — the standard way to show a multi-value field in an
@@ -39,6 +44,8 @@ export function InlineList({
     </span>
   )
 }
+
+/* ─── Section — accent-ticked heading + body ───────────────────────────────── */
 
 export function Section({ title, count, action, onTitleClick, children }: {
   title: string

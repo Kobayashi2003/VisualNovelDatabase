@@ -48,6 +48,8 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
     setImgUrl(`${url}?${Date.now()}`)
   }
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   const imageContent = (
     <>
       {imgUrl && (

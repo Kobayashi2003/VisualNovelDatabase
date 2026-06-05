@@ -43,6 +43,8 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
     return () => document.removeEventListener("mousedown", handler)
   }, [menuOpen])
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div className={cn("flex flex-row items-center gap-1", className)}>
       {isLoading ? (

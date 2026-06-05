@@ -57,6 +57,8 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
 
   if (loading || error || !producer) return <DetailStatus loading={loading} error={error} />
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   // Tab bar: a tab with a known count of 0 is hidden; a tab still loading
   // (count null) stays visible without a badge.
   const tabDefs: { value: ProducerTab; label: string; count: number | null }[] = [

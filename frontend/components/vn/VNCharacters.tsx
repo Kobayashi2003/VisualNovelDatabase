@@ -79,6 +79,8 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
     return acc
   }, {})
 
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div>
       {/* Controls row: role tabs + spoiler toggle */}

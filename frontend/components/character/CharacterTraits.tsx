@@ -4,6 +4,8 @@
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { groupTraits, type CharTrait } from "@/lib/traits"
+import { useDictionary } from "@/hooks/useDictionary"
+import { useSearchContext } from "@/context/SearchContext"
 
 interface CharacterTraitsProps {
   traits: CharTrait[]
@@ -15,6 +17,11 @@ interface CharacterTraitsProps {
 
 export function CharacterTraits({ traits, spoilerLevel, sexualLevel, onRevealMinor, onRevealMajor }: CharacterTraitsProps) {
   const { groups, hiddenMinor, hiddenMajor } = groupTraits(traits, spoilerLevel, sexualLevel)
+
+  // Original-text mode: render trait names via transserve (Japanese), falling
+  // back to the English name for anything the dictionary doesn't have.
+  const { showOriginal } = useSearchContext()
+  const translate = useDictionary(traits.map(t => t.name), showOriginal)
 
   const noTraits = groups.length === 0 && hiddenMinor === 0 && hiddenMajor === 0
 
@@ -39,7 +46,7 @@ export function CharacterTraits({ traits, spoilerLevel, sexualLevel, onRevealMin
                     t.spoiler === 2 && "border border-orange-500/40"
                   )}
                 >
-                  {t.name}
+                  {translate(t.name)}
                 </Link>
               ))}
             </div>

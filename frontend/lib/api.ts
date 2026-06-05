@@ -8,7 +8,7 @@ import {
   RelationGraph, RelationGraphNode,
 } from "./types"
 import {
-  VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL,
+  VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL, TRANSSERVE_BASE_URL,
   COLLECTION_TYPE_MAP,
 } from "./constants"
 
@@ -19,18 +19,20 @@ import {
 // /imgserve, /userserve paths, which Caddy (prod) or Next.js rewrites (dev)
 // forward to the matching Flask backend.
 
-const getBaseUrl = (type: "vndb" | "imgserve" | "userserve") => {
+const getBaseUrl = (type: "vndb" | "imgserve" | "userserve" | "transserve") => {
   if (typeof window === "undefined") {
     switch (type) {
       case "vndb": return process.env.NEXT_PUBLIC_VNDB_BASE_URL || VNDB_BASE_URL
       case "imgserve": return process.env.NEXT_PUBLIC_IMGSERVE_BASE_URL || IMGSERVE_BASE_URL
       case "userserve": return process.env.NEXT_PUBLIC_USERSERVE_BASE_URL || USERSERVE_BASE_URL
+      case "transserve": return process.env.NEXT_PUBLIC_TRANSSERVE_BASE_URL || TRANSSERVE_BASE_URL
     }
   } else {
     switch (type) {
       case "vndb": return VNDB_BASE_URL
       case "imgserve": return IMGSERVE_BASE_URL
       case "userserve": return USERSERVE_BASE_URL
+      case "transserve": return TRANSSERVE_BASE_URL
     }
   }
 }
@@ -532,5 +534,28 @@ export const api = {
       fetchUserserve<{ rating: number }>(`${typeRoute(type)}/r${markId}`, "PUT", { rating }, abortSignal),
     clear: (type: string, markId: number, abortSignal?: AbortSignal) =>
       fetchUserserve<{ message: string }>(`${typeRoute(type)}/r${markId}`, "DELETE", undefined, abortSignal),
+  },
+
+  /* Transserve: English → Japanese dictionary (used to localise tag / trait
+     names in original-text mode). `fallback` (default true) makes the backend
+     echo the source word for any name it doesn't have a translation for, so
+     callers always get a displayable string. The response maps each *input*
+     word to its target; `matched` flags which were real dictionary hits. */
+  translate: {
+    dictionary: async (
+      words: string[],
+      fallback = true,
+      abortSignal?: AbortSignal,
+    ): Promise<{ results: Record<string, string | null>; matched: Record<string, boolean> }> => {
+      if (!words.length) return { results: {}, matched: {} }
+      const response = await fetch(`${getBaseUrl("transserve")}/dictionary/lookup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ words, fallback }),
+        signal: abortSignal,
+      })
+      if (!response.ok) throw new Error(`Transserve error! status: ${response.status}`)
+      return response.json()
+    },
   },
 }

@@ -13,6 +13,7 @@ import { ICON } from "@/lib/icons"
 import { displayName } from "@/lib/original"
 import { groupTraits } from "@/lib/traits"
 import { useSearchContext } from "@/context/SearchContext"
+import { useDictionary } from "@/hooks/useDictionary"
 import { useCharacterFull } from "@/hooks/useCharacterFull"
 import { InlineList } from "@/components/common/InfoPrimitives"
 import { ImageWithFallback } from "@/components/common/ImageWithFallback"
@@ -94,6 +95,10 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
   // what that toggle has already revealed.
   const effectiveSpoiler = Math.max(spoilerLevel, revealTraits) as 0 | 1 | 2
   const traitGroups = full ? groupTraits(full.traits, effectiveSpoiler, sexualLevel) : null
+
+  // Original-text mode: render trait names via transserve (Japanese), falling
+  // back to the English name for anything the dictionary doesn't have.
+  const translate = useDictionary((full?.traits ?? []).map(t => t.name), showOriginal)
 
   // This character's own spoiler weight in the VN — tints the card edge so a
   // revealed spoiler character stands out from ordinary ones.
@@ -242,7 +247,7 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
                         t.spoiler === 2 && "border border-orange-500/40"
                       )}
                     >
-                      {t.name}
+                      {translate(t.name)}
                     </Link>
                   ))}
                 </div>

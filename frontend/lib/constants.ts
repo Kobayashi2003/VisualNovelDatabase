@@ -11,6 +11,7 @@
 export const VNDB_BASE_URL = "/vndb"
 export const IMGSERVE_BASE_URL = "/imgserve"
 export const USERSERVE_BASE_URL = "/userserve"
+export const TRANSSERVE_BASE_URL = "/transserve"
 
 
 /* ─── UI defaults ──────────────────────────────────────────────────────────── */

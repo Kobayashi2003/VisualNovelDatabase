@@ -35,6 +35,10 @@ const nextConfig: NextConfig = {
         source: "/userserve/:path*",
         destination: `${process.env.USERSERVE_BASE_URL || "http://localhost:5002"}/:path*`,
       },
+      {
+        source: "/transserve/:path*",
+        destination: `${process.env.TRANSSERVE_BASE_URL || "http://localhost:5003"}/:path*`,
+      },
     ]
   }
 };

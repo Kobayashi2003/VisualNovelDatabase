@@ -42,26 +42,49 @@ def hello_world():
 
 @api_bp.route('/dictionary/lookup', methods=['POST'])
 def dictionary_lookup_batch():
-    """Batch lookup. Body: {"words": ["School", "Maid", ...]}.
-    Returns {"results": {word: translation|null, ...}}."""
+    """Batch lookup. Body: {"words": ["School", "Maid", ...], "fallback"?: bool}.
+
+    Returns {"results": {word: target, ...}, "matched": {word: bool, ...}}.
+
+    `fallback` controls what an unknown word maps to in `results`:
+      - false (default): null — lets a caller tell "known" from "unknown".
+      - true: the original word itself — so a display caller (e.g. the frontend
+        in original-text mode) can render tag/trait names through the
+        dictionary and safely fall back to the source text when there is no
+        translation yet. `matched` always reports which words were real hits.
+    """
     body = request.get_json(silent=True) or {}
     words = body.get('words')
     if not isinstance(words, list):
         raise ValidationError("Body must include a 'words' list.")
-    results = _service().lookup_batch(words)
-    return jsonify({"results": results})
+    fallback = bool(body.get('fallback', False))
+
+    found = _service().lookup_batch(words)  # {word: translation | None}
+    matched = {word: found.get(word) is not None for word in words}
+    if fallback:
+        results = {word: (found[word] if found.get(word) is not None else word)
+                   for word in words}
+    else:
+        results = found
+    return jsonify({"results": results, "matched": matched})
 
 
 @api_bp.route('/dictionary/<path:word>', methods=['GET'])
 def dictionary_lookup(word):
-    """Single lookup. Returns {source, target} or 404 when unknown."""
+    """Single lookup. Returns {source, target, matched}.
+
+    Unknown word: 404 by default; with ?fallback=true returns 200 and echoes
+    the source word as `target` (matched=false), for display call sites that
+    always need something to show."""
     service = _service()
     translation = service.lookup(word)
-    if translation is None:
-        return jsonify(error="not_found", source=word, target=None), 404
+    fallback = request.args.get('fallback', 'false').lower() in ('true', '1', 'yes')
+    if translation is None and not fallback:
+        return jsonify(error="not_found", source=word, target=None, matched=False), 404
     return jsonify({
         "source": word,
-        "target": translation,
+        "target": translation if translation is not None else word,
+        "matched": translation is not None,
         "source_lang": service.source_lang,
         "target_lang": service.target_lang,
     })

@@ -6,6 +6,9 @@ import { api } from "@/lib/api"
 import type { Trait } from "@/lib/types"
 import { useEntity } from "@/hooks/useEntity"
 import { useUserContext } from "@/context/UserContext"
+import { useSearchContext } from "@/context/SearchContext"
+import { useDictionary } from "@/hooks/useDictionary"
+import { usePassage } from "@/hooks/usePassage"
 import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
 import { Section } from "@/components/common/InfoPrimitives"
@@ -23,6 +26,16 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
+
+  // Original-text mode: localise the name and group name (transserve dictionary)
+  // and the description (transserve passage memory) to Japanese, each falling
+  // back to the original English while loading or when no translation exists.
+  const { showOriginal } = useSearchContext()
+  const translateName = useDictionary(
+    trait ? [trait.name, ...(trait.group_name ? [trait.group_name] : [])] : [],
+    showOriginal,
+  )
+  const description = usePassage(trait?.description, showOriginal)
 
   if (loading || error || !trait) return <DetailStatus loading={loading} error={error} />
 
@@ -50,15 +63,15 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
     >
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">{trait.name}</h1>
+          <h1 className="text-2xl font-bold text-white">{translateName(trait.name)}</h1>
           {trait.group_name && (
-            <p className="text-sm text-muted mt-0.5">{trait.group_name}</p>
+            <p className="text-sm text-muted mt-0.5">{translateName(trait.group_name)}</p>
           )}
         </div>
 
-        {trait.description && (
+        {description && (
           <Section title="Description">
-            <BBCodeText text={trait.description} collapsible />
+            <BBCodeText text={description} collapsible />
           </Section>
         )}
 

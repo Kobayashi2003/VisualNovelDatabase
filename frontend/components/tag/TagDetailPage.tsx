@@ -7,6 +7,9 @@ import { enumLabel } from "@/lib/enums"
 import type { Tag } from "@/lib/types"
 import { useEntity } from "@/hooks/useEntity"
 import { useUserContext } from "@/context/UserContext"
+import { useSearchContext } from "@/context/SearchContext"
+import { useDictionary } from "@/hooks/useDictionary"
+import { usePassage } from "@/hooks/usePassage"
 import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
 import { Section } from "@/components/common/InfoPrimitives"
@@ -24,6 +27,13 @@ export function TagDetailPage({ id }: TagDetailPageProps) {
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
+
+  // Original-text mode: localise the name (transserve dictionary) and the
+  // description (transserve passage memory) to Japanese, each falling back to
+  // the original English while loading or when no translation exists.
+  const { showOriginal } = useSearchContext()
+  const translateName = useDictionary(tag ? [tag.name] : [], showOriginal)
+  const description = usePassage(tag?.description, showOriginal)
 
   if (loading || error || !tag) return <DetailStatus loading={loading} error={error} />
 
@@ -51,15 +61,15 @@ export function TagDetailPage({ id }: TagDetailPageProps) {
     >
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">{tag.name}</h1>
+          <h1 className="text-2xl font-bold text-white">{translateName(tag.name)}</h1>
           {tag.category && (
             <p className="text-sm text-muted mt-0.5">{enumLabel('CATEGORY', tag.category)}</p>
           )}
         </div>
 
-        {tag.description && (
+        {description && (
           <Section title="Description">
-            <BBCodeText text={tag.description} collapsible />
+            <BBCodeText text={description} collapsible />
           </Section>
         )}
 

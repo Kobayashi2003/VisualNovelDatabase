@@ -27,9 +27,12 @@ _TAG_RE = re.compile(r'\[(/?)(url|b|i|s|spoiler|raw)(=[^\]]*)?\]', re.IGNORECASE
 
 # Bare VNDB database references (auto-linked identifiers): a type letter followed
 # by digits, e.g. g749, i3137, v17, c45, r3, p12, s8, d2. A trailing ``.N`` (doc
-# sections like d2.3) is kept as part of the token. Word-bounded so it doesn't
-# fire inside larger alphanumerics.
-_ID_RE = re.compile(r'\b([gicrpsvdw]\d+(?:\.\d+)?)\b')
+# sections like d2.3) is kept as part of the token. Bounded by ASCII-alnum
+# look-around (not ``\b``) so it doesn't fire inside a larger ASCII token yet
+# still matches when a Japanese particle is glued on, e.g. ``i568は`` — Python's
+# ``\b`` treats CJK as word chars and would miss that, breaking source/target
+# symmetry.
+_ID_RE = re.compile(r'(?<![A-Za-z0-9])([gicrpsvdw]\d+(?:\.\d+)?)(?![A-Za-z0-9])')
 
 
 def _normalize_token(opening: str, name: str, arg: str | None) -> str:

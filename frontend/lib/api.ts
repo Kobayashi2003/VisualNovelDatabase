@@ -557,5 +557,26 @@ export const api = {
       if (!response.ok) throw new Error(`Transserve error! status: ${response.status}`)
       return response.json()
     },
+
+    /* Transserve passage memory: English → Japanese for long-form text such as
+       tag / trait descriptions (used in original-text mode). The lookup keys on
+       a normalized hash of the source, so callers send the exact English text.
+       `fallback` (default true) echoes the source for any passage without a
+       stored translation, so callers always get a displayable string. */
+    passage: async (
+      texts: string[],
+      fallback = true,
+      abortSignal?: AbortSignal,
+    ): Promise<{ results: Record<string, string | null>; matched: Record<string, boolean> }> => {
+      if (!texts.length) return { results: {}, matched: {} }
+      const response = await fetch(`${getBaseUrl("transserve")}/passage/lookup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texts, fallback }),
+        signal: abortSignal,
+      })
+      if (!response.ok) throw new Error(`Transserve error! status: ${response.status}`)
+      return response.json()
+    },
   },
 }

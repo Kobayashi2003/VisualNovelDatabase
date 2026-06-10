@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COLLECTION_TYPES } from "@/lib/constants"
+import { useContainScroll } from "@/hooks/useScrollLock"
 import type { Category } from "@/lib/types"
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -171,6 +172,13 @@ export function CollectionSidebar({
 }: CollectionSidebarProps) {
   const [creating, setCreating] = useState(false)
 
+  // Keep wheel/touch scrolling inside the rail: its pinned header/type-list
+  // regions aren't scroll containers, so without this a wheel over them chains
+  // straight through to the page behind (CSS `overscroll-contain` can't help a
+  // non-scrollable region pre-Chrome 144).
+  const rootRef = useRef<HTMLDivElement>(null)
+  useContainScroll(rootRef)
+
   const activeTypeInfo = COLLECTION_TYPES.find(c => c.type === activeType)
   // Dedupe by mark id so the "All" count matches the data grid (an item present
   // in two categories is one item in the collection, not two).
@@ -181,7 +189,7 @@ export function CollectionSidebar({
   })()
 
   return (
-    <div className={cn("flex flex-col bg-surface border-r border-white/10 overflow-hidden", className)}>
+    <div ref={rootRef} className={cn("flex flex-col bg-surface border-r border-white/10 overflow-hidden overscroll-contain", className)}>
 
       {/* Header */}
       <div className="px-4 pt-4 pb-3 shrink-0">
@@ -239,7 +247,7 @@ export function CollectionSidebar({
       </div>
 
       {/* Category list (scrollable) */}
-      <div className="flex-1 overflow-y-auto py-1 min-h-0">
+      <div className="flex-1 overflow-y-auto overscroll-contain py-1 min-h-0">
         {categories.map(cat => (
           <CategoryRow
             key={cat.id}

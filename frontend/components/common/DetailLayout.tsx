@@ -35,14 +35,14 @@ export function DetailLayout({
     <div className="container mx-auto flex gap-6 px-4 lg:h-[calc(100vh_-_var(--header-h,4rem))] lg:overflow-hidden">
       <aside
         className={cn(
-          "hidden lg:flex flex-col gap-3 shrink-0 overflow-y-auto py-4 pr-1",
+          "hidden lg:flex flex-col gap-3 shrink-0 overflow-y-auto overscroll-contain py-4 pr-1",
           asideWidth === "lg" ? "w-64 xl:w-72" : "w-56 xl:w-64",
         )}
       >
         {aside}
       </aside>
 
-      <div className="flex-1 min-w-0 lg:overflow-y-auto py-4 pb-12">
+      <div className="flex-1 min-w-0 lg:overflow-y-auto lg:overscroll-contain py-4 pb-12">
         {mobileAside && (
           <div className="lg:hidden flex flex-col gap-3 mb-6">{mobileAside}</div>
         )}

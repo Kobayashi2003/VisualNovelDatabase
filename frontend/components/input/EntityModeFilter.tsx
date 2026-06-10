@@ -234,7 +234,7 @@ export function EntityModeFilter({ label, entityType, modes, values, onChange, s
 
         {/* Dropdown */}
         {open && (
-          <div className="absolute z-50 top-full inset-x-0 mt-1 rounded-lg bg-elevated border border-white/10 shadow-xl overflow-hidden max-h-56 overflow-y-auto">
+          <div className="absolute z-50 top-full inset-x-0 mt-1 rounded-lg bg-elevated border border-white/10 shadow-xl overflow-hidden max-h-56 overflow-y-auto overscroll-contain">
             {loading ? (
               <p className="px-3 py-2.5 text-sm text-muted">Searching…</p>
             ) : results.length === 0 ? (

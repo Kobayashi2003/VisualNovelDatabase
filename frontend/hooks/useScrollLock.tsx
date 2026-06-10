@@ -25,6 +25,61 @@ export function useScrollLocked(): boolean {
   )
 }
 
+// Walk up from the event target to `boundary` (inclusive) and return the nearest
+// element that can actually scroll vertically — a drawer body, sidebar list, or a
+// nested scroller like the entity-picker dropdown. `null` means nothing in range
+// scrolls, so a wheel/touch here would otherwise chain through to the page.
+export function findVerticalScroller(
+  target: EventTarget | null,
+  boundary: HTMLElement,
+): HTMLElement | null {
+  let node = target instanceof HTMLElement ? target
+    : target instanceof Node ? target.parentElement : null
+  while (node && node !== boundary.parentElement) {
+    if (node.scrollHeight > node.clientHeight) {
+      const overflowY = getComputedStyle(node).overflowY
+      if (overflowY === "auto" || overflowY === "scroll") return node
+    }
+    node = node.parentElement
+  }
+  return null
+}
+
+// Keeps wheel/touch scrolling contained within `ref` without locking the rest of
+// the page. For a persistent panel (e.g. the collections sidebar) whose pinned
+// regions aren't scroll containers, CSS `overscroll-behavior: contain` can't help
+// — it only engages on an element that actually has overflow to scroll. So we
+// cancel any wheel/touch that wouldn't move a scroller inside the panel, which
+// stops it from chaining out to the window. Scrolling an inner list still works,
+// but once it hits its top/bottom edge the wheel stops there.
+export function useContainScroll(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const onWheel = (e: WheelEvent) => {
+      const scroller = findVerticalScroller(e.target, el)
+      if (!scroller) { e.preventDefault(); return }
+      const atTop = scroller.scrollTop <= 0 && e.deltaY < 0
+      const atBottom =
+        scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1 && e.deltaY > 0
+      if (atTop || atBottom) e.preventDefault()
+    }
+    // Touch lacks a usable per-event delta, so block unless something under the
+    // finger has room to scroll at all.
+    const onTouchMove = (e: TouchEvent) => {
+      if (!findVerticalScroller(e.target, el)) e.preventDefault()
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false })
+    el.addEventListener("touchmove", onTouchMove, { passive: false })
+    return () => {
+      el.removeEventListener("wheel", onWheel)
+      el.removeEventListener("touchmove", onTouchMove)
+    }
+  }, [ref])
+}
+
 // Prevents the page behind an overlay from scrolling while `locked` is true.
 // We cancel wheel/touch scrolling at the document (capture phase) rather than
 // toggling `overflow: hidden` on <body>, because this app's detail and
@@ -43,22 +98,6 @@ export function useScrollLock(
     lockCount++
     emitLockChange()
 
-    // Walk up from the event target to `root` (inclusive) and return the nearest
-    // element that can actually scroll vertically — the drawer body, or a nested
-    // scroller like the entity-picker dropdown. `null` means nothing here scrolls.
-    const findScroller = (target: EventTarget | null, root: HTMLElement) => {
-      let node = target instanceof HTMLElement ? target
-        : target instanceof Node ? target.parentElement : null
-      while (node && node !== root.parentElement) {
-        if (node.scrollHeight > node.clientHeight) {
-          const overflowY = getComputedStyle(node).overflowY
-          if (overflowY === "auto" || overflowY === "scroll") return node
-        }
-        node = node.parentElement
-      }
-      return null
-    }
-
     const onWheel = (e: WheelEvent) => {
       const root = allowRef?.current
       // Anything outside the allowed area (or no allowed area at all) is locked.
@@ -68,7 +107,7 @@ export function useScrollLock(
       }
       // Inside the drawer: let the active scroller move, but stop the wheel from
       // chaining to the page once it has hit the top/bottom edge in that direction.
-      const scroller = findScroller(e.target, root)
+      const scroller = findVerticalScroller(e.target, root)
       if (!scroller) { e.preventDefault(); return }
       const atTop = scroller.scrollTop <= 0 && e.deltaY < 0
       const atBottom =
@@ -80,7 +119,7 @@ export function useScrollLock(
       // Touch lacks a usable delta here, so block unless the touched area itself
       // (or a nested scroller within it) has room to scroll.
       if (!root || !(e.target instanceof Node) || !root.contains(e.target)
-          || !findScroller(e.target, root)) {
+          || !findVerticalScroller(e.target, root)) {
         e.preventDefault()
       }
     }

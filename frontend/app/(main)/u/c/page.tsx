@@ -618,7 +618,7 @@ function CollectionContent() {
       )}
 
       {/* Main content */}
-      <div className={cn("flex-1 min-w-0 lg:overflow-y-auto", editMode && "pb-24")}>
+      <div className={cn("flex-1 min-w-0 lg:overflow-y-auto lg:overscroll-contain", editMode && "pb-24")}>
         <div className="px-4 lg:px-6 py-6 max-w-7xl mx-auto">
 
           {/* Unauthenticated */}

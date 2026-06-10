@@ -12,9 +12,12 @@ const PLAT_ICON = ICON.PLATFORM as Record<string, string>
 interface PlatformIconsProps {
   platforms: string[]
   className?: string
+  /** Extra classes on each icon sprite (e.g. the muted small variant used in
+   *  release rows). */
+  iconClassName?: string
 }
 
-export function PlatformIcons({ platforms, className }: PlatformIconsProps) {
+export function PlatformIcons({ platforms, className, iconClassName }: PlatformIconsProps) {
   if (platforms.length === 0) return null
 
   return (
@@ -25,7 +28,7 @@ export function PlatformIcons({ platforms, className }: PlatformIconsProps) {
         return (
           <Tooltip key={p} label={name}>
             {iconClass
-              ? <span className={iconClass} />
+              ? <span className={cn(iconClass, iconClassName)} />
               : <span className="text-xs text-muted">{name}</span>}
           </Tooltip>
         )

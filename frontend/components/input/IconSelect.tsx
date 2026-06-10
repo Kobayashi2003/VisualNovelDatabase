@@ -56,7 +56,7 @@ export function IconSelect({ value, options, iconType, onChange }: IconSelectPro
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 top-full inset-x-0 mt-1 rounded-lg bg-elevated border border-white/10 shadow-xl overflow-hidden max-h-56 overflow-y-auto overscroll-contain">
+        <div className="absolute z-50 top-full inset-x-0 mt-1 rounded-lg bg-elevated border border-white/10 shadow-xl overflow-hidden max-h-56 overflow-y-auto overscroll-contain animate-slide-down-fade">
           {options.map(o => {
             const isSel = o.value === value
             return (

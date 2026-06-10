@@ -33,16 +33,19 @@ export function DetailLayout({
     // drop the fixed height / inner scroll and let the whole page scroll
     // normally — which also lets the global header auto-hide on scroll.
     <div className="container mx-auto flex gap-6 px-4 lg:h-[calc(100vh_-_var(--header-h,4rem))] lg:overflow-hidden">
+      {/* The layout mounts only once the entity has resolved, so this is a
+          one-shot entrance for the whole page (matches the grids' fade-in). */}
       <aside
         className={cn(
           "hidden lg:flex flex-col gap-3 shrink-0 overflow-y-auto overscroll-contain py-4 pr-1",
+          "animate-slide-up-fade",
           asideWidth === "lg" ? "w-64 xl:w-72" : "w-56 xl:w-64",
         )}
       >
         {aside}
       </aside>
 
-      <div className="flex-1 min-w-0 lg:overflow-y-auto lg:overscroll-contain py-4 pb-12">
+      <div className="flex-1 min-w-0 lg:overflow-y-auto lg:overscroll-contain py-4 pb-12 animate-slide-up-fade">
         {mobileAside && (
           <div className="lg:hidden flex flex-col gap-3 mb-6">{mobileAside}</div>
         )}

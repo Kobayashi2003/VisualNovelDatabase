@@ -8,11 +8,10 @@ import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { PlatformIcons } from "@/components/common/PlatformIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
-import { Tooltip } from "@/components/common/Tooltip"
+import { AgeRatingBadge } from "@/components/common/AgeRatingBadge"
 
 export function ReleaseInfoPanel({ release }: { release: Release }) {
   const rtypes = [...new Set(release.vns.map(v => v.rtype))]
-  const ageLabel = release.minage == null ? null : release.minage === 0 ? "All Ages" : `${release.minage}+`
   const VOICED = enumMap('VOICED')
   const MEDIUM = enumMap('MEDIUM')
   const MEDIA_ICON = ICON.RELEASE_MEDIA as Record<string, string>
@@ -38,7 +37,7 @@ export function ReleaseInfoPanel({ release }: { release: Release }) {
   }
 
   const hasInfo =
-    !!release.released || rtypes.length > 0 || !!ageLabel ||
+    !!release.released || rtypes.length > 0 || release.minage != null ||
     release.platforms.length > 0 || release.languages.length > 0 ||
     release.media.length > 0 || !!resoDisplay || !!release.engine ||
     release.voiced != null || release.freeware != null ||
@@ -71,25 +70,9 @@ export function ReleaseInfoPanel({ release }: { release: Release }) {
           </InfoRow>
         )}
 
-        {ageLabel && (
+        {release.minage != null && (
           <InfoRow label="Age Rating">
-            {(() => {
-              const span = (
-                <span className={cn(
-                  "text-xs font-medium",
-                  release.uncensored ? "text-fuchsia-400" :
-                  release.minage === 0 ? "text-green-400" :
-                  (release.minage ?? 0) >= 18 ? "text-red-400" :
-                  (release.minage ?? 0) >= 17 ? "text-orange-400" :
-                  (release.minage ?? 0) >= 15 ? "text-yellow-400" : "text-white/80"
-                )}>
-                  {ageLabel}
-                </span>
-              )
-              return release.uncensored
-                ? <Tooltip label="Uncensored">{span}</Tooltip>
-                : span
-            })()}
+            <AgeRatingBadge minage={release.minage} uncensored={release.uncensored} variant="text" />
           </InfoRow>
         )}
 

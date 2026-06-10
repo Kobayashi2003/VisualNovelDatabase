@@ -21,7 +21,6 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
   const { searchFrom, searchType, sortBy, showOriginal, setSearchFrom, setSearchType, setSortBy, setShowOriginal } = useSearchContext()
   const router = useRouter()
 
-  const [loading, setLoading] = useState(false)
   const [sortOrder, setSortOrder] = useState("desc")
   const [searchQuery, setSearchQuery] = useState("")
   const [filtersParams, setFiltersParams] = useState<Record<string, string>>({})
@@ -51,7 +50,6 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
     const order = overrides?.order ?? sortOrder
     const filters = overrides?.filters ?? (filtersType === type ? filtersParams : {})
 
-    setLoading(true)
     const params = new URLSearchParams(filters)
     if (from === "local") params.set("from", "local")
     if (from === "remote") params.set("from", "remote")
@@ -59,13 +57,14 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
     if (sort) params.set("sort", sort)
     params.set("reverse", order === "desc" ? "True" : "False")
     router.push(`/${type}?${params.toString()}`)
-    setLoading(false)
   }
 
   const handlePanelApply = (from: string, type: string, sort: string, order: string, filters: Record<string, string>, state: FilterState, coll: string) => {
     setSearchFrom(from)
     setSearchType(type)
-    setSortBy(sort)
+    // Pass the pair explicitly — searchType/searchFrom state is still the old
+    // values inside this event, and the sort must persist under the new pair.
+    setSortBy(sort, type, from)
     setSortOrder(order)
     setFiltersParams(filters)
     setFiltersState(state)
@@ -77,7 +76,7 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
   const handlePanelSave = (from: string, type: string, sort: string, order: string, filters: Record<string, string>, state: FilterState, coll: string) => {
     setSearchFrom(from)
     setSearchType(type)
-    setSortBy(sort)
+    setSortBy(sort, type, from)
     setSortOrder(order)
     setFiltersParams(filters)
     setFiltersState(state)
@@ -117,16 +116,16 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
           input={searchQuery}
           setInput={setSearchQuery}
           placeholder="Search..."
-          disabled={loading || hidden}
+          disabled={hidden}
         />
       </form>
 
-      <SubmitButton handleSubmit={handleSubmit} disabled={loading || hidden} />
+      <SubmitButton handleSubmit={handleSubmit} disabled={hidden} />
 
       <IconButton
         icon={<SlidersHorizontal className="w-4 h-4" />}
         onClick={() => setPanelOpen(true)}
-        disabled={loading || hidden}
+        disabled={hidden}
         ariaLabel="Search options"
       />
 

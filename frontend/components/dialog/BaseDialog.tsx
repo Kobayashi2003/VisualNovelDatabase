@@ -40,7 +40,7 @@ export function BaseDialog({ open, setOpen, title, children, className }: BaseDi
   return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
       // Dismiss only when both the press and the release land on the backdrop,
       // so a drag that starts inside the dialog (e.g. selecting text) never
@@ -54,6 +54,7 @@ export function BaseDialog({ open, setOpen, title, children, className }: BaseDi
     >
       <div ref={panelRef} className={cn(
         "relative w-full max-w-md",
+        "animate-slide-up-fade",
         // The shared elevated-overlay translucency standard (see --elevated /
         // --elevated-hover in globals.css), the same one the search drawer and
         // popover menus use. `bg-[var(--elevated)]` rather than `bg-elevated` so

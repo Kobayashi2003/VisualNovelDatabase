@@ -482,6 +482,25 @@ def get_vn_additional_filters(params: dict[str, Any]) -> dict[str, Any]:
     if developer_id := params.get('developer_id'):
         filters.append({"developer": ["id", "=", developer_id]})
 
+    # Spoiler-aware tag variants: map onto the API `tag`/`dtag` filter using
+    # its [id, max_spoiler, min_level] array form (max_spoiler = 2).
+    if tag_spoil := params.get('tag_spoil'):
+        filters.append(parse_tag_expression(tag_spoil, spoil=True))
+
+    if dtag_spoil := params.get('dtag_spoil'):
+        filters.append(parse_tag_expression(dtag_spoil, directly=True, spoil=True))
+
+    # tag exclusion. Kana has no top-level NOT, so wrap the parsed tag tree in
+    # a `_not` marker that build_filters negates (per-leaf `!=`, see
+    # negate_filters). `tag_exclude` caps at spoiler 0, `tag_exclude_spoil` at 2.
+    if tag_exclude := params.get('tag_exclude'):
+        if parsed := parse_tag_expression(tag_exclude):
+            filters.append({"_not": parsed})
+
+    if tag_exclude_spoil := params.get('tag_exclude_spoil'):
+        if parsed := parse_tag_expression(tag_exclude_spoil, spoil=True):
+            filters.append({"_not": parsed})
+
     return filters
 
 def get_release_additional_filters(params: dict[str, Any]) -> dict[str, Any]:
@@ -500,6 +519,24 @@ def get_character_additional_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if vn_id := params.get('vn_id'):
         filters.append({"vn": ["id", "=", vn_id]})
+
+    # Spoiler-aware trait variants: map onto the API `trait`/`dtrait` filter
+    # using its [id, max_spoiler] array form (max_spoiler = 2).
+    if trait_spoil := params.get('trait_spoil'):
+        filters.append(parse_trait_expression(trait_spoil, spoil=True))
+
+    if dtrait_spoil := params.get('dtrait_spoil'):
+        filters.append(parse_trait_expression(dtrait_spoil, directly=True, spoil=True))
+
+    # trait exclusion. Same `_not` mechanism as tag exclusion above.
+    # `trait_exclude` caps at spoiler 0, `trait_exclude_spoil` at 2.
+    if trait_exclude := params.get('trait_exclude'):
+        if parsed := parse_trait_expression(trait_exclude):
+            filters.append({"_not": parsed})
+
+    if trait_exclude_spoil := params.get('trait_exclude_spoil'):
+        if parsed := parse_trait_expression(trait_exclude_spoil, spoil=True):
+            filters.append({"_not": parsed})
 
     return filters
 
@@ -547,23 +584,6 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if dtag := params.get('dtag'):
         filters.append(parse_tag_expression(dtag, directly=True))
-
-    if tag_spoil := params.get('tag_spoil'):
-        filters.append(parse_tag_expression(tag_spoil, spoil=True))
-
-    if dtag_spoil := params.get('dtag_spoil'):
-        filters.append(parse_tag_expression(dtag_spoil, directly=True, spoil=True))
-
-    # tag exclusion. Kana has no top-level NOT, so wrap the parsed tag tree in
-    # a `_not` marker that build_filters negates (per-leaf `!=`, see
-    # negate_filters). `tag_exclude` caps at spoiler 0, `tag_exclude_spoil` at 2.
-    if tag_exclude := params.get('tag_exclude'):
-        if parsed := parse_tag_expression(tag_exclude):
-            filters.append({"_not": parsed})
-
-    if tag_exclude_spoil := params.get('tag_exclude_spoil'):
-        if parsed := parse_tag_expression(tag_exclude_spoil, spoil=True):
-            filters.append({"_not": parsed})
 
     # Handle fields that may contain multiple values
     multi_value_fields = ['lang', 'platform', 'released', 'olang']
@@ -710,22 +730,6 @@ def get_character_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if dtrait := params.get('dtrait'):
         filters.append(parse_trait_expression(dtrait, directly=True))
-
-    if trait_spoil := params.get('trait_spoil'):
-        filters.append(parse_trait_expression(trait_spoil, spoil=True))
-
-    if dtrait_spoil := params.get('dtrait_spoil'):
-        filters.append(parse_trait_expression(dtrait_spoil, directly=True, spoil=True))
-
-    # trait exclusion. Same `_not` mechanism as tag exclusion above.
-    # `trait_exclude` caps at spoiler 0, `trait_exclude_spoil` at 2.
-    if trait_exclude := params.get('trait_exclude'):
-        if parsed := parse_trait_expression(trait_exclude):
-            filters.append({"_not": parsed})
-
-    if trait_exclude_spoil := params.get('trait_exclude_spoil'):
-        if parsed := parse_trait_expression(trait_exclude_spoil, spoil=True):
-            filters.append({"_not": parsed})
 
     multi_value_fields = ['role']
     for field in multi_value_fields:

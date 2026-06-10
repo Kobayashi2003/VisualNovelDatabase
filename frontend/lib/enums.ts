@@ -226,6 +226,19 @@ export const ENUMS = {
 } as const
 
 
+/* ─── UI badge classes ─────────────────────────────────────────────────────── */
+// Tailwind classes for the character-role badge, shared by every place that
+// renders one (VN character cards, the character page's VN list) so a role
+// always carries the same color.
+
+export const CHARACTER_ROLE_CLASS: Record<string, string> = {
+  main:    "bg-green-500/15 text-green-400",
+  primary: "bg-blue-500/15 text-blue-400",
+  side:    "bg-white/10 text-white/60",
+  appears: "bg-white/5 text-white/40",
+}
+
+
 /* ─── Per-group type aliases ───────────────────────────────────────────────── */
 // The group key, used by the enum accessors below to constrain their argument.
 type EnumGroup = keyof typeof ENUMS

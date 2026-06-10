@@ -31,12 +31,15 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
     setImgUrl(url)
   }, [url])
 
+  // A cached image can finish loading before React attaches onLoad; this ref
+  // catches that case so the card doesn't sit on its skeleton forever. Stable
+  // identity is fine — the `key={imgUrl}` remount below re-runs it per URL.
   const imgRef = useCallback((img: HTMLImageElement | null) => {
     if (img?.complete && img.naturalWidth > 0) {
       setLoading(false)
       setError(false)
     }
-  }, [imgUrl])
+  }, [])
 
   const handleRetry = (e: React.MouseEvent) => {
     // The button sits inside a <Link>; preventDefault stops the anchor from
@@ -45,7 +48,7 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
     e.stopPropagation()
     setLoading(true)
     setError(false)
-    setImgUrl(`${url}?${Date.now()}`)
+    setImgUrl(`${url}${url.includes("?") ? "&" : "?"}${Date.now()}`)
   }
 
   /* ── Render ────────────────────────────────────────────────────────────── */
@@ -54,6 +57,7 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
     <>
       {imgUrl && (
         <Image
+          key={imgUrl}
           ref={imgRef}
           src={imgUrl}
           alt={title || ""}
@@ -119,7 +123,7 @@ export function ImageCard({ title, url, msgs, link, restricted, tooltip, layout 
       "bg-surface hover:bg-elevated",
       "rounded-lg p-3 border border-white/5",
       "flex gap-3",
-      "hover:bg-elevated transition-all duration-300",
+      "transition-all duration-300",
       link ? "cursor-pointer" : "cursor-default",
       className
     )} title={tooltip}>

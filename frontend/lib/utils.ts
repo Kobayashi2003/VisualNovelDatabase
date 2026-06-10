@@ -31,6 +31,17 @@ export function formatRelativeDate(isoDate: string): string {
   return `${diffYears} year${diffYears > 1 ? "s" : ""} ago`
 }
 
+// Render a VNDB birthday pair `[month, day]` as e.g. "29 May".
+// Used by the character info panel and the dense VN character cards.
+const MONTH_NAMES = [
+  "", "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
+export function formatBirthday(birthday: [number, number] | null | undefined): string | null {
+  if (!birthday) return null
+  return `${birthday[1]} ${MONTH_NAMES[birthday[0]] ?? birthday[0]}`
+}
+
 // Format playtime in minutes as "XhYm" / "Xh" / "Ym", skipping zero
 // components so we never render "0h45m" or "2h0m".
 export function formatPlaytime(totalMinutes: number): string {

@@ -1,3 +1,4 @@
+import re
 import time
 import httpx
 from typing import Any, Callable
@@ -163,12 +164,27 @@ def paginated_results(results: dict[str, Any], sort: str = 'id', reverse: bool =
     if not results or 'results' not in results:
         return {'results': [], 'count': 0} if include_count else {'results': []}
 
-    items = results['results']
+    def sort_key(item):
+        value = item.get(sort)
+        if value is None:
+            # Items without the sort field group together (last in ascending
+            # order); the second element is never compared across groups.
+            return (True, 0)
+        if sort == 'id' and isinstance(value, str):
+            # VNDB ids are "<prefix><number>"; sort numerically so that
+            # e.g. v9 < v10 instead of the lexicographic "v10" < "v9".
+            match = re.match(r'^[a-z]+(\d+)$', value)
+            if match:
+                return (False, int(match.group(1)))
+        return (False, value)
+
+    # sorted() (not list.sort) because `results` may be a shared object from
+    # the memoize cache; mutating it in place would leak the reordering into
+    # other requests.
+    items = sorted(results['results'], key=sort_key, reverse=reverse)
     total = len(items)
     start_index = (page - 1) * limit
     end_index = start_index + limit
-
-    items.sort(key=lambda x: x.get(sort, 0), reverse=reverse)
     items = items[start_index:end_index]
 
     result = {'results': items, 'more': end_index < total}

@@ -74,52 +74,56 @@ function SearchResultsContent({ slug }: { slug: string }) {
 
   /* ─── Data fetching ────────────────────────────────────────────────────── */
 
-  const fetchItems = async () => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setVns([]); setReleases([]); setCharacters([]); setProducers([])
-    setStaff([]); setTags([]); setTraits([])
-    setTotalPages(0)
-    setStatus("loading")
-    setStatusMsg(null)
-    try {
-      // Forward every URL param to the API as a filter (`tag`, `lang`, …),
-      // plus the trio we manage ourselves (`page`, `limit`, `sort`).
-      const queryParams: VNDBQueryParams = { page: currentPage, limit: PAGE_LIMIT, sort: sortBy }
-      for (const [key, value] of searchParams.entries()) {
-        queryParams[key as keyof VNDBQueryParams] = value as string
-      }
-      const fetchFn = {
-        v: api.small.vn, r: api.small.release, c: api.small.character,
-        p: api.small.producer, s: api.small.staff, g: api.small.tag, i: api.small.trait,
-      }
-      const response = await fetchFn[type as keyof typeof fetchFn](queryParams, ctrl.signal)
-      setTotalPages(Math.ceil(response.count / PAGE_LIMIT))
-      if (response.results.length === 0) {
-        setStatus("notFound")
-      } else {
-        if (type === "v") setVns(response.results as VN_Small[])
-        else if (type === "r") setReleases(response.results as Release_Small[])
-        else if (type === "c") setCharacters(response.results as Character_Small[])
-        else if (type === "p") setProducers(response.results as Producer_Small[])
-        else if (type === "s") setStaff(response.results as Staff_Small[])
-        else if (type === "g") setTags(response.results as Tag_Small[])
-        else if (type === "i") setTraits(response.results as Trait_Small[])
-        setStatus(null)
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return
-      setStatus("error")
-      setStatusMsg(error instanceof Error ? error.message : String(error))
-    }
-  }
+  // Stable string form so the effect re-runs exactly when the query changes.
+  const searchParamsString = searchParams.toString()
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
+
+    const fetchItems = async () => {
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+      setVns([]); setReleases([]); setCharacters([]); setProducers([])
+      setStaff([]); setTags([]); setTraits([])
+      setTotalPages(0)
+      setStatus("loading")
+      setStatusMsg(null)
+      try {
+        // Forward every URL param to the API as a filter (`tag`, `lang`, …),
+        // plus the trio we manage ourselves (`page`, `limit`, `sort`).
+        const queryParams: VNDBQueryParams = { page: currentPage, limit: PAGE_LIMIT, sort: sortBy }
+        for (const [key, value] of new URLSearchParams(searchParamsString).entries()) {
+          queryParams[key as keyof VNDBQueryParams] = value as string
+        }
+        const fetchFn = {
+          v: api.small.vn, r: api.small.release, c: api.small.character,
+          p: api.small.producer, s: api.small.staff, g: api.small.tag, i: api.small.trait,
+        }
+        const response = await fetchFn[type as keyof typeof fetchFn](queryParams, ctrl.signal)
+        setTotalPages(Math.ceil(response.count / PAGE_LIMIT))
+        if (response.results.length === 0) {
+          setStatus("notFound")
+        } else {
+          if (type === "v") setVns(response.results as VN_Small[])
+          else if (type === "r") setReleases(response.results as Release_Small[])
+          else if (type === "c") setCharacters(response.results as Character_Small[])
+          else if (type === "p") setProducers(response.results as Producer_Small[])
+          else if (type === "s") setStaff(response.results as Staff_Small[])
+          else if (type === "g") setTags(response.results as Tag_Small[])
+          else if (type === "i") setTraits(response.results as Trait_Small[])
+          setStatus(null)
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return
+        setStatus("error")
+        setStatusMsg(error instanceof Error ? error.message : String(error))
+      }
+    }
+
     fetchItems()
     return () => abortRef.current?.abort()
-  }, [currentPage, searchParams.toString(), type, sortBy])
+  }, [currentPage, searchParamsString, type, sortBy])
 
   /* ─── Render ────────────────────────────────────────────────────────────── */
 

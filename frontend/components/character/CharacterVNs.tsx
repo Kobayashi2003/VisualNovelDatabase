@@ -3,6 +3,7 @@
 
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { enumLabel, CHARACTER_ROLE_CLASS } from "@/lib/enums"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle } from "@/lib/original"
 import type { Character } from "@/lib/types"
@@ -10,18 +11,6 @@ import type { Character } from "@/lib/types"
 type CharVN = Character["vns"][number]
 
 const ROLE_ORDER = ["main", "primary", "side", "appears"] as const
-const ROLE_LABEL: Record<string, string> = {
-  main: "Protagonist",
-  primary: "Main Character",
-  side: "Side Character",
-  appears: "Appears",
-}
-const ROLE_CLASS: Record<string, string> = {
-  main:    "bg-green-500/15 text-green-400",
-  primary: "bg-blue-500/15 text-blue-400",
-  side:    "bg-white/10 text-white/60",
-  appears: "bg-white/5 text-white/40",
-}
 
 interface CharacterVNsProps {
   vns: CharVN[]
@@ -41,9 +30,9 @@ export function CharacterVNs({ vns }: CharacterVNsProps) {
         <div key={i} className="flex items-start gap-2.5 py-1.5 border-b border-white/5 last:border-0">
           <span className={cn(
             "text-xs px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5",
-            ROLE_CLASS[entry.role] ?? "bg-white/10 text-white/60"
+            CHARACTER_ROLE_CLASS[entry.role] ?? "bg-white/10 text-white/60"
           )}>
-            {ROLE_LABEL[entry.role] ?? entry.role}
+            {enumLabel('CHARACTER_ROLE', entry.role)}
           </span>
           <div className="flex-1 min-w-0">
             <Link

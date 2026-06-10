@@ -52,34 +52,41 @@ function HomeContent() {
 
   /* ─── Data fetching ────────────────────────────────────────────────────── */
 
-  const fetchVNs = async () => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setVns([])
-    setTotalPages(0)
-    setStatus("loading")
-    setStatusMsg(null)
-    try {
-      // The OR-of-AND `released` filter handles both "exact year" and
-      // "year+month range" forms VNDB exposes for partial release dates.
-      let released = ""
-      if (selectedYear !== "00" && selectedMonth === "00") {
-        released = `(>=${selectedYear}-01-01+<=${selectedYear}-12-31),(=${selectedYear})`
-      } else if (selectedYear !== "00" && selectedMonth !== "00") {
-        const lastDay = new Date(parseInt(selectedYear), parseInt(selectedMonth), 0).getDate()
-        released = `(>=${selectedYear}-${selectedMonth}-01+<=${selectedYear}-${selectedMonth}-${lastDay}),(=${selectedYear}-${selectedMonth})`
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+
+    const fetchVNs = async () => {
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+      setVns([])
+      setTotalPages(0)
+      setStatus("loading")
+      setStatusMsg(null)
+      try {
+        // The OR-of-AND `released` filter handles both "exact year" and
+        // "year+month range" forms VNDB exposes for partial release dates.
+        let released = ""
+        if (selectedYear !== "00" && selectedMonth === "00") {
+          released = `(>=${selectedYear}-01-01+<=${selectedYear}-12-31),(=${selectedYear})`
+        } else if (selectedYear !== "00" && selectedMonth !== "00") {
+          const lastDay = new Date(parseInt(selectedYear), parseInt(selectedMonth), 0).getDate()
+          released = `(>=${selectedYear}-${selectedMonth}-01+<=${selectedYear}-${selectedMonth}-${lastDay}),(=${selectedYear}-${selectedMonth})`
+        }
+        const response = await api.small.vn({ released, olang: "ja", sort: "released", reverse: true, page: currentPage, limit: PAGE_LIMIT }, ctrl.signal)
+        setVns(response.results)
+        setTotalPages(Math.ceil(response.count / PAGE_LIMIT) || 1)
+        setStatus(response.results.length === 0 ? "notFound" : null)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return
+        setStatus("error")
+        setStatusMsg("Failed to fetch VNs. Please try again.")
       }
-      const response = await api.small.vn({ released, olang: "ja", sort: "released", reverse: true, page: currentPage, limit: PAGE_LIMIT }, ctrl.signal)
-      setVns(response.results)
-      setTotalPages(Math.ceil(response.count / PAGE_LIMIT) || 1)
-      setStatus(response.results.length === 0 ? "notFound" : null)
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return
-      setStatus("error")
-      setStatusMsg("Failed to fetch VNs. Please try again.")
     }
-  }
+
+    fetchVNs()
+    return () => abortRef.current?.abort()
+  }, [currentPage, selectedYear, selectedMonth])
 
   /* ─── Month navigation ─────────────────────────────────────────────────── */
 
@@ -108,12 +115,6 @@ function HomeContent() {
     if (mo === 1) updateMultipleKeys({ month: "12", year: (yr - 1).toString(), page: "1" })
     else updateMultipleKeys({ month: (mo - 1).toString().padStart(2, "0"), year: selectedYear, page: "1" })
   }
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-    fetchVNs()
-    return () => abortRef.current?.abort()
-  }, [currentPage, selectedYear, selectedMonth])
 
   /* ─── Render ────────────────────────────────────────────────────────────── */
 

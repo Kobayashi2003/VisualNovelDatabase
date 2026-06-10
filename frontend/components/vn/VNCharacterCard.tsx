@@ -7,8 +7,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { cn, shouldBlur } from "@/lib/utils"
-import { enumLabel } from "@/lib/enums"
+import { cn, shouldBlur, formatBirthday } from "@/lib/utils"
+import { enumLabel, CHARACTER_ROLE_CLASS } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { displayName } from "@/lib/original"
 import { groupTraits } from "@/lib/traits"
@@ -25,18 +25,6 @@ type VNCharacter = VN["characters"][number]
 
 
 /* ─── Constants & helpers ──────────────────────────────────────────────────── */
-
-const MONTH_NAMES = [
-  "", "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-]
-
-const ROLE_CLASS: Record<string, string> = {
-  main:    "bg-green-500/15 text-green-400",
-  primary: "bg-blue-500/15 text-blue-400",
-  side:    "bg-white/10 text-white/60",
-  appears: "bg-white/5 text-white/40",
-}
 
 interface VNCharacterCardProps {
   base: VNCharacter
@@ -87,9 +75,7 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
   const sexReal = base.sex?.[1]
   const hasSexSpoiler = !!(sexApparent && sexReal && sexReal !== sexApparent && sexReal !== "n")
 
-  const birthday = full?.birthday
-    ? `${full.birthday[1]} ${MONTH_NAMES[full.birthday[0]] ?? full.birthday[0]}`
-    : null
+  const birthday = formatBirthday(full?.birthday)
   const cup = full?.cup ? `${full.cup.toUpperCase()} cup` : null
   const bustValue =
     full?.bust != null ? `${full.bust} cm${cup ? ` (${cup})` : ""}` : (cup ?? null)
@@ -169,7 +155,7 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
           </Link>
           <span className={cn(
             "text-xs px-1.5 py-0.5 rounded font-medium shrink-0",
-            ROLE_CLASS[role] ?? "bg-white/10 text-white/60"
+            CHARACTER_ROLE_CLASS[role] ?? "bg-white/10 text-white/60"
           )}>
             {enumLabel('CHARACTER_ROLE', role)}
           </span>

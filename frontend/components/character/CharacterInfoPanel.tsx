@@ -3,7 +3,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { cn, shouldBlur } from "@/lib/utils"
+import { cn, shouldBlur, formatBirthday } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
 import { CollectionButton } from "@/components/category/CollectionButton"
@@ -14,11 +14,6 @@ import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
 import { Lightbox } from "@/components/common/Lightbox"
 import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 import type { Character } from "@/lib/types"
-
-const MONTH_NAMES = [
-  "", "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-]
 
 interface CharacterInfoPanelProps {
   character: Character
@@ -44,10 +39,7 @@ export function CharacterInfoPanel({
   const sexReal = character.sex?.[1]
   const hasSexSpoiler = !!(sexApparent && sexReal && sexReal !== sexApparent && sexReal !== "n")
 
-  // Birthday
-  const birthday = character.birthday
-    ? `${character.birthday[1]} ${MONTH_NAMES[character.birthday[0]] ?? character.birthday[0]}`
-    : null
+  const birthday = formatBirthday(character.birthday)
 
   // Bust / waist / hips each get their own row; cup size rides along the bust row.
   const cup = character.cup ? `${character.cup.toUpperCase()} cup` : null

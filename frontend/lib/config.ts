@@ -135,11 +135,11 @@ export const searchFilters: Record<string, { text?: TextField[]; number?: Number
       },
     ],
     entity: [
-      { value: "tag",         label: "Tag",          entityType: "tag",      spoilable: true },
-      { value: "dtag",       label: "Directed Tag",  entityType: "tag",      spoilable: true },
-      { value: "tag_exclude", label: "Exclude Tag",   entityType: "tag",      spoilable: true },
-      { value: "staff",       label: "Staff",         entityType: "staff" },
-      { value: "developer", label: "Developer",     entityType: "producer" },
+      { value: "tag",         label: "Tag",          entityType: "tag", spoilable: true },
+      { value: "dtag",        label: "Directed Tag", entityType: "tag", spoilable: true },
+      { value: "tag_exclude", label: "Exclude Tag",  entityType: "tag", spoilable: true },
+      { value: "staff",       label: "Staff",        entityType: "staff" },
+      { value: "developer",   label: "Developer",    entityType: "producer" },
     ],
     text: [
       { value: "release",   label: "Release" },

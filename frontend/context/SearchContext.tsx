@@ -10,7 +10,10 @@ interface SearchContextType {
   showOriginal: boolean
   setSearchFrom: (from: string) => void
   setSearchType: (type: string) => void
-  setSortBy: (by: string) => void
+  /** `forType`/`forFrom` override the (type, from) pair the sort is persisted
+   *  under — needed when type/from change in the same event (their setState
+   *  hasn't landed yet, so reading the context state would hit the old pair). */
+  setSortBy: (by: string, forType?: string, forFrom?: string) => void
   setShowOriginal: (v: boolean) => void
 }
 
@@ -40,9 +43,9 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
 
   // sortBy is stored per (type, from) pair, so switching either restores the
   // last sort the user picked for that combination rather than a global one.
-  const setSortBy = (by: string) => {
+  const setSortBy = (by: string, forType?: string, forFrom?: string) => {
     setSortByState(by)
-    localStorage.setItem(`sortBy-${searchType}-${searchFrom}`, by)
+    localStorage.setItem(`sortBy-${forType ?? searchType}-${forFrom ?? searchFrom}`, by)
   }
 
   const setShowOriginal = (v: boolean) => {

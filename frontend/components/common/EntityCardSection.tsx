@@ -3,7 +3,7 @@
  *  empty / pagination; the caller supplies the query and how to render a page. */
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PAGE_LIMIT } from "@/lib/constants"
 import type { VNDBQueryParams, PaginatedResponse } from "@/lib/types"
 import { Loading } from "@/components/status/Loading"
@@ -33,11 +33,17 @@ export function EntityCardSection<T>({
 
   // Serialised query — a stable dependency that changes only when the relation does.
   const queryKey = JSON.stringify(query)
-
-  // A new relation resets pagination.
-  useEffect(() => { setPage(1) }, [queryKey])
+  const lastQueryKey = useRef(queryKey)
 
   useEffect(() => {
+    // A new relation resets pagination. Done inside the fetch effect (not a
+    // separate one) so the stale page is never fetched: bail out here, and the
+    // page-1 re-run does the single real fetch.
+    if (lastQueryKey.current !== queryKey) {
+      lastQueryKey.current = queryKey
+      if (page !== 1) { setPage(1); return }
+    }
+
     let cancelled = false
     setLoading(true)
     setError(null)

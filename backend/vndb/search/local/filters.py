@@ -501,6 +501,35 @@ def get_vn_additional_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if developer_id := params.get('developer_id'):
         filters.append(array_jsonb_exact_match(VN.developers, 'id', developer_id))
 
+    # Spoiler-aware tag variants. Locally there is no tag hierarchy, so the
+    # `d`-prefixed forms match directly-applied tags identically. `_spoil`
+    # allows up to Major (2); `_spoil_exclude_lies` additionally drops
+    # lie-flagged applications.
+    for tag_param, max_spoiler, exclude_lies in (
+        ('tag_spoil', 2, False), ('dtag_spoil', 2, False),
+        ('tag_spoil_exclude_lies', 2, True), ('dtag_spoil_exclude_lies', 2, True),
+    ):
+        if tag_value := params.get(tag_param):
+            filters.append(process_multi_value_expression(
+                tag_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
+            ))
+
+    # tag exclusion. Same spoiler/lie tiers as the include variants, but the
+    # matched set is negated: a VN is kept only when it does NOT match the
+    # expression. De Morgan is handled automatically by the SQL NOT wrapper,
+    # so `A,B` excludes VNs having either, `A+B` excludes only those having both.
+    for tag_param, max_spoiler, exclude_lies in (
+        ('tag_exclude', 0, False),
+        ('tag_exclude_spoil', 2, False),
+        ('tag_exclude_spoil_exclude_lies', 2, True),
+    ):
+        if tag_value := params.get(tag_param):
+            filters.append(~process_multi_value_expression(
+                tag_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
+            ))
+
     if str(params.get('ero')).lower() == 'false' or str(params.get('ero')) == '0':
         filters.append(and_(
             ~exists(select(1).select_from(func.unnest(VN.tags).alias('tag')).where(text("tag->>'category' = 'ero'"))),
@@ -538,6 +567,34 @@ def get_character_additional_filters(params: dict[str, Any]) -> list[BinaryExpre
 
     if vn_id := params.get('vn_id'):
         filters.append(array_jsonb_exact_match(Character.vns, 'id', vn_id))
+
+    # Spoiler-aware trait variants. As with tags, local search has no trait
+    # hierarchy, so the `d`-prefixed forms are identical. `_spoil` allows up
+    # to Major (2); `_spoil_exclude_lies` additionally drops lie-flagged
+    # applications.
+    for trait_param, max_spoiler, exclude_lies in (
+        ('trait_spoil', 2, False), ('dtrait_spoil', 2, False),
+        ('trait_spoil_exclude_lies', 2, True), ('dtrait_spoil_exclude_lies', 2, True),
+    ):
+        if trait_value := params.get(trait_param):
+            filters.append(process_multi_value_expression(
+                trait_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+            ))
+
+    # trait exclusion. Mirrors the tag exclusion in get_vn_additional_filters:
+    # a character is kept only when it does NOT match the expression (NOT
+    # pushed down by SQL).
+    for trait_param, max_spoiler, exclude_lies in (
+        ('trait_exclude', 0, False),
+        ('trait_exclude_spoil', 2, False),
+        ('trait_exclude_spoil_exclude_lies', 2, True),
+    ):
+        if trait_value := params.get(trait_param):
+            filters.append(~process_multi_value_expression(
+                trait_value,
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+            ))
 
     if str(params.get('ero')).lower() == 'false' or str(params.get('ero')) == '0':
         filters.append(and_(
@@ -645,34 +702,13 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if devstatus := params.get('devstatus'):
         filters.append(VN.devstatus == devstatus)
 
-    # tag / dtag and their spoiler-aware variants. Locally there is no tag
+    # tag / dtag (API filters, spoiler capped at 0). Locally there is no tag
     # hierarchy, so `tag` and `dtag` match directly-applied tags identically.
-    # Plain variants cap at spoiler 0; `_spoil` allows up to Major (2);
-    # `_spoil_exclude_lies` additionally drops lie-flagged applications.
-    for tag_param, max_spoiler, exclude_lies in (
-        ('tag', 0, False), ('dtag', 0, False),
-        ('tag_spoil', 2, False), ('dtag_spoil', 2, False),
-        ('tag_spoil_exclude_lies', 2, True), ('dtag_spoil_exclude_lies', 2, True),
-    ):
+    for tag_param in ('tag', 'dtag'):
         if tag_value := params.get(tag_param):
             filters.append(process_multi_value_expression(
                 tag_value,
-                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
-            ))
-
-    # tag exclusion. Same spoiler/lie tiers as the include variants, but the
-    # matched set is negated: a VN is kept only when it does NOT match the
-    # expression. De Morgan is handled automatically by the SQL NOT wrapper,
-    # so `A,B` excludes VNs having either, `A+B` excludes only those having both.
-    for tag_param, max_spoiler, exclude_lies in (
-        ('tag_exclude', 0, False),
-        ('tag_exclude_spoil', 2, False),
-        ('tag_exclude_spoil_exclude_lies', 2, True),
-    ):
-        if tag_value := params.get(tag_param):
-            filters.append(~process_multi_value_expression(
-                tag_value,
-                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(VN.tags, v, ms, el),
+                lambda v: array_jsonb_tag_match(VN.tags, v, 0, False),
             ))
 
     if anime_id := params.get('anime_id'): #TODO
@@ -896,32 +932,13 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if age := params.get('age'):
         filters.append(create_comparison_filter(Character.age, age, int))
 
-    # trait / dtrait and their spoiler-aware variants. As with tags, local
+    # trait / dtrait (API filters, spoiler capped at 0). As with tags, local
     # search has no trait hierarchy, so `trait` and `dtrait` are identical.
-    # Plain variants cap at spoiler 0; `_spoil` allows up to Major (2);
-    # `_spoil_exclude_lies` additionally drops lie-flagged applications.
-    for trait_param, max_spoiler, exclude_lies in (
-        ('trait', 0, False), ('dtrait', 0, False),
-        ('trait_spoil', 2, False), ('dtrait_spoil', 2, False),
-        ('trait_spoil_exclude_lies', 2, True), ('dtrait_spoil_exclude_lies', 2, True),
-    ):
+    for trait_param in ('trait', 'dtrait'):
         if trait_value := params.get(trait_param):
             filters.append(process_multi_value_expression(
                 trait_value,
-                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
-            ))
-
-    # trait exclusion. Mirrors the tag exclusion above: a character is kept
-    # only when it does NOT match the expression (NOT pushed down by SQL).
-    for trait_param, max_spoiler, exclude_lies in (
-        ('trait_exclude', 0, False),
-        ('trait_exclude_spoil', 2, False),
-        ('trait_exclude_spoil_exclude_lies', 2, True),
-    ):
-        if trait_value := params.get(trait_param):
-            filters.append(~process_multi_value_expression(
-                trait_value,
-                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+                lambda v: array_jsonb_tag_match(Character.traits, v, 0, False),
             ))
 
     if birthday := params.get('birthday'):

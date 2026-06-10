@@ -52,7 +52,7 @@ export function Lightbox({ images, index, onClose, onIndexChange }: LightboxProp
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fade-in"
       onClick={onClose}
     >
       <button
@@ -76,6 +76,8 @@ export function Lightbox({ images, index, onClose, onIndexChange }: LightboxProp
       {/* Plain <img> so the image loads reliably inside the portal. */}
       <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
         {!loaded && <div className="absolute w-10 h-10 rounded-full bg-white/10 animate-pulse" />}
+        {/* eslint-disable-next-line @next/next/no-img-element -- next/image is
+            redundant here (images.unoptimized) and unreliable inside a portal */}
         <img
           src={img.url}
           alt={`Image ${index + 1}`}

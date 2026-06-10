@@ -65,7 +65,7 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
               disabled={hidden}
             />
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-lg bg-surface border border-white/6 shadow-2xl shadow-black/60 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-lg bg-surface border border-white/6 shadow-2xl shadow-black/60 overflow-hidden animate-slide-down-fade">
                 <div className="px-3.5 py-3 border-b border-white/6">
                   <p className="text-[13px] font-semibold text-white truncate">{user.username}</p>
                 </div>

@@ -58,6 +58,7 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
     >
       {charsExpanded ? (
         <VNCharactersPanel
+          vnId={vn.id}
           characters={vn.characters}
           sexualLevel={sexualLevel}
           violenceLevel={violenceLevel}
@@ -91,6 +92,7 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
             onTitleClick={() => openExpanded(null)}
           >
             <VNCharacters
+              vnId={vn.id}
               characters={vn.characters}
               va={vn.va}
               sexualLevel={sexualLevel}

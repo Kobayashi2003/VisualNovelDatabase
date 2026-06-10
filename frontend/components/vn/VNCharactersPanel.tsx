@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { enumLabel } from "@/lib/enums"
+import { characterRole, characterSpoiler } from "@/lib/characters"
 import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { VNCharacterCard } from "./VNCharacterCard"
 import type { VN } from "@/lib/types"
@@ -16,6 +17,8 @@ type VNCharacter = VN["characters"][number]
 const ROLE_ORDER = ["main", "primary", "side", "appears"] as const
 
 interface VNCharactersPanelProps {
+  /** The VN being viewed — selects each character's role/spoiler entry. */
+  vnId: string
   characters: VNCharacter[]
   sexualLevel: string
   violenceLevel: string
@@ -24,9 +27,9 @@ interface VNCharactersPanelProps {
   onClose: () => void
 }
 
-export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focusId, onClose }: VNCharactersPanelProps) {
-  const getRole = (c: VNCharacter): string => c.vns[0]?.role ?? "appears"
-  const getSpoiler = (c: VNCharacter): number => c.vns[0]?.spoiler ?? 0
+export function VNCharactersPanel({ vnId, characters, sexualLevel, violenceLevel, focusId, onClose }: VNCharactersPanelProps) {
+  const getRole = (c: VNCharacter): string => characterRole(c, vnId)
+  const getSpoiler = (c: VNCharacter): number => characterSpoiler(c, vnId)
 
   // Spoiler *traits* live only in each character's lazily-fetched full payload,
   // which the cards already load. They report it up so the global toggle can
@@ -104,6 +107,7 @@ export function VNCharactersPanel({ characters, sexualLevel, violenceLevel, focu
           {byRole.get(role)!.map(c => (
             <div key={c.id} id={`vnchar-${c.id}`} className="scroll-mt-4">
               <VNCharacterCard
+                vnId={vnId}
                 base={c}
                 role={role}
                 sexualLevel={sexualLevel}

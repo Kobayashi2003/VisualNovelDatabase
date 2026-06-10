@@ -182,7 +182,19 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           <p className="text-xs text-muted mb-1">{relType}</p>
           <div className="flex flex-col gap-0.5">
             {items.map(r => (
-              <Link key={r.id} href={`/${r.id}`} className="text-xs text-white/80 hover:text-accent transition-colors truncate">
+              <Link
+                key={r.id}
+                href={`/${r.id}`}
+                className={cn(
+                  "text-xs text-white/80 hover:text-accent transition-colors truncate",
+                  // Dim unofficial relations, mirroring the releases list's
+                  // treatment of unofficial releases. relation_official is
+                  // carried per relation entry (this VN's own list), so no
+                  // current-VN lookup is needed.
+                  !r.relation_official && "opacity-60",
+                )}
+                title={r.relation_official ? undefined : "Unofficial relation"}
+              >
                 {displayTitle(r, showOriginal)}
               </Link>
             ))}

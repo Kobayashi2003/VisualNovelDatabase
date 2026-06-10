@@ -18,6 +18,11 @@ from .remote.search import (
     search_releases_by_resource_id_cache as search_releases_by_resource_id_remote,
 )
 
+from .both.search import (
+    search as search_both,
+    search_by_id as search_by_id_both,
+)
+
 from .common import (
     convert_remote_to_local
 )

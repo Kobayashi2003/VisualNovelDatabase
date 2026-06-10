@@ -1,5 +1,4 @@
 import re
-import httpx
 from typing import Any, Callable
 from enum import Enum, auto
 from ..parse import validate_logical_expression
@@ -115,6 +114,8 @@ class VNDBFilters:
         "engine": VNDBFilter("engine", FilterType.STRING, "n"),
         "rtype": VNDBFilter("rtype", FilterType.STRING, "m"),
         "extlink": VNDBFilter("extlink", FilterType.STRING, "m"),
+        "drm": VNDBFilter("drm", FilterType.STRING, "m"),
+        "image": VNDBFilter("image", FilterType.STRING, "m,n"),
         "patch": VNDBFilter("patch", FilterType.BOOLEAN),
         "freeware": VNDBFilter("freeware", FilterType.BOOLEAN),
         "uncensored": VNDBFilter("uncensored", FilterType.BOOLEAN, "i"),
@@ -340,7 +341,7 @@ def parse_tag_expression(expression: str, directly: bool = False, spoil: bool = 
         if re.match(r'^g\d+$', tag):
             return [tag]
         results = []
-        page =1
+        page = 1
         more = True
         while more:
             payload = {
@@ -607,7 +608,7 @@ def get_vn_filters(params: dict[str, Any]) -> dict[str, Any]:
                 filters.append({field: parsed})
 
     # Handle comparable numeric fields
-    comparable_numeric_fields = ['length']
+    comparable_numeric_fields = ['length', 'rating', 'votecount']
     for field in comparable_numeric_fields:
         if value := params.get(field):
             if parsed := parse_int(value, True):
@@ -643,7 +644,7 @@ def get_release_filters(params: dict[str, Any]) -> dict[str, Any]:
         filters.append({"search": search})
 
     # Handle fields that may contain multiple values
-    multi_value_fields = ['lang', 'platform', 'medium']
+    multi_value_fields = ['lang', 'platform', 'medium', 'drm', 'image']
     for field in multi_value_fields:
         if value := params.get(field):
             if parsed := parse_logical_expression(value, field):
@@ -804,6 +805,10 @@ def get_staff_filters(params: dict[str, Any]) -> dict[str, Any]:
 
     if id := params.get('id'):
         filters.append(parse_logical_expression(id, 'id'))
+
+    if aid := params.get('aid'):
+        if parsed := parse_int(aid):
+            filters.append({"aid": parsed})
 
     if search := params.get('search'):
         filters.append({"search": search})

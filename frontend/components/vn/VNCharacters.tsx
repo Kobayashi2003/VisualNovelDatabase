@@ -8,6 +8,7 @@ import { cn, shouldBlur } from "@/lib/utils"
 import { enumMap, enumLabel } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { displayName } from "@/lib/original"
+import { characterRole, characterSpoiler } from "@/lib/characters"
 import type { VN, VNCharacterLayout } from "@/lib/types"
 import { useSearchContext } from "@/context/SearchContext"
 import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
@@ -29,6 +30,8 @@ const ROLE_TABS = [
 const ROLE_LABEL = enumMap('CHARACTER_ROLE')
 
 interface VNCharactersProps {
+  /** The VN being viewed — selects each character's role/spoiler entry. */
+  vnId: string
   characters: VNCharacter[]
   va: VAEntry[]
   sexualLevel: string
@@ -39,7 +42,7 @@ interface VNCharactersProps {
   onExpand?: (charId: string) => void
 }
 
-export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layout = "grid", onExpand }: VNCharactersProps) {
+export function VNCharacters({ vnId, characters, va, sexualLevel, violenceLevel, layout = "grid", onExpand }: VNCharactersProps) {
   const [activeRole, setActiveRole] = useState<string>("all")
   const { showOriginal } = useSearchContext()
   const router = useRouter()
@@ -52,9 +55,10 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
     vaMap.set(entry.character.id, arr)
   }
 
-  // Get dominant role per character (first vns[] entry's role)
-  const getRole = (c: VNCharacter): string => c.vns[0]?.role ?? "appears"
-  const getSpoiler = (c: VNCharacter): number => c.vns[0]?.spoiler ?? 0
+  // Role/spoiler for *this* VN (not c.vns[0], which is just the first VN the
+  // character appears in — see lib/characters).
+  const getRole = (c: VNCharacter): string => characterRole(c, vnId)
+  const getSpoiler = (c: VNCharacter): number => characterSpoiler(c, vnId)
 
   const spoiler = useSpoilerLevel(
     characters.some(c => getSpoiler(c) === 1),
@@ -104,6 +108,7 @@ export function VNCharacters({ characters, va, sexualLevel, violenceLevel, layou
 
       {layout === "slider" ? (
         <VNCharacterSlider
+          vnId={vnId}
           characters={visible}
           sexualLevel={sexualLevel}
           violenceLevel={violenceLevel}

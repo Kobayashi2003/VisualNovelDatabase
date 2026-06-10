@@ -12,6 +12,7 @@ import { enumLabel, CHARACTER_ROLE_CLASS } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
 import { displayName } from "@/lib/original"
 import { groupTraits } from "@/lib/traits"
+import { characterSpoiler } from "@/lib/characters"
 import { useSearchContext } from "@/context/SearchContext"
 import { useDictionary } from "@/hooks/useDictionary"
 import { useCharacterFull } from "@/hooks/useCharacterFull"
@@ -27,6 +28,8 @@ type VNCharacter = VN["characters"][number]
 /* ─── Constants & helpers ──────────────────────────────────────────────────── */
 
 interface VNCharacterCardProps {
+  /** The VN being viewed — selects this character's spoiler entry. */
+  vnId: string
   base: VNCharacter
   role: string
   sexualLevel: string
@@ -61,7 +64,7 @@ function StatRow({ items }: { items: Array<[string, React.ReactNode] | null> }) 
 
 /* ─── Character card ───────────────────────────────────────────────────────── */
 
-export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoilerLevel, clamp, onExpand, onSpoilerTraits }: VNCharacterCardProps) {
+export function VNCharacterCard({ vnId, base, role, sexualLevel, violenceLevel, spoilerLevel, clamp, onExpand, onSpoilerTraits }: VNCharacterCardProps) {
   const { showOriginal } = useSearchContext()
   const { character: full, loading } = useCharacterFull(base.id)
   const [coverOpen, setCoverOpen] = useState(false)
@@ -91,9 +94,9 @@ export function VNCharacterCard({ base, role, sexualLevel, violenceLevel, spoile
   // back to the English name for anything the dictionary doesn't have.
   const translate = useDictionary((full?.traits ?? []).map(t => t.name), showOriginal)
 
-  // This character's own spoiler weight in the VN — tints the card edge so a
+  // This character's own spoiler weight in *this* VN — tints the card edge so a
   // revealed spoiler character stands out from ordinary ones.
-  const charSpoiler = base.vns[0]?.spoiler ?? 0
+  const charSpoiler = characterSpoiler(base, vnId)
 
   // Once the full payload loads, tell the parent whether this character hides any
   // spoiler traits, so a panel can show a global reveal toggle.

@@ -9,6 +9,15 @@ from vndb import db
 # ----------------------------------------
 # Resources Models
 # ----------------------------------------
+# Relation-like data (tags, characters, releases, …) is denormalized into
+# JSONB array columns: each column holds the complete JSON array snapshot
+# taken from the Kana API at crawl time. Plain JSONB (not ARRAY(JSONB)) so
+# GIN jsonb_path_ops indexes can serve `@>` containment filters.
+#
+# Timestamps:
+#   crawled_at — last time the row was written from the remote API
+#   edited_at  — last manual (user) edit; set ⇒ background sync must skip
+#   updated_at — last write of any kind (legacy, kept for sorting)
 
 class VN(db.Model):
     __tablename__ = 'vns'
@@ -16,7 +25,7 @@ class VN(db.Model):
     id = Column(String, primary_key=True)
     title = Column(String)
     alttitle = Column(String)
-    titles = Column(ARRAY(JSONB))
+    titles = Column(JSONB)
     aliases = Column(ARRAY(String))
     olang = Column(String)
     devstatus = Column(Integer)
@@ -31,21 +40,23 @@ class VN(db.Model):
     average = Column(Float)
     rating = Column(Integer)
     votecount = Column(Integer)
-    screenshots = Column(ARRAY(JSONB))
-    relations = Column(ARRAY(JSONB))
-    tags = Column(ARRAY(JSONB))
-    developers = Column(ARRAY(JSONB))
-    editions = Column(ARRAY(JSONB))
-    staff = Column(ARRAY(JSONB))
-    va = Column(ARRAY(JSONB))
-    extlinks = Column(ARRAY(JSONB))
-    characters = Column(ARRAY(JSONB))
-    releases = Column(ARRAY(JSONB))
-    publishers = Column(ARRAY(JSONB))
+    screenshots = Column(JSONB)
+    relations = Column(JSONB)
+    tags = Column(JSONB)
+    developers = Column(JSONB)
+    editions = Column(JSONB)
+    staff = Column(JSONB)
+    va = Column(JSONB)
+    extlinks = Column(JSONB)
+    characters = Column(JSONB)
+    releases = Column(JSONB)
+    publishers = Column(JSONB)
 
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 class Release(db.Model):
     __tablename__ ='releases'
@@ -53,12 +64,12 @@ class Release(db.Model):
     id = Column(String, primary_key=True)
     title = Column(String)
     alttitle = Column(String)
-    languages = Column(ARRAY(JSONB))
+    languages = Column(JSONB)
     platforms = Column(ARRAY(String))
-    media = Column(ARRAY(JSONB))
-    vns = Column(ARRAY(JSONB))
-    producers = Column(ARRAY(JSONB))
-    images = Column(ARRAY(JSONB))
+    media = Column(JSONB)
+    vns = Column(JSONB)
+    producers = Column(JSONB)
+    images = Column(JSONB)
     released = Column(String)
     minage = Column(Integer)
     patch = Column(Boolean)
@@ -72,11 +83,13 @@ class Release(db.Model):
     notes = Column(Text)
     gtin = Column(String)
     catalog = Column(String)
-    extlinks = Column(ARRAY(JSONB))
+    extlinks = Column(JSONB)
 
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 class Character(db.Model):
     __tablename__ = 'characters'
@@ -98,13 +111,15 @@ class Character(db.Model):
     sex = Column(ARRAY(String))
     gender = Column(ARRAY(String))
     image = Column(JSONB)
-    vns = Column(ARRAY(JSONB))
-    traits = Column(ARRAY(JSONB))
-    seiyuu = Column(ARRAY(JSONB))
+    vns = Column(JSONB)
+    traits = Column(JSONB)
+    seiyuu = Column(JSONB)
 
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 class Producer(db.Model):
     __tablename__ = 'producers'
@@ -116,11 +131,13 @@ class Producer(db.Model):
     lang = Column(String)
     type = Column(String)
     description = Column(Text)
-    extlinks = Column(ARRAY(JSONB))
+    extlinks = Column(JSONB)
 
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 class Staff(db.Model):
     __tablename__ = 'staff'
@@ -133,12 +150,14 @@ class Staff(db.Model):
     lang = Column(String)
     gender = Column(String)
     description = Column(Text)
-    extlinks = Column(ARRAY(JSONB))
-    aliases = Column(ARRAY(JSONB))
+    extlinks = Column(JSONB)
+    aliases = Column(JSONB)
 
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 class Tag(db.Model):
     __tablename__ = 'tags'
@@ -155,6 +174,8 @@ class Tag(db.Model):
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 class Trait(db.Model):
     __tablename__ = 'traits'
@@ -173,6 +194,8 @@ class Trait(db.Model):
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
 
 # ----------------------------------------
 # Variables

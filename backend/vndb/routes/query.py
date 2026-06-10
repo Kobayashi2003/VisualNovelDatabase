@@ -1,6 +1,6 @@
 from flask import Blueprint, abort, jsonify, request
 from vndb.tasks.resources import (
-    get_resources_task, search_resources_task
+    get_resources_task, search_resources_task, query_resources_task
 )
 from vndb.tasks.relation_graph import get_relation_graph_task, GRAPH_DEPTH_CAP
 from .common import execute_task
@@ -18,25 +18,6 @@ RESOURCE_TYPE_MAP = {
 query_bp = Blueprint('query', __name__, url_prefix='/')
 
 QUERY_MODE = 'default'  # 'default' | 'local' | 'remote' | 'disabled'
-
-
-def _remote_with_local_fallback(resource_type, params, response_size,
-                                page, limit, sort, reverse, count):
-    # Remote first; fall back to local only when remote ERRORs (or raises).
-    # NOT_FOUND from remote is treated as a legitimate empty answer.
-    try:
-        remote_result = search_resources_task(
-            resource_type, params, response_size, page, limit, sort, reverse, count)
-    except Exception as exc:
-        print(f"Unexpected exception in search_resources_task: {exc}")
-        remote_result = {'status': 'ERROR', 'results': str(exc)}
-
-    if remote_result.get('status') == 'ERROR':
-        print(f"Remote search failed, falling back to local: {remote_result.get('results')}")
-        return execute_task(get_resources_task,
-            True, resource_type, params, response_size, page, limit, sort, reverse, count)
-
-    return jsonify(remote_result)
 
 
 @query_bp.route('/<string:query>/rg', methods=['GET'])
@@ -91,8 +72,9 @@ def handle_query(query):
             return execute_task(get_resources_task,
                 True, resource_type, params, response_size, page, limit, sort, reverse, count)
 
-        return _remote_with_local_fallback(
-            resource_type, params, response_size, page, limit, sort, reverse, count)
+        # both: freshness-aware local/remote composition (vndb/search/both)
+        return execute_task(query_resources_task,
+            True, resource_type, params, response_size, page, limit, sort, reverse, count)
 
     elif len(query) > 1:
         # Handle get by ID
@@ -112,8 +94,9 @@ def handle_query(query):
             return execute_task(get_resources_task,
                 True, resource_type, {'id': query}, response_size, 1, 1, 'id', False, True)
 
-        return _remote_with_local_fallback(
-            resource_type, {'id': query}, response_size, 1, 1, 'id', False, True)
+        # both: stale-while-revalidate detail lookup (vndb/search/both)
+        return execute_task(query_resources_task,
+            True, resource_type, {'id': query}, response_size, 1, 1, 'id', False, True)
 
     else:
         abort(400, description="Invalid query")

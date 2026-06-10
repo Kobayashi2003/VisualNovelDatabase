@@ -7,11 +7,13 @@
 import { useCallback, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { VNCharacterCard } from "./VNCharacterCard"
+import { characterRole } from "@/lib/characters"
 import type { VN } from "@/lib/types"
 
 type VNCharacter = VN["characters"][number]
 
 interface VNCharacterSliderProps {
+  vnId: string
   characters: VNCharacter[]
   sexualLevel: string
   violenceLevel: string
@@ -22,7 +24,7 @@ interface VNCharacterSliderProps {
 const ARROW_CLASS =
   "flex items-center justify-center w-9 h-9 rounded-full text-muted hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
 
-export function VNCharacterSlider({ characters, sexualLevel, violenceLevel, spoilerLevel, onExpand }: VNCharacterSliderProps) {
+export function VNCharacterSlider({ vnId, characters, sexualLevel, violenceLevel, spoilerLevel, onExpand }: VNCharacterSliderProps) {
   const [index, setIndex] = useState(0)
   const total = characters.length
 
@@ -42,13 +44,14 @@ export function VNCharacterSlider({ characters, sexualLevel, violenceLevel, spoi
 
   const safeIndex = Math.min(index, total - 1)
   const current = characters[safeIndex]
-  const role = current.vns[0]?.role ?? "appears"
+  const role = characterRole(current, vnId)
 
   return (
     <div className="flex flex-col gap-3">
       {/* Full-width, height-clamped card */}
       <VNCharacterCard
         key={current.id}
+        vnId={vnId}
         base={current}
         role={role}
         sexualLevel={sexualLevel}

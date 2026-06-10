@@ -36,9 +36,8 @@ _SEARCH_FUNCTIONS: dict[str, Callable] = {
 # ─── Private helpers ──────────────────────────────────────────────────────────
 
 class _ColKind(Enum):
-    SCALAR      = auto()  # String, Integer, Float, Boolean, Text, ARRAY(String/Integer/…)
-    JSONB       = auto()  # JSONB — supports dotted-path partial merge
-    ARRAY_JSONB = auto()  # ARRAY(JSONB)
+    SCALAR = auto()  # String, Integer, Float, Boolean, Text, ARRAY(String/Integer/…)
+    JSONB  = auto()  # JSONB — holds a dict (supports dotted-path partial merge) or a list
 
 
 def _nested_get(obj: Any, path: list[str]) -> Any:
@@ -67,7 +66,7 @@ def _col_kind(resource_type: str, column_name: str) -> _ColKind:
     except KeyError:
         raise ValueError(f"'{resource_type}' has no column '{column_name}'")
     if isinstance(col_type, PgARRAY):
-        return _ColKind.ARRAY_JSONB if isinstance(col_type.item_type, PgJSONB) else _ColKind.SCALAR
+        return _ColKind.SCALAR
     if isinstance(col_type, PgJSONB):
         return _ColKind.JSONB
     return _ColKind.SCALAR
@@ -98,14 +97,14 @@ def _build_db_write(
 ) -> dict[str, Any]:
     """Build the data dict for db_update, with type validation."""
     if value is not None and not json_tail:
-        if kind is _ColKind.ARRAY_JSONB and not isinstance(value, list):
-            raise TypeError(f"Expected list for ARRAY_JSONB, got {type(value).__name__}")
-        elif kind is _ColKind.JSONB and not isinstance(value, dict):
-            raise TypeError(f"Expected dict for JSONB, got {type(value).__name__}")
+        if kind is _ColKind.JSONB and not isinstance(value, (dict, list)):
+            raise TypeError(f"Expected dict or list for JSONB, got {type(value).__name__}")
     if not json_tail:
         return {column: value}
     current_record = db_get(resource_type, id_)
     current_jsonb  = (getattr(current_record, column, None) or {}) if current_record else {}
+    if not isinstance(current_jsonb, dict):
+        raise TypeError(f"Dotted path write requires a dict-valued JSONB column, '{column}' holds {type(current_jsonb).__name__}")
     return {column: _set_nested(current_jsonb, json_tail.split("."), value)}
 
 
@@ -207,7 +206,9 @@ def backfill_column(
                 if TEST:
                     print(f"  [TEST] {resource_type}/{id_} {field} = {value!r}")
                     updated += 1
-                elif db_update(resource_type, id_, write) is not None:
+                # source=None: a single-field maintenance write must not stamp
+                # crawled_at — the rest of the row wasn't refreshed.
+                elif db_update(resource_type, id_, write, source=None) is not None:
                     updated += 1
 
         print(f"[backfill] {resource_type}.{field} — batch {batch_num}/{num_batches}, {updated} updated so far.")

@@ -1,10 +1,27 @@
+"""SQLAlchemy filter builders for local (PostgreSQL mirror) searches.
+
+Semantic differences vs the remote (Kana API) backend — the two sides share
+parameter names but are NOT result-equivalent:
+
+- `tag` / `dtag` (and trait counterparts): the remote side walks VNDB's tag
+  hierarchy, so a parent tag also matches VNs tagged with its children. The
+  local mirror stores only the directly-applied tags embedded in each row, so
+  `tag` and `dtag` behave identically here and parent tags do NOT expand.
+- `search`: the remote side uses VNDB's fuzzy full-text search with relevance
+  ranking; locally it is a plain ILIKE substring match over title/alias
+  columns. Result sets and orderings differ.
+- Coverage: the local DB only contains rows that have been crawled. Searches
+  over vn/release/character/producer/staff return matches within that subset;
+  tags and traits are fully mirrored, so those are complete.
+"""
+
 from typing import Any, Callable
 
 import re
 import uuid
 from datetime import datetime
 
-from sqlalchemy import or_, and_, text, exists, select, func, Integer, Float, String
+from sqlalchemy import or_, and_, false, text, exists, select, func, Integer, Float, String
 from sqlalchemy.sql.expression import BinaryExpression
 
 from vndb.database.models import VN, Tag, Producer, Staff, Character, Trait, Release
@@ -15,20 +32,20 @@ def generate_unique_param_name(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 def array_jsonb_exact_match(column: Any, key: str, value: Any) -> BinaryExpression:
-    param_key = generate_unique_param_name("key")
-    param_value = generate_unique_param_name("value")
-    return exists(
-        select(1)
-        .select_from(func.unnest(column).alias('jsonb_item'))
-        .where(text(f"jsonb_item->>:{param_key} = :{param_value}"))
-    ).params({param_key: key, param_value: value})
+    """True when some element of the JSONB array column has `key` == `value`.
+
+    Compiles to `column @> '[{"key": "value"}]'`, which the GIN
+    (jsonb_path_ops) indexes serve — keep exact matches on this helper rather
+    than scanning with jsonb_array_elements.
+    """
+    return column.contains([{key: value}])
 
 def array_jsonb_match(column: Any, key: str, value: Any) -> BinaryExpression:
     param_key = generate_unique_param_name("key")
     param_value = generate_unique_param_name("value")
     return exists(
         select(1)
-        .select_from(func.unnest(column).alias('jsonb_item'))
+        .select_from(func.jsonb_array_elements(column).alias('jsonb_item'))
         .where(text(f"jsonb_item->>:{param_key} ILIKE :{param_value}"))
     ).params({param_key: key, param_value: f"%{value}%"})
 
@@ -47,29 +64,68 @@ def array_string_match(column: Any, value: str) -> BinaryExpression:
         .where(text(f"array_item ILIKE :{param_value}"))
     ).params({param_value: f"%{value}%"})
 
-def array_jsonb_tag_match(column: Any, value: str, max_spoiler: int,
-                          exclude_lies: bool = False) -> BinaryExpression:
+def resolve_tag_term(term: str, id_model: Any) -> list[str]:
+    """Resolve a tag/trait search term to ids against the fully-mirrored local
+    tags/traits table (the local counterpart of the name→id resolution the
+    remote side performs via the API). A bare id ("g505" / "i52") passes
+    through without a query; otherwise the term matches name (ILIKE) and
+    aliases.
     """
-    Match a tag/trait inside a JSONB-array column (`VN.tags` / `Character.traits`).
-
-    An array item matches when its `id` equals `value` or its `name` contains
-    `value` (ILIKE), and its spoiler level is at most `max_spoiler`. When
-    `exclude_lies` is set, items flagged as a 'lie' are skipped.
-    """
-    param_id = generate_unique_param_name("id")
-    param_like = generate_unique_param_name("like")
-    param_spoiler = generate_unique_param_name("spoiler")
-    condition = (
-        f"(tag_item->>'id' = :{param_id} OR tag_item->>'name' ILIKE :{param_like}) "
-        f"AND COALESCE((tag_item->>'spoiler')::int, 0) <= :{param_spoiler}"
+    if re.match(r'^[gi]\d+$', term):
+        return [term]
+    rows = (
+        id_model.query.with_entities(id_model.id)
+        .filter(id_model.deleted_at == None)
+        .filter(or_(
+            id_model.name.ilike(f"%{term}%"),
+            array_string_match(id_model.aliases, term)
+        ))
+        .all()
     )
-    if exclude_lies:
-        condition += " AND COALESCE((tag_item->>'lie')::boolean, false) = false"
-    return exists(
-        select(1)
-        .select_from(func.unnest(column).alias('tag_item'))
-        .where(text(condition))
-    ).params({param_id: value, param_like: f"%{value}%", param_spoiler: max_spoiler})
+    return [row[0] for row in rows]
+
+def array_jsonb_tag_match(column: Any, value: str, max_spoiler: int,
+                          exclude_lies: bool = False, id_model: Any = Tag) -> BinaryExpression:
+    """
+    Match a tag/trait inside a JSONB array column (`VN.tags` / `Character.traits`).
+
+    The term is first resolved to ids via `resolve_tag_term`, then each id is
+    matched with a `@>` containment (GIN-indexable). The spoiler cap and lie
+    flag can't be expressed in a containment, so when they actually constrain
+    (max_spoiler < 2 or exclude_lies) a jsonb_array_elements recheck is ANDed
+    on — it only runs on the containment's candidate rows.
+
+    Note: unlike the remote backend there is no tag hierarchy here; only
+    directly-applied tags match (see module docstring).
+    """
+    ids = resolve_tag_term(value, id_model)
+    if not ids:
+        return false()
+
+    conditions = []
+    for item_id in ids:
+        contains = column.contains([{'id': item_id}])
+        # VNDB spoiler levels top out at 2, so a cap of 2 without the lie
+        # filter constrains nothing — the containment alone is exact.
+        if max_spoiler >= 2 and not exclude_lies:
+            conditions.append(contains)
+            continue
+        param_id = generate_unique_param_name("id")
+        param_spoiler = generate_unique_param_name("spoiler")
+        condition = (
+            f"tag_item->>'id' = :{param_id} "
+            f"AND COALESCE((tag_item->>'spoiler')::int, 0) <= :{param_spoiler}"
+        )
+        if exclude_lies:
+            condition += " AND COALESCE((tag_item->>'lie')::boolean, false) = false"
+        recheck = exists(
+            select(1)
+            .select_from(func.jsonb_array_elements(column).alias('tag_item'))
+            .where(text(condition))
+        ).params({param_id: item_id, param_spoiler: max_spoiler})
+        conditions.append(and_(contains, recheck))
+
+    return conditions[0] if len(conditions) == 1 else or_(*conditions)
 
 def process_multi_value_expression(expression: str, value_processor: Callable[[str], BinaryExpression]) -> BinaryExpression:
     """
@@ -532,9 +588,10 @@ def get_vn_additional_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if str(params.get('ero')).lower() == 'false' or str(params.get('ero')) == '0':
         filters.append(and_(
-            ~exists(select(1).select_from(func.unnest(VN.tags).alias('tag')).where(text("tag->>'category' = 'ero'"))),
-            ~exists(select(1).select_from(func.unnest(VN.screenshots).alias('screenshot')).where(or_(
-                text("(screenshot->>'ero')::float > 0.5"), text("(screenshot->>'violence')::float > 0.5")
+            ~exists(select(1).select_from(func.jsonb_array_elements(VN.tags).alias('tag')).where(text("tag->>'category' = 'ero'"))),
+            # screenshots carry 'sexual'/'violence' scores (there is no 'ero' key)
+            ~exists(select(1).select_from(func.jsonb_array_elements(VN.screenshots).alias('screenshot')).where(or_(
+                text("(screenshot->>'sexual')::float > 0.5"), text("(screenshot->>'violence')::float > 0.5")
             ))),
             or_(VN.image.is_(None), ~VN.image.has_key('sexual'), text("(vns.image->>'sexual')::float <= 0.5")),
             or_(VN.image.is_(None), ~VN.image.has_key('violence'), text("(vns.image->>'violence')::float <= 0.5"))
@@ -554,7 +611,7 @@ def get_release_additional_filters(params: dict[str, Any]) -> list[BinaryExpress
     if str(params.get('ero')).lower() == 'false' or str(params.get('ero')) == '0':
         filters.append(and_(
             Release.has_ero == False,
-            ~exists(select(1).select_from(func.unnest(Release.images).alias('image')).where(or_(
+            ~exists(select(1).select_from(func.jsonb_array_elements(Release.images).alias('image')).where(or_(
                 text("(image->>'sexual')::float > 0.5"),
                 text("(image->>'violence')::float > 0.5")
             )))
@@ -579,7 +636,7 @@ def get_character_additional_filters(params: dict[str, Any]) -> list[BinaryExpre
         if trait_value := params.get(trait_param):
             filters.append(process_multi_value_expression(
                 trait_value,
-                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el, id_model=Trait),
             ))
 
     # trait exclusion. Mirrors the tag exclusion in get_vn_additional_filters:
@@ -593,12 +650,12 @@ def get_character_additional_filters(params: dict[str, Any]) -> list[BinaryExpre
         if trait_value := params.get(trait_param):
             filters.append(~process_multi_value_expression(
                 trait_value,
-                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el),
+                lambda v, ms=max_spoiler, el=exclude_lies: array_jsonb_tag_match(Character.traits, v, ms, el, id_model=Trait),
             ))
 
     if str(params.get('ero')).lower() == 'false' or str(params.get('ero')) == '0':
         filters.append(and_(
-            ~exists(select(1).select_from(func.unnest(Character.traits).alias('trait')).where(or_(
+            ~exists(select(1).select_from(func.jsonb_array_elements(Character.traits).alias('trait')).where(or_(
                 text("trait->>'name' ILIKE '%sexual%'"), text("trait->>'group_name' ILIKE '%sexual%'")
             ))),
             or_(Character.image.is_(None), ~Character.image.has_key('sexual'), text("(characters.image->>'sexual')::float <= 0.5")),
@@ -690,9 +747,9 @@ def get_vn_filters(params: dict[str, Any]) -> list[BinaryExpression]:
     if 'has_screenshot' in params:
         has_screenshot = params['has_screenshot']
         if str(has_screenshot).lower() == 'true' or str(has_screenshot) == '1':
-            filters.append(and_(VN.screenshots.isnot(None), func.array_length(VN.screenshots, 1) > 0))
+            filters.append(and_(VN.screenshots.isnot(None), func.jsonb_array_length(VN.screenshots) > 0))
         elif str(has_screenshot).lower() == 'false' or str(has_screenshot) == '0':
-            filters.append(or_(VN.screenshots.is_(None), func.array_length(VN.screenshots, 1) == 0))
+            filters.append(or_(VN.screenshots.is_(None), func.jsonb_array_length(VN.screenshots) == 0))
         else:
             raise ValueError(f"Invalid value for has_screenshot: {has_screenshot}. Use 'true' or 'false'.")
 
@@ -802,6 +859,13 @@ def get_release_filters(params: dict[str, Any]) -> list[BinaryExpression]:
 
     if rtype := params.get('rtype'):
         filters.append(array_jsonb_exact_match(Release.vns, 'rtype', rtype))
+
+    if 'drm' in params:
+        # DRM information is not stored locally.
+        raise ValueError("The 'drm' search field is not available for local searches.")
+
+    if image := params.get('image'):
+        filters.append(array_jsonb_exact_match(Release.images, 'type', image))
 
     if extlink := params.get('extlink'):
         filters.append(or_(
@@ -938,7 +1002,7 @@ def get_character_filters(params: dict[str, Any]) -> list[BinaryExpression]:
         if trait_value := params.get(trait_param):
             filters.append(process_multi_value_expression(
                 trait_value,
-                lambda v: array_jsonb_tag_match(Character.traits, v, 0, False),
+                lambda v: array_jsonb_tag_match(Character.traits, v, 0, False, id_model=Trait),
             ))
 
     if birthday := params.get('birthday'):
@@ -1025,8 +1089,9 @@ def get_staff_filters(params: dict[str, Any]) -> list[BinaryExpression]:
         filters.append(Staff.gender == gender)
 
     if role := params.get('role'):
-        # TODO
-        ...
+        # The local Staff model keeps no per-VN credit data, so role cannot be
+        # answered locally (mirrors the has_anime pattern on VN).
+        raise ValueError("The 'role' search field is not available for local searches.")
 
     if extlink := params.get('extlink'):
         filters.append(or_(

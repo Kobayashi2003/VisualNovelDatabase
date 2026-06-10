@@ -60,15 +60,26 @@ def count_inactive_all(type: str) -> int:
     return db.session.query(model).filter(model.deleted_at != None).count()
 
 def updatable(type: str, id: str, update_interval: timedelta = timedelta(minutes=10)) -> bool:
+    """Whether a background (automatic) crawl may overwrite this row.
+
+    Manually edited rows (edited_at set) are never updatable here — an
+    automatic sync would silently destroy the user's edits. Explicit refresh
+    paths (update_resource_task) bypass this check and clear edited_at.
+    Freshness is judged on crawled_at (when the row was last written from the
+    remote API), not updated_at, which any write (including edits) bumps.
+    """
     id = formatId(type, id)
     item = get(type, id)
     if not item:
         return True  # Allow update if item doesn't exist (it will be created)
     if item.deleted_at is not None:
         return True  # Allow update if item is deleted
-    if item.updated_at is None:
-        return True  # Allow update if item has never been updated
-    return datetime.now(timezone.utc) - item.updated_at > update_interval
+    if item.edited_at is not None:
+        return False  # Never auto-overwrite manual edits
+    last_crawl = item.crawled_at or item.updated_at
+    if last_crawl is None:
+        return True  # Allow update if item has never been crawled
+    return datetime.now(timezone.utc) - last_crawl > update_interval
 
 
 def get(type: str, id: str) -> ModelType | None:
@@ -93,7 +104,11 @@ def get_all(type: str, page: int | None = None, limit: int | None = None, sort: 
         query = query.offset((page - 1) * limit).limit(limit)
     return query.all()
 
-def create(type: str, id: str, data: dict[str, Any]) -> ModelType | None:
+# `source` records what kind of write this is:
+#   'crawl' (default) — data fetched from the remote API; stamps crawled_at
+#   'edit'            — a manual user edit; stamps edited_at
+#   None              — maintenance write (e.g. backfill); stamps neither
+def create(type: str, id: str, data: dict[str, Any], source: str | None = 'crawl') -> ModelType | None:
     id = formatId(type, id)
     model = MODEL_MAP[type]
     data.pop('id', None)
@@ -102,11 +117,15 @@ def create(type: str, id: str, data: dict[str, Any]) -> ModelType | None:
     # Use cleanup to ensure deletion of any existing inactive items
     cleanup(type, id)
     item = model(id=id, **data)
+    if source == 'crawl':
+        item.crawled_at = datetime.now(timezone.utc)
+    elif source == 'edit':
+        item.edited_at = datetime.now(timezone.utc)
     db.session.add(item)
     db.session.flush()
     return item
 
-def update(type: str, id: str, data: dict[str, Any]) -> ModelType | None:
+def update(type: str, id: str, data: dict[str, Any], source: str | None = 'crawl') -> ModelType | None:
     id = formatId(type, id)
     item = get(type, id)
     if not item:
@@ -114,6 +133,10 @@ def update(type: str, id: str, data: dict[str, Any]) -> ModelType | None:
     for key, value in data.items():
         setattr(item, key, value)
     item.updated_at = datetime.now(timezone.utc)
+    if source == 'crawl':
+        item.crawled_at = datetime.now(timezone.utc)
+    elif source == 'edit':
+        item.edited_at = datetime.now(timezone.utc)
     db.session.flush()
     return item
 

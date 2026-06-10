@@ -1,16 +1,28 @@
-/** Release detail sidebar: release metadata rows + external links. */
+/** Release detail sidebar: metadata rows, linked visual novels, producers,
+ *  external links, all in one column. */
+"use client"
 
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { enumMap, enumLabel } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
+import { displayTitle, displayName } from "@/lib/original"
+import { useSearchContext } from "@/context/SearchContext"
 import type { Release } from "@/lib/types"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
+import { InfoCard, TitledCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { PlatformIcons } from "@/components/common/PlatformIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
 import { AgeRatingBadge } from "@/components/common/AgeRatingBadge"
 
+const RTYPE_COLOR: Record<string, string> = {
+  complete: "text-green-400",
+  trial: "text-blue-400",
+  partial: "text-yellow-400",
+}
+
 export function ReleaseInfoPanel({ release }: { release: Release }) {
+  const { showOriginal } = useSearchContext()
   const rtypes = [...new Set(release.vns.map(v => v.rtype))]
   const VOICED = enumMap('VOICED')
   const MEDIUM = enumMap('MEDIUM')
@@ -43,12 +55,16 @@ export function ReleaseInfoPanel({ release }: { release: Release }) {
     release.voiced != null || release.freeware != null ||
     !!release.gtin || !!release.catalog
 
+  const producers = release.producers ?? []
+  const developers = producers.filter(p => p.developer)
+  const publishers = producers.filter(p => p.publisher)
+
   /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
     <div className="flex flex-col gap-3">
       {hasInfo && (
-      <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+      <InfoCard>
         {release.released && (
           <InfoRow label="Released">{release.released}</InfoRow>
         )}
@@ -57,12 +73,7 @@ export function ReleaseInfoPanel({ release }: { release: Release }) {
           <InfoRow label="Type">
             <div className="flex gap-2 flex-wrap">
               {rtypes.map(rt => (
-                <span key={rt} className={cn(
-                  "text-xs font-medium",
-                  rt === "complete" ? "text-green-400" :
-                  rt === "trial" ? "text-blue-400" :
-                  rt === "partial" ? "text-yellow-400" : "text-white/80"
-                )}>
+                <span key={rt} className={cn("text-xs font-medium", RTYPE_COLOR[rt] ?? "text-white/80")}>
                   {enumLabel('RTYPE', rt)}
                 </span>
               ))}
@@ -140,7 +151,50 @@ export function ReleaseInfoPanel({ release }: { release: Release }) {
         {release.catalog && (
           <InfoRow label="Catalog">{release.catalog}</InfoRow>
         )}
-      </div>
+      </InfoCard>
+      )}
+
+      {release.vns.length > 0 && (
+        <TitledCard title="Visual Novels">
+          <div className="flex flex-col gap-1">
+            {release.vns.map(vn => (
+              <Link
+                key={vn.id}
+                href={`/${vn.id}`}
+                className="flex items-baseline gap-2 text-xs text-white/80 hover:text-accent transition-colors"
+              >
+                <span className="truncate">{displayTitle(vn, showOriginal)}</span>
+                <span className={cn("shrink-0 ml-auto", RTYPE_COLOR[vn.rtype] ?? "text-white/50")}>
+                  {enumLabel('RTYPE', vn.rtype)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </TitledCard>
+      )}
+
+      {producers.length > 0 && (
+        <TitledCard title="Producers">
+          {[
+            { label: "Developer", list: developers },
+            { label: "Publisher", list: publishers },
+          ].filter(g => g.list.length > 0).map(g => (
+            <div key={g.label} className="mb-2 last:mb-0">
+              <p className="text-xs text-muted mb-1">{g.label}</p>
+              <div className="flex flex-col gap-0.5">
+                {g.list.map(p => (
+                  <Link
+                    key={p.id}
+                    href={`/${p.id}`}
+                    className="text-xs text-white/80 hover:text-accent transition-colors truncate"
+                  >
+                    {displayName(p, showOriginal)}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </TitledCard>
       )}
 
       <ExtLinks links={release.extlinks} />

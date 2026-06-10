@@ -1,4 +1,4 @@
-/** Tag detail page: info sidebar + description + paginated tagged VNs. */
+/** Tag detail page (catalog kind): info sidebar + description + paginated tagged VNs. */
 "use client"
 
 import { useState } from "react"
@@ -10,9 +10,10 @@ import { useUserContext } from "@/context/UserContext"
 import { useSearchContext } from "@/context/SearchContext"
 import { useDictionary } from "@/hooks/useDictionary"
 import { usePassage } from "@/hooks/usePassage"
-import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
-import { Section } from "@/components/common/InfoPrimitives"
 import { BBCodeText } from "@/components/common/BBCodeText"
 import { EntityCardSection } from "@/components/common/EntityCardSection"
 import { VNsCardsGrid } from "@/components/card/CardsGrid"
@@ -37,36 +38,28 @@ export function TagDetailPage({ id }: TagDetailPageProps) {
 
   if (loading || error || !tag) return <DetailStatus loading={loading} error={error} />
 
+  const levelSelectors = (direction: "row" | "col") => (
+    <ContentLevelSelectors
+      direction={direction}
+      sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+      violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+    />
+  )
+
   return (
-    <DetailLayout
-      aside={
-        <>
-          <ContentLevelSelectors
-            sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
-            violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
-          />
-          <TagInfoPanel tag={tag} />
-        </>
-      }
-      mobileAside={
-        <>
-          <ContentLevelSelectors
-            direction="row"
-            sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
-            violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
-          />
-          <TagInfoPanel tag={tag} />
-        </>
-      }
-    >
-      <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{translateName(tag.name)}</h1>
-          {tag.category && (
+    <DetailShell
+      header={
+        <DetailHeader
+          title={translateName(tag.name)}
+          subtitle={tag.category && (
             <p className="text-sm text-muted mt-0.5">{enumLabel('CATEGORY', tag.category)}</p>
           )}
-        </div>
-
+        />
+      }
+      aside={<>{levelSelectors("col")}<TagInfoPanel tag={tag} /></>}
+      inlineAside={<>{levelSelectors("row")}<TagInfoPanel tag={tag} inline /></>}
+    >
+      <div className="flex flex-col gap-6">
         {description && (
           <Section title="Description">
             <BBCodeText text={description} collapsible />
@@ -88,6 +81,6 @@ export function TagDetailPage({ id }: TagDetailPageProps) {
           />
         </Section>
       </div>
-    </DetailLayout>
+    </DetailShell>
   )
 }

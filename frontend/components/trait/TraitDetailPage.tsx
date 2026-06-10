@@ -1,4 +1,5 @@
-/** Trait detail page: info sidebar + description + paginated characters with the trait. */
+/** Trait detail page (catalog kind): info sidebar + description + paginated
+ *  characters with the trait. */
 "use client"
 
 import { useState } from "react"
@@ -9,9 +10,10 @@ import { useUserContext } from "@/context/UserContext"
 import { useSearchContext } from "@/context/SearchContext"
 import { useDictionary } from "@/hooks/useDictionary"
 import { usePassage } from "@/hooks/usePassage"
-import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
-import { Section } from "@/components/common/InfoPrimitives"
 import { BBCodeText } from "@/components/common/BBCodeText"
 import { EntityCardSection } from "@/components/common/EntityCardSection"
 import { CharactersCardsGrid } from "@/components/card/CardsGrid"
@@ -39,36 +41,28 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
 
   if (loading || error || !trait) return <DetailStatus loading={loading} error={error} />
 
+  const levelSelectors = (direction: "row" | "col") => (
+    <ContentLevelSelectors
+      direction={direction}
+      sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
+      violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
+    />
+  )
+
   return (
-    <DetailLayout
-      aside={
-        <>
-          <ContentLevelSelectors
-            sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
-            violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
-          />
-          <TraitInfoPanel trait={trait} />
-        </>
-      }
-      mobileAside={
-        <>
-          <ContentLevelSelectors
-            direction="row"
-            sexualLevel={sexualLevel} setSexualLevel={setSexualLevel}
-            violenceLevel={violenceLevel} setViolenceLevel={setViolenceLevel}
-          />
-          <TraitInfoPanel trait={trait} />
-        </>
-      }
-    >
-      <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{translateName(trait.name)}</h1>
-          {trait.group_name && (
+    <DetailShell
+      header={
+        <DetailHeader
+          title={translateName(trait.name)}
+          subtitle={trait.group_name && (
             <p className="text-sm text-muted mt-0.5">{translateName(trait.group_name)}</p>
           )}
-        </div>
-
+        />
+      }
+      aside={<>{levelSelectors("col")}<TraitInfoPanel trait={trait} /></>}
+      inlineAside={<>{levelSelectors("row")}<TraitInfoPanel trait={trait} inline /></>}
+    >
+      <div className="flex flex-col gap-6">
         {description && (
           <Section title="Description">
             <BBCodeText text={description} collapsible />
@@ -90,6 +84,6 @@ export function TraitDetailPage({ id }: TraitDetailPageProps) {
           />
         </Section>
       </div>
-    </DetailLayout>
+    </DetailShell>
   )
 }

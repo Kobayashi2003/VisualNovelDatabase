@@ -1,4 +1,5 @@
-/** Character detail page: info panel sidebar + description / traits / VNs sections. */
+/** Character detail page (media kind): info sidebar with portrait +
+ *  description / traits / VNs sections. */
 "use client"
 
 import { useState } from "react"
@@ -10,9 +11,10 @@ import { useEntity } from "@/hooks/useEntity"
 import { useSpoilerLevel } from "@/hooks/useSpoilerLevel"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
-import { Section } from "@/components/common/InfoPrimitives"
 import { BBCodeText } from "@/components/common/BBCodeText"
 import { CharacterInfoPanel } from "./CharacterInfoPanel"
 import { CharacterTraits } from "./CharacterTraits"
@@ -47,31 +49,23 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
     />
   )
 
-  const infoPanel = (mobile?: boolean) => (
+  const infoPanel = (inline?: boolean) => (
     <CharacterInfoPanel
       character={character}
       sexualLevel={sexualLevel}
       violenceLevel={violenceLevel}
       spoilerLevel={spoiler.spoilerLevel}
-      mobile={mobile}
+      inline={inline}
     />
   )
 
   return (
-    <DetailLayout
+    <DetailShell
       asideWidth="lg"
-      aside={<>{levelSelectors("col")}{infoPanel()}</>}
-      mobileAside={<>{levelSelectors("row")}{infoPanel(true)}</>}
-    >
-      <div className="flex flex-col gap-6">
-        {/* Title + spoiler toggle */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-white leading-tight">
-              {displayName(character, showOriginal)}
-            </h1>
-          </div>
-          {spoiler.hasAnySpoilers && (
+      header={
+        <DetailHeader
+          title={displayName(character, showOriginal)}
+          action={spoiler.hasAnySpoilers && (
             <button
               onClick={spoiler.cycle}
               className={cn("text-xs transition-colors shrink-0 pt-1", spoiler.buttonColor)}
@@ -79,8 +73,12 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
               {spoiler.buttonLabel}
             </button>
           )}
-        </div>
-
+        />
+      }
+      aside={<>{levelSelectors("col")}{infoPanel()}</>}
+      inlineAside={<>{levelSelectors("row")}{infoPanel(true)}</>}
+    >
+      <div className="flex flex-col gap-6">
         {character.description && (
           <Section title="Description">
             <BBCodeText text={character.description} collapsible />
@@ -105,6 +103,6 @@ export function CharacterDetailPage({ id }: CharacterDetailPageProps) {
           </Section>
         )}
       </div>
-    </DetailLayout>
+    </DetailShell>
   )
 }

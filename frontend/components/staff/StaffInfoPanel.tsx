@@ -1,15 +1,14 @@
-/** Staff detail sidebar: language / gender / aliases, links, collection button. */
+/** Staff detail sidebar: language / gender / aliases, links, collection controls. */
 
 import type { Staff } from "@/lib/types"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
+import { InfoCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { CollectionRating } from "@/components/category/CollectionRating"
+import { CollectionControls } from "@/components/category/CollectionControls"
 
 const GENDER_LABEL: Record<string, string> = { m: "Male", f: "Female" }
 
-export function StaffInfoPanel({ staff }: { staff: Staff }) {
+export function StaffInfoPanel({ staff, inline }: { staff: Staff; inline?: boolean }) {
   const hasInfo = staff.gender || staff.lang || staff.aliases.length > 0
 
   // Main alias first, then highlight it.
@@ -18,7 +17,7 @@ export function StaffInfoPanel({ staff }: { staff: Staff }) {
   return (
     <div className="flex flex-col gap-3">
       {hasInfo && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+        <InfoCard>
           {staff.lang && (
             <InfoRow label="Language">
               <LanguageIcons langs={[staff.lang]} />
@@ -40,13 +39,12 @@ export function StaffInfoPanel({ staff }: { staff: Staff }) {
               />
             </InfoRow>
           )}
-        </div>
+        </InfoCard>
       )}
 
       <ExtLinks links={staff.extlinks} />
 
-      <CollectionButton type="staff" id={staff.id} />
-      <CollectionRating type="staff" id={staff.id} />
+      <CollectionControls type="staff" id={staff.id} inline={inline} />
     </div>
   )
 }

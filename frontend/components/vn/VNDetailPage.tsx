@@ -1,4 +1,5 @@
-/** VN detail page: info sidebar + description / tags / characters / staff / releases / screenshots. */
+/** VN detail page (media kind): info sidebar with cover + description / tags /
+ *  characters / staff / releases / screenshots. */
 "use client"
 
 import { useState } from "react"
@@ -8,9 +9,10 @@ import type { VN } from "@/lib/types"
 import { useEntity } from "@/hooks/useEntity"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
-import { Section } from "@/components/common/InfoPrimitives"
 import { BBCodeText } from "@/components/common/BBCodeText"
 import { VNInfoPanel } from "./VNInfoPanel"
 import { VNTags } from "./VNTags"
@@ -51,10 +53,11 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
   )
 
   return (
-    <DetailLayout
+    <DetailShell
       asideWidth="lg"
+      header={<DetailHeader title={displayTitle(vn, showOriginal)} />}
       aside={<>{levelSelectors("col")}<VNInfoPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} /></>}
-      mobileAside={<>{levelSelectors("row")}<VNInfoPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} mobile /></>}
+      inlineAside={<>{levelSelectors("row")}<VNInfoPanel vn={vn} sexualLevel={sexualLevel} violenceLevel={violenceLevel} inline /></>}
     >
       {charsExpanded ? (
         <VNCharactersPanel
@@ -67,12 +70,6 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
         />
       ) : (
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white leading-tight">
-            {displayTitle(vn, showOriginal)}
-          </h1>
-        </div>
-
         {vn.description && (
           <Section title="Description">
             <BBCodeText text={vn.description} collapsible />
@@ -126,6 +123,6 @@ export function VNDetailPage({ id }: VNDetailPageProps) {
         )}
       </div>
       )}
-    </DetailLayout>
+    </DetailShell>
   )
 }

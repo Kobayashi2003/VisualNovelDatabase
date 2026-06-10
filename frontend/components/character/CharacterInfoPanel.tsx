@@ -1,18 +1,17 @@
-/** Character detail sidebar: cover, physical stats, voice actors, collection button. */
+/** Character detail sidebar: portrait, physical stats, voice actors,
+ *  collection controls. The `inline` arrangement (stacked layout) puts the
+ *  portrait beside the stats card from `sm` up. */
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { cn, shouldBlur, formatBirthday } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayName } from "@/lib/original"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { CollectionRating } from "@/components/category/CollectionRating"
+import { CollectionControls } from "@/components/category/CollectionControls"
 import { ICON } from "@/lib/icons"
 import { enumLabel } from "@/lib/enums"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
-import { Lightbox } from "@/components/common/Lightbox"
-import { ImageWithFallback } from "@/components/common/ImageWithFallback"
+import { InfoCard, TitledCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
+import { DetailCover } from "@/components/detail/DetailCover"
 import type { Character } from "@/lib/types"
 
 interface CharacterInfoPanelProps {
@@ -20,14 +19,13 @@ interface CharacterInfoPanelProps {
   sexualLevel: string
   violenceLevel: string
   spoilerLevel: 0 | 1 | 2
-  mobile?: boolean
+  /** Inline arrangement for the stacked layout (portrait left of the stats card from `sm` up). */
+  inline?: boolean
 }
 
 export function CharacterInfoPanel({
-  character, sexualLevel, violenceLevel, spoilerLevel, mobile
+  character, sexualLevel, violenceLevel, spoilerLevel, inline
 }: CharacterInfoPanelProps) {
-  const [coverOpen, setCoverOpen] = useState(false)
-  const [imgLoaded, setImgLoaded] = useState(false)
   const { showOriginal } = useSearchContext()
 
   const blur = character.image
@@ -51,20 +49,15 @@ export function CharacterInfoPanel({
     character.bust != null || character.waist != null || character.hips != null ||
     !!cup || !!character.blood_type || character.aliases.length > 0
 
-  /* ─── Shared pieces — defined once so the desktop and mobile layouts show the
-   *     same data; only the cover arrangement differs. ───────────────────── */
+  /* ─── Shared pieces — defined once so the column and inline arrangements show
+   *     the same data; only the portrait placement differs. ──────────────── */
 
-  const lightbox = coverOpen && character.image && (
-    <Lightbox
-      images={[{ url: character.image.url, blurred: blur }]}
-      index={0}
-      onClose={() => setCoverOpen(false)}
-      onIndexChange={() => {}}
-    />
+  const cover = (
+    <DetailCover image={character.image} alt={character.name} blurred={blur} objectTop emptyLabel="No image" />
   )
 
   const physicalCard = hasPhysical && (
-    <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+    <InfoCard>
       {sexApparent && (
         <InfoRow label="Sex">
           <span className="flex items-center gap-1.5">
@@ -118,12 +111,11 @@ export function CharacterInfoPanel({
           <InlineList className="text-white/70" items={character.aliases} />
         </InfoRow>
       )}
-    </div>
+    </InfoCard>
   )
 
   const seiyuuCard = character.seiyuu.length > 0 && (
-    <div className="rounded-lg bg-surface border border-white/5 px-3 py-2">
-      <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Voiced by</p>
+    <TitledCard title="Voiced by">
       <div className="flex flex-col gap-1">
         {character.seiyuu.map((s, idx) => (
           <div key={`${s.id}-${idx}`} className="flex items-baseline gap-1.5">
@@ -136,42 +128,20 @@ export function CharacterInfoPanel({
           </div>
         ))}
       </div>
-    </div>
+    </TitledCard>
   )
 
-  const collection = (
-    <>
-      <CollectionButton type="character" id={character.id} />
-      <CollectionRating type="character" id={character.id} />
-    </>
-  )
+  const collection = <CollectionControls type="character" id={character.id} inline={inline} />
 
-  if (mobile) {
+  if (inline) {
     return (
       <div className="flex flex-col gap-3">
-        {/* Phones (< sm): cover centred on top, info card full-width below.
-            From sm up: cover left, info right. */}
+        {/* Phones (< sm): portrait centred on top, stats card full-width below.
+            From sm up: portrait left, stats right. */}
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <div className="w-36 shrink-0 sm:w-28">
-            <div
-              className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer"
-              onClick={() => character.image && setCoverOpen(true)}
-            >
-              {character.image ? (
-                <ImageWithFallback
-                  src={character.image.url}
-                  alt={character.name}
-                  fill
-                  className={cn("object-cover object-top", blur && "blur-xl scale-105")}
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No image</div>
-              )}
-            </div>
-          </div>
+          <div className="w-36 shrink-0 sm:w-28">{cover}</div>
           {physicalCard && <div className="w-full min-w-0 sm:flex-1">{physicalCard}</div>}
         </div>
-        {lightbox}
         {seiyuuCard}
         {collection}
       </div>
@@ -180,37 +150,7 @@ export function CharacterInfoPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <div
-        className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer group"
-        onClick={() => character.image && setCoverOpen(true)}
-      >
-        {character.image ? (
-          <>
-            <ImageWithFallback
-              src={character.image.url}
-              alt={character.name}
-              fill
-              className={cn(
-                "object-cover object-top transition-all duration-300",
-                !imgLoaded && "opacity-0",
-                blur && "blur-xl scale-105"
-              )}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => setImgLoaded(true)}
-            />
-            {!imgLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No image</div>
-        )}
-      </div>
-
-      {lightbox}
+      {cover}
       {physicalCard}
       {seiyuuCard}
       {collection}

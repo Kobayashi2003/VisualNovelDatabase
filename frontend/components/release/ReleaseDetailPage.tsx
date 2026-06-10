@@ -1,4 +1,6 @@
-/** Release detail page: info sidebar + linked VNs + producers + image gallery. */
+/** Release detail page: info sidebar (metadata + linked VNs + producers) with
+ *  notes and the image gallery as the body. Releases often have neither notes
+ *  nor images, in which case the shell stacks the page at every width. */
 "use client"
 
 import { useState } from "react"
@@ -9,13 +11,12 @@ import type { Release } from "@/lib/types"
 import { useEntity } from "@/hooks/useEntity"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
-import { Section } from "@/components/common/InfoPrimitives"
 import { ReleaseInfoPanel } from "./ReleaseInfoPanel"
 import { ReleaseImageGallery } from "./ReleaseImageGallery"
-import { ReleaseLinkedVNs } from "./ReleaseLinkedVNs"
-import { ReleaseProducers } from "./ReleaseProducers"
 
 interface ReleaseDetailPageProps {
   id: number
@@ -41,51 +42,39 @@ export function ReleaseDetailPage({ id }: ReleaseDetailPageProps) {
     />
   )
 
+  const hasBody = !!release.notes || release.images.length > 0
+
   return (
-    <DetailLayout
+    <DetailShell
+      header={
+        <DetailHeader
+          icon={mainLang && LANG_ICON[mainLang.lang] && <span className={LANG_ICON[mainLang.lang]} />}
+          title={displayTitle(release, showOriginal)}
+        />
+      }
       aside={<>{levelSelectors("col")}<ReleaseInfoPanel release={release} /></>}
-      mobileAside={<>{levelSelectors("row")}<ReleaseInfoPanel release={release} /></>}
+      inlineAside={<>{levelSelectors("row")}<ReleaseInfoPanel release={release} /></>}
+      hasBody={hasBody}
     >
-      <div className="flex flex-col gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            {mainLang && LANG_ICON[mainLang.lang] && (
-              <span className={LANG_ICON[mainLang.lang]} />
-            )}
-            <h1 className="text-2xl font-bold text-white leading-tight">
-              {displayTitle(release, showOriginal)}
-            </h1>
-          </div>
+      {hasBody && (
+        <div className="flex flex-col gap-6">
+          {release.notes && (
+            <Section title="Notes">
+              <p className="text-sm text-white/80 whitespace-pre-wrap">{release.notes}</p>
+            </Section>
+          )}
+
+          {release.images.length > 0 && (
+            <Section title={`Images (${release.images.length})`}>
+              <ReleaseImageGallery
+                images={release.images}
+                sexualLevel={sexualLevel}
+                violenceLevel={violenceLevel}
+              />
+            </Section>
+          )}
         </div>
-
-        {release.notes && (
-          <Section title="Notes">
-            <p className="text-sm text-white/80 whitespace-pre-wrap">{release.notes}</p>
-          </Section>
-        )}
-
-        {release.vns.length > 0 && (
-          <Section title={`Visual Novels (${release.vns.length})`}>
-            <ReleaseLinkedVNs vns={release.vns} />
-          </Section>
-        )}
-
-        {release.producers && release.producers.length > 0 && (
-          <Section title="Producers" count={release.producers.length}>
-            <ReleaseProducers producers={release.producers} />
-          </Section>
-        )}
-
-        {release.images.length > 0 && (
-          <Section title={`Images (${release.images.length})`}>
-            <ReleaseImageGallery
-              images={release.images}
-              sexualLevel={sexualLevel}
-              violenceLevel={violenceLevel}
-            />
-          </Section>
-        )}
-      </div>
-    </DetailLayout>
+      )}
+    </DetailShell>
   )
 }

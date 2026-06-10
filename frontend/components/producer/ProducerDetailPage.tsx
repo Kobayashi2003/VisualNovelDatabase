@@ -1,16 +1,19 @@
-/** Producer detail page: info sidebar + description + paginated VN / release catalog. */
+/** Producer detail page (catalog kind): info sidebar + description + tabbed
+ *  VN / release grids. */
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { api } from "@/lib/api"
 import { displayName } from "@/lib/original"
 import type { Producer } from "@/lib/types"
 import { useEntity } from "@/hooks/useEntity"
+import { useDetailTabs } from "@/hooks/useDetailTabs"
 import { useSearchContext } from "@/context/SearchContext"
 import { useUserContext } from "@/context/UserContext"
-import { DetailLayout, DetailStatus } from "@/components/common/DetailLayout"
+import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
-import { Section } from "@/components/common/InfoPrimitives"
 import { BBCodeText } from "@/components/common/BBCodeText"
 import { EntityCardSection } from "@/components/common/EntityCardSection"
 import { TabBar } from "@/components/common/TabBar"
@@ -30,45 +33,15 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
   const { defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const [sexualLevel, setSexualLevel] = useState(defaultSexualLevel)
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
-  const [activeTab, setActiveTab] = useState<ProducerTab>("vns")
-  // null = count not loaded yet; a number once the eager count query resolves.
-  const [vnCount, setVnCount] = useState<number | null>(null)
-  const [releaseCount, setReleaseCount] = useState<number | null>(null)
 
-  // Eagerly fetch every tab's count together, so the tab bar is consistent
-  // and empty tabs can be hidden.
-  useEffect(() => {
-    if (!producer) return
-    let cancelled = false
-    setVnCount(null)
-    setReleaseCount(null)
-    Promise.all([
-      api.small.vn({ developer: producer.id, limit: 1 }),
-      api.small.release({ producer: producer.id, limit: 1 }),
-    ])
-      .then(([vnRes, relRes]) => {
-        if (cancelled) return
-        setVnCount(vnRes.count)
-        setReleaseCount(relRes.count)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [producer])
+  const { tabs, active, setActive } = useDetailTabs<ProducerTab>(producer?.id, [
+    { value: "vns", label: "Visual Novels", fetchCount: () => api.small.vn({ developer: producer!.id, limit: 1 }) },
+    { value: "releases", label: "Releases", fetchCount: () => api.small.release({ producer: producer!.id, limit: 1 }) },
+  ])
 
   if (loading || error || !producer) return <DetailStatus loading={loading} error={error} />
 
   /* ── Render ────────────────────────────────────────────────────────────── */
-
-  // Tab bar: a tab with a known count of 0 is hidden; a tab still loading
-  // (count null) stays visible without a badge.
-  const tabDefs: { value: ProducerTab; label: string; count: number | null }[] = [
-    { value: "vns", label: "Visual Novels", count: vnCount },
-    { value: "releases", label: "Releases", count: releaseCount },
-  ]
-  const visibleTabs = tabDefs.filter(t => t.count == null || t.count > 0)
-  const effectiveTab = visibleTabs.some(t => t.value === activeTab)
-    ? activeTab
-    : visibleTabs[0]?.value
 
   const levelSelectors = (direction: "row" | "col") => (
     <ContentLevelSelectors
@@ -79,17 +52,12 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
   )
 
   return (
-    <DetailLayout
+    <DetailShell
+      header={<DetailHeader title={displayName(producer, showOriginal)} />}
       aside={<>{levelSelectors("col")}<ProducerInfoPanel producer={producer} /></>}
-      mobileAside={<>{levelSelectors("row")}<ProducerInfoPanel producer={producer} /></>}
+      inlineAside={<>{levelSelectors("row")}<ProducerInfoPanel producer={producer} inline /></>}
     >
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white leading-tight">
-            {displayName(producer, showOriginal)}
-          </h1>
-        </div>
-
         {producer.description && (
           <Section title="Description">
             <BBCodeText text={producer.description} collapsible />
@@ -97,16 +65,16 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
         )}
 
         <div>
-          {visibleTabs.length > 0 && (
+          {tabs.length > 0 && (
             <div className="mb-3">
               <TabBar
-                tabs={visibleTabs.map(t => ({ value: t.value, label: t.label, count: t.count ?? undefined }))}
-                active={effectiveTab ?? ""}
-                onChange={v => setActiveTab(v as ProducerTab)}
+                tabs={tabs}
+                active={active ?? ""}
+                onChange={v => setActive(v as ProducerTab)}
               />
             </div>
           )}
-          {effectiveTab === "vns" ? (
+          {active === "vns" ? (
             <EntityCardSection
               query={{ developer: producer.id, sort: "released", reverse: true }}
               fetcher={api.small.vn}
@@ -116,13 +84,13 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
               loadingMessage="Loading visual novels..."
               emptyMessage="No visual novels found."
             />
-          ) : effectiveTab === "releases" ? (
+          ) : active === "releases" ? (
             <ProducerReleases producerId={producer.id} producerLang={producer.lang} />
           ) : (
             <p className="text-sm text-muted">No visual novels or releases found.</p>
           )}
         </div>
       </div>
-    </DetailLayout>
+    </DetailShell>
   )
 }

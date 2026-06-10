@@ -1,15 +1,14 @@
-/** Tag detail sidebar: category / VN count / aliases, collection button. */
+/** Tag detail sidebar: category / VN count / aliases, collection controls. */
 
 import { enumLabel } from "@/lib/enums"
 import type { Tag } from "@/lib/types"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { CollectionRating } from "@/components/category/CollectionRating"
+import { InfoCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
+import { CollectionControls } from "@/components/category/CollectionControls"
 
-export function TagInfoPanel({ tag }: { tag: Tag }) {
+export function TagInfoPanel({ tag, inline }: { tag: Tag; inline?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+      <InfoCard>
         {tag.category && (
           <InfoRow label="Category">{enumLabel('CATEGORY', tag.category)}</InfoRow>
         )}
@@ -19,9 +18,8 @@ export function TagInfoPanel({ tag }: { tag: Tag }) {
             <InlineList className="text-white/70" items={tag.aliases} />
           </InfoRow>
         )}
-      </div>
-      <CollectionButton type="tag" id={tag.id} />
-      <CollectionRating type="tag" id={tag.id} />
+      </InfoCard>
+      <CollectionControls type="tag" id={tag.id} inline={inline} />
     </div>
   )
 }

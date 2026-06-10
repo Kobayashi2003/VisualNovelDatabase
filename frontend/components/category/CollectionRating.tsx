@@ -1,5 +1,5 @@
-/** "My Rating" star control on detail pages — reads and edits the user's
- *  personal 1–5 rating for the entity. */
+/** The user's personal 1–5 rating for an entity: the shared state hook plus
+ *  the "My Rating" star row used in detail sidebars. */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -10,12 +10,8 @@ import { StarRating } from "@/components/common/StarRating"
 
 type ResourceType = "vn" | "release" | "character" | "producer" | "staff" | "tag" | "trait"
 
-interface CollectionRatingProps {
-  type: ResourceType
-  id: string
-}
-
-export function CollectionRating({ type, id }: CollectionRatingProps) {
+/** Loads the user's rating and exposes an optimistic setter (0 clears). */
+export function useMyRating(type: ResourceType, id: string) {
   const { user } = useUserContext()
   const [rating, setRating] = useState(0)
   const markId = parseInt(id.replace(new RegExp(`^${COLLECTION_TYPE_MAP[type].route}`), ""), 10)
@@ -29,9 +25,7 @@ export function CollectionRating({ type, id }: CollectionRatingProps) {
     return () => { cancelled = true }
   }, [user, type, markId])
 
-  if (!user) return null
-
-  const handleChange = async (value: number) => {
+  const changeRating = async (value: number) => {
     const prev = rating
     setRating(value)
     try {
@@ -42,11 +36,24 @@ export function CollectionRating({ type, id }: CollectionRatingProps) {
     }
   }
 
+  return { rating, changeRating }
+}
+
+interface CollectionRatingProps {
+  type: ResourceType
+  id: string
+}
+
+export function CollectionRating({ type, id }: CollectionRatingProps) {
+  const { user } = useUserContext()
+  const { rating, changeRating } = useMyRating(type, id)
+
+  if (!user) return null
+
   return (
-    <div className="mt-3 flex items-center gap-2">
-      {/* Label is redundant on the compact small-screen panels — stars alone read fine. */}
-      <span className="hidden lg:inline text-sm text-muted">My Rating</span>
-      <StarRating value={rating} onChange={handleChange} size={20} />
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted">My Rating</span>
+      <StarRating value={rating} onChange={changeRating} size={20} />
     </div>
   )
 }

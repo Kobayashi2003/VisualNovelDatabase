@@ -15,9 +15,10 @@ type ResourceType = "vn" | "release" | "character" | "producer" | "staff" | "tag
 interface CollectionButtonProps {
   type: ResourceType
   id: string
+  className?: string
 }
 
-export function CollectionButton({ type, id }: CollectionButtonProps) {
+export function CollectionButton({ type, id, className }: CollectionButtonProps) {
   const { user } = useUserContext()
   const [categories, setCategories] = useState<Category[]>([])
   const [open, setOpen] = useState(false)
@@ -56,7 +57,7 @@ export function CollectionButton({ type, id }: CollectionButtonProps) {
   }
 
   return (
-    <div className="mt-3">
+    <div className={className}>
       <button
         onClick={() => setOpen(true)}
         className={cn(

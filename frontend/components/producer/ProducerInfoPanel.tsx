@@ -1,20 +1,19 @@
-/** Producer detail sidebar: type / language / aliases, links, collection button. */
+/** Producer detail sidebar: type / language / aliases, links, collection controls. */
 
 import { enumLabel } from "@/lib/enums"
 import type { Producer } from "@/lib/types"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
+import { InfoCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { CollectionRating } from "@/components/category/CollectionRating"
+import { CollectionControls } from "@/components/category/CollectionControls"
 
-export function ProducerInfoPanel({ producer }: { producer: Producer }) {
+export function ProducerInfoPanel({ producer, inline }: { producer: Producer; inline?: boolean }) {
   const hasInfo = producer.type || producer.lang || producer.aliases.length > 0
 
   return (
     <div className="flex flex-col gap-3">
       {hasInfo && (
-        <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+        <InfoCard>
           {producer.type && (
             <InfoRow label="Type">{enumLabel('TYPE', producer.type)}</InfoRow>
           )}
@@ -28,13 +27,12 @@ export function ProducerInfoPanel({ producer }: { producer: Producer }) {
               <InlineList className="text-white/70" items={producer.aliases} />
             </InfoRow>
           )}
-        </div>
+        </InfoCard>
       )}
 
       <ExtLinks links={producer.extlinks} />
 
-      <CollectionButton type="producer" id={producer.id} />
-      <CollectionRating type="producer" id={producer.id} />
+      <CollectionControls type="producer" id={producer.id} inline={inline} />
     </div>
   )
 }

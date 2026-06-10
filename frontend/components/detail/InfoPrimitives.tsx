@@ -1,6 +1,48 @@
-/** Layout primitives for detail-page info panels: label row, inline list, section heading. */
+/** Layout primitives shared by the detail pages: the sidebar card surfaces,
+ *  label/value rows, inline lists, and main-column section headings. */
 
+import { cn } from "@/lib/utils"
 import { ChevronRight } from "lucide-react"
+
+
+/* ─── InfoCard — the sidebar card surface ──────────────────────────────────── */
+
+/** The rounded surface every sidebar card sits on. `padding="rows"` is for a
+ *  stack of `InfoRow`s (they carry their own vertical padding); `"block"` is
+ *  for free-form content such as a `TitledCard` body. */
+export function InfoCard({ padding = "rows", className, children }: {
+  padding?: "rows" | "block"
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn(
+      "rounded-lg bg-surface border border-white/5",
+      padding === "rows" ? "px-3 py-1" : "px-3 py-2",
+      className,
+    )}>
+      {children}
+    </div>
+  )
+}
+
+/** An `InfoCard` with the standard mini heading (uppercase muted label) and an
+ *  optional right-aligned action — e.g. the VN sidebar's Relations card. */
+export function TitledCard({ title, action, children }: {
+  title: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <InfoCard padding="block">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wider">{title}</p>
+        {action}
+      </div>
+      {children}
+    </InfoCard>
+  )
+}
 
 
 /* ─── InfoRow — label + value row ──────────────────────────────────────────── */

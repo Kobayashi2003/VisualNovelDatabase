@@ -1,4 +1,6 @@
-/** VN detail sidebar: cover, rating + status + metadata card, relations, links, collection button. */
+/** VN detail sidebar: cover, rating + status + metadata card, relations, links,
+ *  collection controls. The `inline` arrangement (stacked layout) puts the
+ *  cover beside the info card from `sm` up. */
 "use client"
 
 import { useState } from "react"
@@ -7,33 +9,27 @@ import { Eye, EyeOff, Network } from "lucide-react"
 import { cn, shouldBlur, formatPlaytime } from "@/lib/utils"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle, displayName } from "@/lib/original"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { CollectionRating } from "@/components/category/CollectionRating"
+import { CollectionControls } from "@/components/category/CollectionControls"
 import { enumMap } from "@/lib/enums"
 import { ICON } from "@/lib/icons"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
+import { InfoCard, TitledCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
+import { DetailCover } from "@/components/detail/DetailCover"
 import { LanguageIcons } from "@/components/common/LanguageIcons"
 import { PlatformIcons } from "@/components/common/PlatformIcons"
 import { ExtLinks } from "@/components/common/ExtLinks"
-import { Lightbox } from "@/components/common/Lightbox"
-import { ImageWithFallback } from "@/components/common/ImageWithFallback"
 import type { VN } from "@/lib/types"
-
-
-/* ─── Main panel ───────────────────────────────────────────────────────────── */
 
 interface VNInfoPanelProps {
   vn: VN
   sexualLevel: string
   violenceLevel: string
-  mobile?: boolean
+  /** Inline arrangement for the stacked layout (cover left of the info card from `sm` up). */
+  inline?: boolean
 }
 
-export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPanelProps) {
+export function VNInfoPanel({ vn, sexualLevel, violenceLevel, inline }: VNInfoPanelProps) {
   const [ratingHidden, setRatingHidden] = useState(true)
-  const [coverOpen, setCoverOpen] = useState(false)
   const blur = vn.image ? shouldBlur(vn.image.sexual, vn.image.violence, sexualLevel, violenceLevel) : false
-  const [imgLoaded, setImgLoaded] = useState(false)
 
   const DEVSTATUS = enumMap('DEVSTATUS')
   const LENGTH = enumMap('LENGTH')
@@ -55,22 +51,15 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
     return acc
   }, {})
 
-  /* ─── Shared pieces — defined once so the desktop and mobile layouts show the
-   *     same data; only the cover arrangement differs. ───────────────────── */
+  /* ─── Shared pieces — defined once so the column and inline arrangements show
+   *     the same data; only the cover placement differs. ─────────────────── */
 
-  const lightbox = coverOpen && vn.image && (
-    <Lightbox
-      images={[{ url: vn.image.url, blurred: blur }]}
-      index={0}
-      onClose={() => setCoverOpen(false)}
-      onIndexChange={() => { }}
-    />
-  )
+  const cover = <DetailCover image={vn.image} alt={vn.title} blurred={blur} />
 
-  // Rating + dev status now live as the first rows of the info card rather than
+  // Rating + dev status live as the first rows of the info card rather than
   // floating above it. Rating stays blurred until the eye toggle reveals it.
   const metaCard = (
-    <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+    <InfoCard>
       <InfoRow label="Rating">
         <span className="flex items-center gap-1.5 w-full">
           {vn.average != null ? (
@@ -162,13 +151,13 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           <InlineList className="text-white/70" items={vn.aliases} />
         </InfoRow>
       )}
-    </div>
+    </InfoCard>
   )
 
   const relationsCard = Object.keys(relationGroups).length > 0 && (
-    <div className="rounded-lg bg-surface border border-white/5 px-3 py-2">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-muted uppercase tracking-wider">Relations</p>
+    <TitledCard
+      title="Relations"
+      action={
         <Link
           href={`/${vn.id}/rg`}
           className="flex items-center gap-1 text-[11px] text-muted hover:text-accent transition-colors"
@@ -176,7 +165,8 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           <Network className="w-3 h-3" />
           Graph
         </Link>
-      </div>
+      }
+    >
       {Object.entries(relationGroups).map(([relType, items]) => (
         <div key={relType} className="mb-2 last:mb-0">
           <p className="text-xs text-muted mb-1">{relType}</p>
@@ -201,47 +191,27 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
           </div>
         </div>
       ))}
-    </div>
+    </TitledCard>
   )
 
-  const extLinksBlock = vn.extlinks.length > 0 && <ExtLinks links={vn.extlinks} />
-
-  // Cards + links + collection controls below the cover — identical in both layouts.
+  // Cards + links + collection controls below the cover — identical in both arrangements.
   const belowCover = (
     <>
       {relationsCard}
-      {extLinksBlock}
-      <CollectionButton type="vn" id={vn.id} />
-      <CollectionRating type="vn" id={vn.id} />
+      {vn.extlinks.length > 0 && <ExtLinks links={vn.extlinks} />}
+      <CollectionControls type="vn" id={vn.id} inline={inline} />
     </>
   )
 
-  if (mobile) {
+  if (inline) {
     return (
       <div className="flex flex-col gap-3">
         {/* Phones (< sm): cover centred on top, info card full-width below.
             From sm up: cover left, info right. */}
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <div className="w-40 shrink-0 sm:w-32">
-            <div
-              className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer"
-              onClick={() => vn.image && setCoverOpen(true)}
-            >
-              {vn.image ? (
-                <ImageWithFallback
-                  src={vn.image.thumbnail || vn.image.url}
-                  alt={vn.title}
-                  fill
-                  className={cn("object-cover", blur && "blur-xl scale-105")}
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No cover</div>
-              )}
-            </div>
-          </div>
+          <div className="w-40 shrink-0 sm:w-32">{cover}</div>
           <div className="w-full min-w-0 sm:flex-1">{metaCard}</div>
         </div>
-        {lightbox}
         {belowCover}
       </div>
     )
@@ -249,37 +219,7 @@ export function VNInfoPanel({ vn, sexualLevel, violenceLevel, mobile }: VNInfoPa
 
   return (
     <div className="flex flex-col gap-3">
-      <div
-        className="relative w-full aspect-3/4 rounded-lg overflow-hidden bg-elevated cursor-pointer group"
-        onClick={() => vn.image && setCoverOpen(true)}
-      >
-        {vn.image ? (
-          <>
-            <ImageWithFallback
-              src={vn.image.thumbnail || vn.image.url}
-              alt={vn.title}
-              fill
-              className={cn(
-                "object-cover transition-all duration-300",
-                !imgLoaded && "opacity-0",
-                blur && "blur-xl scale-105"
-              )}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => setImgLoaded(true)}
-            />
-            {!imgLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No cover</div>
-        )}
-      </div>
-
-      {lightbox}
+      {cover}
       {metaCard}
       {belowCover}
     </div>

@@ -1,14 +1,13 @@
-/** Trait detail sidebar: group / character count / aliases, collection button. */
+/** Trait detail sidebar: group / character count / aliases, collection controls. */
 
 import type { Trait } from "@/lib/types"
-import { InfoRow, InlineList } from "@/components/common/InfoPrimitives"
-import { CollectionButton } from "@/components/category/CollectionButton"
-import { CollectionRating } from "@/components/category/CollectionRating"
+import { InfoCard, InfoRow, InlineList } from "@/components/detail/InfoPrimitives"
+import { CollectionControls } from "@/components/category/CollectionControls"
 
-export function TraitInfoPanel({ trait }: { trait: Trait }) {
+export function TraitInfoPanel({ trait, inline }: { trait: Trait; inline?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg bg-surface border border-white/5 px-3 py-1">
+      <InfoCard>
         {trait.group_name && (
           <InfoRow label="Group">{trait.group_name}</InfoRow>
         )}
@@ -18,9 +17,8 @@ export function TraitInfoPanel({ trait }: { trait: Trait }) {
             <InlineList className="text-white/70" items={trait.aliases} />
           </InfoRow>
         )}
-      </div>
-      <CollectionButton type="trait" id={trait.id} />
-      <CollectionRating type="trait" id={trait.id} />
+      </InfoCard>
+      <CollectionControls type="trait" id={trait.id} inline={inline} />
     </div>
   )
 }

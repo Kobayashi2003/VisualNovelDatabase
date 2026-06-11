@@ -4,10 +4,9 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Languages, RefreshCw, SlidersHorizontal } from "lucide-react"
+import { Languages, RefreshCw, Search, SlidersHorizontal } from "lucide-react"
 import { useSearchContext } from "@/context/SearchContext"
 import { SearchBar } from "@/components/input/SearchBar"
-import { SubmitButton } from "@/components/button/SubmitButton"
 import { IconButton } from "@/components/button/IconButton"
 import { SearchPanel } from "@/components/panel/SearchPanel"
 import { FilterState, buildInitialState } from "@/lib/config"
@@ -120,7 +119,7 @@ export function SearchHeader({ hidden = false, className }: SearchHeaderProps) {
         />
       </form>
 
-      <SubmitButton handleSubmit={handleSubmit} disabled={hidden} />
+      <IconButton icon={<Search className="w-4 h-4" />} onClick={handleSubmit} disabled={hidden} ariaLabel="Search" />
 
       <IconButton
         icon={<SlidersHorizontal className="w-4 h-4" />}

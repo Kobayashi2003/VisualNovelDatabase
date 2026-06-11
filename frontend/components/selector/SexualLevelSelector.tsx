@@ -1,12 +1,12 @@
 /** Tri-state selector for the sexual-content tolerance (safe / suggestive / explicit). */
 
-import { cn } from "@/lib/utils"
 import type { SexualLevel } from "@/lib/types"
+import { Segmented, type SegmentedOption } from "./Segmented"
 
-const LEVELS: { value: SexualLevel; label: string; short: string }[] = [
+const LEVELS: SegmentedOption<SexualLevel>[] = [
   { value: "safe", label: "Safe", short: "Safe" },
-  { value: "suggestive", label: "Suggestive", short: "Sugg" },
-  { value: "explicit", label: "Explicit", short: "Expl" },
+  { value: "suggestive", label: "Suggestive", short: "Sugg", activeClass: "bg-yellow-500/80 text-white" },
+  { value: "explicit", label: "Explicit", short: "Expl", activeClass: "bg-red-500/80 text-white" },
 ]
 
 interface SexualLevelSelectorProps {
@@ -16,30 +16,5 @@ interface SexualLevelSelectorProps {
 }
 
 export function SexualLevelSelector({ sexualLevel, setSexualLevel, className }: SexualLevelSelectorProps) {
-  return (
-    <div className={cn(
-      "flex items-center rounded-full border border-white/10 overflow-hidden",
-      className
-    )}>
-      {LEVELS.map((level) => (
-        <button
-          key={level.value}
-          onClick={() => setSexualLevel(level.value)}
-          className={cn(
-            "flex-1 px-2.5 py-1.5 text-xs font-medium text-center transition-all duration-200",
-            sexualLevel === level.value
-              ? level.value === "explicit"
-                ? "bg-red-500/80 text-white"
-                : level.value === "suggestive"
-                ? "bg-yellow-500/80 text-white"
-                : "bg-white/20 text-white"
-              : "text-muted hover:text-white hover:bg-white/10"
-          )}
-        >
-          <span className="sm:hidden">{level.short}</span>
-          <span className="hidden sm:inline">{level.label}</span>
-        </button>
-      ))}
-    </div>
-  )
+  return <Segmented value={sexualLevel} onChange={setSexualLevel} options={LEVELS} className={className} />
 }

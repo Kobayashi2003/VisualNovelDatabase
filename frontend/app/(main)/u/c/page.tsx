@@ -6,13 +6,17 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   LayoutGrid, LayoutList, AlignJustify, Rows3, ArrowDown, ArrowUp,
   Pencil, Menu, Lock, Library, X, ChevronDown, Search,
-  CheckSquare, Square, FolderInput, Trash2,
 } from "lucide-react"
 
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { useUserContext } from "@/context/UserContext"
 import { api } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, numericId } from "@/lib/utils"
+import { dedupeLatestMarks, sortMarksByDate, reorderById } from "@/lib/marks"
+import {
+  SORT_OPTIONS, LOCAL_SORTS, VIEW_MODES, SHELF_SUPPORTED_TYPES,
+  prefixForType, type ViewMode,
+} from "@/lib/collections"
 import { PAGE_LIMIT, COLLECTION_TYPE_MAP } from "@/lib/constants"
 import type {
   Category, Mark,
@@ -31,45 +35,18 @@ import {
 } from "@/components/card/CardsGrid"
 import { CardsShelfRow } from "@/components/card/CardsShelfRow"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
-import { Loading } from "@/components/status/Loading"
+import { Loading } from "@/components/status/StatusPanel"
+import { EditModeBar } from "./_components/EditModeBar"
 
 
-/* ─── Sort options per entity type ─────────────────────────────────────────── */
-// Collection-specific sorts (note: "date_added" is local-only).
-
-const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
-  vn:        [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "rating", label: "Rating" }, { value: "released", label: "Released" }, { value: "my_rating", label: "My Rating" }],
-  release:   [{ value: "date_added", label: "Date Added" }, { value: "title", label: "Title" }, { value: "released", label: "Released" }, { value: "my_rating", label: "My Rating" }],
-  character: [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
-  producer:  [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
-  staff:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
-  tag:       [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
-  trait:     [{ value: "date_added", label: "Date Added" }, { value: "name", label: "Name" }, { value: "my_rating", label: "My Rating" }],
-}
-
-// Sorts computed locally from marks/ratings rather than by VNDB. They have no
-// honest answer alongside a text search (VNDB does the filtering), so they are
-// disabled while a search is active — mirroring the existing date_added rule.
-const LOCAL_SORTS = new Set(["date_added", "my_rating"])
-
-
-/* ─── Helpers ──────────────────────────────────────────────────────────────── */
-
-type ViewMode = "grid" | "list" | "compact" | "shelf"
-const VIEW_MODES: ViewMode[] = ["grid", "list", "compact", "shelf"]
-
-// "Shelf" mode is offered only for image-backed entities viewed across all
-// collections — text-only types make a thin horizontal strip look empty.
-const SHELF_SUPPORTED_TYPES = new Set(["vn", "character"])
+/* ─── Grid dispatch ────────────────────────────────────────────────────────── */
+// Maps an entity type to its card grid; the only render code the page keeps
+// inline, since it threads the page's content-level + collection chrome props.
 
 interface CollectionGridProps extends CollectionCardProps {
   view: ViewMode
   sexualLevel?: "safe" | "suggestive" | "explicit"
   violenceLevel?: "tame" | "violent" | "brutal"
-}
-
-function prefixForType(type: string): string {
-  return COLLECTION_TYPE_MAP[type]?.route ?? ""
 }
 
 function renderCollectionGrid(type: string, items: unknown[], props: CollectionGridProps) {
@@ -197,27 +174,12 @@ function CollectionContent() {
      userserve aggregation — otherwise the date-added badge on a card and the
      page-order from userserve can disagree. */
   const allMarks = useMemo<Mark[]>(() => {
+    const dir = order === "asc" ? "asc" : "desc"
     if (activeCategory === "all") {
-      const byId = new Map<number, Mark>()
-      for (const cat of categories) {
-        for (const m of cat.marks) {
-          const cur = byId.get(m.id)
-          if (!cur || m.marked_at > cur.marked_at) byId.set(m.id, m)
-        }
-      }
-      return Array.from(byId.values()).sort((a, b) =>
-        order === "asc"
-          ? new Date(a.marked_at).getTime() - new Date(b.marked_at).getTime()
-          : new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime()
-      )
+      return sortMarksByDate(dedupeLatestMarks(categories.flatMap(c => c.marks)), dir)
     }
     const cat = categories.find(c => c.id === activeCategory)
-    if (!cat) return []
-    return [...cat.marks].sort((a, b) =>
-      order === "asc"
-        ? new Date(a.marked_at).getTime() - new Date(b.marked_at).getTime()
-        : new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime()
-    )
+    return cat ? sortMarksByDate(cat.marks, dir) : []
   }, [categories, activeCategory, order])
 
   // Lookup table: `${prefix}${id}` → marked_at, used to render date badges.
@@ -326,11 +288,7 @@ function CollectionContent() {
             return
           }
           const data = await api.small.byIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
-          const idMap = new Map(data.results.map((item: { id: string }) => [
-            parseInt(item.id.replace(/^[a-z]+/, "")),
-            item,
-          ]))
-          const ordered = pageIds.map(id => idMap.get(id)).filter(Boolean)
+          const ordered = reorderById(data.results as { id: string }[], pageIds)
           setItems(ordered)
           setTotalCount(marksPage.count ?? ordered.length)
         } else if (sort === "my_rating" && !q) {
@@ -352,11 +310,7 @@ function CollectionContent() {
             return
           }
           const data = await api.small.byIdsForType(type, pageIds, { limit: PAGE_LIMIT }, ctrl.signal)
-          const idMap = new Map(data.results.map((item: { id: string }) => [
-            parseInt(item.id.replace(/^[a-z]+/, "")),
-            item,
-          ]))
-          setItems(pageIds.map(id => idMap.get(id)).filter(Boolean))
+          setItems(reorderById(data.results as { id: string }[], pageIds))
           setTotalCount(total)
         } else {
           const allIds = allMarks.map(m => m.id)
@@ -394,7 +348,7 @@ function CollectionContent() {
   // Optimistically update the rating map; revert on failure. `value === 0`
   // clears the rating (StarRating emits 0 when the current star is re-clicked).
   const handleRate = async (itemId: string, value: number) => {
-    const markId = parseInt(itemId.replace(/^[a-z]+/, ""))
+    const markId = numericId(itemId)
     const prev = ratings[markId] ?? 0
     if (value === prev) return
     setRatings(cur => {
@@ -417,7 +371,7 @@ function CollectionContent() {
   }
 
   const handleRemove = async (itemId: string) => {
-    const markId = parseInt(itemId.replace(/^[a-z]+/, ""))
+    const markId = numericId(itemId)
     if (activeCategory === "all") {
       // In "All" view we have to discover which category currently owns this mark.
       const cat = categories.find(c => c.marks.some(m => m.id === markId))
@@ -437,7 +391,7 @@ function CollectionContent() {
   const handleMoveConfirm = async (targetCategoryId: number) => {
     const fromCategoryId = activeCategory === "all" ? null : (activeCategory as number)
     if (moveSingleId) {
-      const markId = parseInt(moveSingleId.replace(/^[a-z]+/, ""))
+      const markId = numericId(moveSingleId)
       const sourceCat = fromCategoryId != null
         ? fromCategoryId
         : categories.find(c => c.marks.some(m => m.id === markId))?.id
@@ -445,7 +399,7 @@ function CollectionContent() {
         await api.category.moveMarks(type, sourceCat, targetCategoryId, [markId])
       }
     } else if (selectedIds.size > 0) {
-      const markIds = Array.from(selectedIds).map(id => parseInt(id.replace(/^[a-z]+/, "")))
+      const markIds = Array.from(selectedIds).map(numericId)
       if (fromCategoryId != null) {
         await api.category.moveMarks(type, fromCategoryId, targetCategoryId, markIds)
       }
@@ -458,7 +412,7 @@ function CollectionContent() {
   }
 
   const handleBatchDelete = async () => {
-    const markIds = Array.from(selectedIds).map(id => parseInt(id.replace(/^[a-z]+/, "")))
+    const markIds = Array.from(selectedIds).map(numericId)
     if (activeCategory === "all") {
       // Marks may live across several categories; remove from each in parallel.
       const groups = new Map<number, number[]>()
@@ -857,71 +811,16 @@ function CollectionContent() {
 
       {/* Floating batch action bar (Spotify-style) */}
       {user && editMode && (
-        <div className="fixed bottom-4 left-0 lg:left-64 right-0 z-40 flex justify-center px-3 pointer-events-none">
-          <div
-            className={cn(
-              "pointer-events-auto flex items-center gap-1 p-1.5",
-              "rounded-full bg-elevated/95 backdrop-blur-xl",
-              "border border-white/15 shadow-2xl shadow-black/60",
-              "transition-all duration-200 ease-out",
-              "animate-slide-up-fade"
-            )}
-          >
-            {/* Select all on current page */}
-            <button
-              onClick={handleToggleSelectAll}
-              disabled={currentPageIds.length === 0}
-              className="flex items-center justify-center p-2 rounded-full text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title={allCurrentSelected ? "Deselect all on page" : "Select all on page"}
-            >
-              {allCurrentSelected
-                ? <CheckSquare className="w-4 h-4 text-accent" />
-                : <Square className="w-4 h-4" />}
-            </button>
-
-            {/* Count */}
-            <span className="text-sm font-medium text-white px-2 min-w-22 text-center select-none tabular-nums">
-              {selectedIds.size} selected
-            </span>
-
-            <div className="w-px h-6 bg-white/15 mx-0.5" />
-
-            {/* Move */}
-            {canMove && (
-              <button
-                onClick={() => { setMoveSingleId(null); setMoveDialogOpen(true) }}
-                disabled={selectedIds.size === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                title="Move to another collection"
-              >
-                <FolderInput className="w-4 h-4" />
-                <span className="hidden sm:inline">Move</span>
-              </button>
-            )}
-
-            {/* Remove */}
-            <button
-              onClick={handleBatchDelete}
-              disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-red-400 hover:bg-red-500/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title="Remove from collection"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Remove</span>
-            </button>
-
-            <div className="w-px h-6 bg-white/15 mx-0.5" />
-
-            {/* Close edit mode */}
-            <button
-              onClick={() => { setEditMode(false); setSelectedIds(new Set()) }}
-              className="flex items-center justify-center p-2 rounded-full text-muted hover:text-white hover:bg-white/10 transition-colors"
-              title="Exit edit mode"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        <EditModeBar
+          selectedCount={selectedIds.size}
+          allCurrentSelected={allCurrentSelected}
+          hasCurrentPage={currentPageIds.length > 0}
+          canMove={canMove}
+          onToggleSelectAll={handleToggleSelectAll}
+          onMove={() => { setMoveSingleId(null); setMoveDialogOpen(true) }}
+          onDelete={handleBatchDelete}
+          onClose={() => { setEditMode(false); setSelectedIds(new Set()) }}
+        />
       )}
 
       {/* Move dialog */}

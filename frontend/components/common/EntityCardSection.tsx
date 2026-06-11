@@ -6,8 +6,7 @@
 import { useEffect, useRef, useState } from "react"
 import { PAGE_LIMIT } from "@/lib/constants"
 import type { VNDBQueryParams, PaginatedResponse } from "@/lib/types"
-import { Loading } from "@/components/status/Loading"
-import { ErrorPanel } from "@/components/status/ErrorPanel"
+import { Loading, ErrorPanel } from "@/components/status/StatusPanel"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 
 interface EntityCardSectionProps<T> {

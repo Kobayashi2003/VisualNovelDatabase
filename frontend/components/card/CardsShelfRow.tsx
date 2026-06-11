@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
+import { sortMarksByDate, reorderById } from "@/lib/marks"
 import { useSearchContext } from "@/context/SearchContext"
 import type { Category, Mark, SexualLevel, ViolenceLevel } from "@/lib/types"
 
@@ -46,9 +47,7 @@ export function CardsShelfRow({
 
   // Recent-first slice of the category's marks — the canonical card order.
   const recentMarks = useMemo<Mark[]>(
-    () => [...category.marks]
-      .sort((a, b) => new Date(b.marked_at).getTime() - new Date(a.marked_at).getTime())
-      .slice(0, limit),
+    () => sortMarksByDate(category.marks, "desc").slice(0, limit),
     [category.marks, limit],
   )
   // A value-comparable dep: `setCategories` hands back fresh array identities on
@@ -68,11 +67,7 @@ export function CardsShelfRow({
     api.small.byIdsForType(type, ids, { limit }, ctrl.signal)
       .then(data => {
         // Re-order results to match `ids` so the strip stays `marked_at desc`.
-        const idMap = new Map(data.results.map((item: { id: string }) => [
-          parseInt(item.id.replace(/^[a-z]+/, "")),
-          item,
-        ]))
-        setItems(ids.map(id => idMap.get(id)).filter(Boolean))
+        setItems(reorderById(data.results as { id: string }[], ids))
       })
       .catch(e => {
         if (e instanceof Error && e.name !== "AbortError") setItems([])

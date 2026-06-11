@@ -19,8 +19,7 @@
  *     at every width and the sidebar column disappears entirely. */
 
 import { cn } from "@/lib/utils"
-import { Loading } from "@/components/status/Loading"
-import { ErrorPanel } from "@/components/status/ErrorPanel"
+import { Loading, ErrorPanel } from "@/components/status/StatusPanel"
 
 /** Full-page loading / not-found screen, shown while a detail entity resolves. */
 export function DetailStatus({ loading, error }: { loading: boolean; error: string | null }) {

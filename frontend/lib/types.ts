@@ -290,7 +290,9 @@ export interface Character {
   hips?: number
   cup?: string
   age?: number
-  birthday?: [number, number]
+  // Stored as a String column on the backend, so it arrives as a JSON
+  // string like "[9,1]" ([month, day]). Parse via formatBirthday.
+  birthday?: [number, number] | string
   sex?: [string, string]
   vns: Array<{
     id: string

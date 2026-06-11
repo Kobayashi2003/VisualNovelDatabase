@@ -1,12 +1,12 @@
 /** Tri-state selector for the violence-content tolerance (tame / violent / brutal). */
 
-import { cn } from "@/lib/utils"
 import type { ViolenceLevel } from "@/lib/types"
+import { Segmented, type SegmentedOption } from "./Segmented"
 
-const LEVELS: { value: ViolenceLevel; label: string; short: string }[] = [
+const LEVELS: SegmentedOption<ViolenceLevel>[] = [
   { value: "tame", label: "Tame", short: "Tame" },
-  { value: "violent", label: "Violent", short: "Viol" },
-  { value: "brutal", label: "Brutal", short: "Brut" },
+  { value: "violent", label: "Violent", short: "Viol", activeClass: "bg-orange-500/80 text-white" },
+  { value: "brutal", label: "Brutal", short: "Brut", activeClass: "bg-red-800/80 text-white" },
 ]
 
 interface ViolenceLevelSelectorProps {
@@ -16,30 +16,5 @@ interface ViolenceLevelSelectorProps {
 }
 
 export function ViolenceLevelSelector({ violenceLevel, setViolenceLevel, className }: ViolenceLevelSelectorProps) {
-  return (
-    <div className={cn(
-      "flex items-center rounded-full border border-white/10 overflow-hidden",
-      className
-    )}>
-      {LEVELS.map((level) => (
-        <button
-          key={level.value}
-          onClick={() => setViolenceLevel(level.value)}
-          className={cn(
-            "flex-1 px-2.5 py-1.5 text-xs font-medium text-center transition-all duration-200",
-            violenceLevel === level.value
-              ? level.value === "brutal"
-                ? "bg-red-800/80 text-white"
-                : level.value === "violent"
-                ? "bg-orange-500/80 text-white"
-                : "bg-white/20 text-white"
-              : "text-muted hover:text-white hover:bg-white/10"
-          )}
-        >
-          <span className="sm:hidden">{level.short}</span>
-          <span className="hidden sm:inline">{level.label}</span>
-        </button>
-      ))}
-    </div>
-  )
+  return <Segmented value={violenceLevel} onChange={setViolenceLevel} options={LEVELS} className={className} />
 }

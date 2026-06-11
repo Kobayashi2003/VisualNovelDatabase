@@ -12,8 +12,7 @@ import { api } from "@/lib/api"
 import { useEntity } from "@/hooks/useEntity"
 import { useSearchContext } from "@/context/SearchContext"
 import { displayTitle } from "@/lib/original"
-import { Loading } from "@/components/status/Loading"
-import { ErrorPanel } from "@/components/status/ErrorPanel"
+import { Loading, ErrorPanel } from "@/components/status/StatusPanel"
 import type { RelationGraph, VNDBQueryParams } from "@/lib/types"
 
 const RelationGraphView = dynamic(

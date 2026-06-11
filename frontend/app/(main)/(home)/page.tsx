@@ -20,9 +20,7 @@ import { CardTypeSwitch } from "@/components/selector/CardTypeSwitch"
 import { GridLayoutSwitch } from "@/components/selector/GridLayoutSwitch"
 import { PaginationButtons } from "@/components/button/PaginationButtons"
 import { IconButton } from "@/components/button/IconButton"
-import { Loading } from "@/components/status/Loading"
-import { ErrorPanel } from "@/components/status/ErrorPanel"
-import { NotFound } from "@/components/status/NotFound"
+import { Loading, ErrorPanel, NotFound } from "@/components/status/StatusPanel"
 import { VNsCardsGrid } from "@/components/card/CardsGrid"
 
 function HomeContent() {

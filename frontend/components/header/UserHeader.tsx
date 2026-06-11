@@ -3,19 +3,21 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Settings as SettingsIcon } from "lucide-react"
+import { Settings as SettingsIcon, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useUserContext } from "@/context/UserContext"
-import { GhostButton } from "@/components/button/GhostButton"
-import { LetterButton } from "@/components/button/LetterButton"
-import { LoginButton } from "@/components/button/LoginButton"
-import { RegisterButton } from "@/components/button/RegisterButton"
-import { LogoutButton } from "@/components/button/LogoutButton"
+import { IconButton } from "@/components/button/IconButton"
 import { LoginDialog } from "@/components/dialog/LoginDialog"
 import { RegisterDialog } from "@/components/dialog/RegisterDialog"
 import { ForgotPasswordDialog } from "@/components/dialog/ForgotPasswordDialog"
 import { ConfirmDialog } from "@/components/dialog/ConfirmDialog"
 import { SettingsDialog } from "@/components/dialog/SettingsDialog"
+
+// Pill skeleton shown while the auth state is resolving. Local to this file —
+// the header is its only use.
+function GhostButton({ className }: { className?: string }) {
+  return <div className={cn("h-8 w-20 rounded-full bg-white/5 animate-pulse", className)} />
+}
 
 interface UserHeaderProps {
   hidden?: boolean
@@ -59,11 +61,17 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
             className="relative"
             onContextMenu={e => { e.preventDefault(); setMenuOpen(v => !v) }}
           >
-            <LetterButton
-              letter={user.username.charAt(0).toUpperCase()}
+            <button
               onClick={() => router.push("/u/c")}
               disabled={hidden}
-            />
+              className={cn(
+                "w-8 h-8 rounded-full bg-accent text-white font-bold text-sm",
+                "hover:bg-accent-hover hover:scale-105 transition-all duration-200",
+                "disabled:opacity-40 disabled:cursor-not-allowed",
+              )}
+            >
+              {user.username.charAt(0).toUpperCase()}
+            </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-lg bg-surface border border-white/6 shadow-2xl shadow-black/60 overflow-hidden animate-slide-down-fade">
                 <div className="px-3.5 py-3 border-b border-white/6">
@@ -81,9 +89,11 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
               </div>
             )}
           </div>
-          <LogoutButton
-            handleLogout={() => setLogoutDialogOpen(true)}
+          <IconButton
+            icon={<LogOut className="w-4 h-4" />}
+            onClick={() => setLogoutDialogOpen(true)}
             disabled={hidden}
+            ariaLabel="Logout"
           />
           <ConfirmDialog
             open={logoutDialogOpen}
@@ -99,14 +109,28 @@ export function UserHeader({ hidden = false, className }: UserHeaderProps) {
         </>
       ) : (
         <>
-          <LoginButton
-            handleLogin={() => setLoginDialogOpen(true)}
+          <button
+            onClick={() => setLoginDialogOpen(true)}
             disabled={hidden}
-          />
-          <RegisterButton
-            handleRegister={() => setRegisterDialogOpen(true)}
+            className={cn(
+              "px-4 py-1.5 rounded-full text-sm font-bold text-white",
+              "border border-white/30 hover:border-white transition-all duration-200",
+              "disabled:opacity-40 disabled:cursor-not-allowed",
+            )}
+          >
+            Login
+          </button>
+          <button
+            onClick={() => setRegisterDialogOpen(true)}
             disabled={hidden}
-          />
+            className={cn(
+              "px-4 py-1.5 rounded-full text-sm font-bold text-white",
+              "bg-accent hover:bg-accent-hover transition-all duration-200",
+              "disabled:opacity-40 disabled:cursor-not-allowed",
+            )}
+          >
+            Sign up
+          </button>
           <LoginDialog
             open={loginDialogOpen}
             setOpen={setLoginDialogOpen}

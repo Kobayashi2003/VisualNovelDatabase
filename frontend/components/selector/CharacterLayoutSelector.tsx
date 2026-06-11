@@ -1,9 +1,9 @@
 /** Toggle for how the VN page renders characters — thumbnail grid or one-card slider. */
 
-import { cn } from "@/lib/utils"
 import type { VNCharacterLayout } from "@/lib/types"
+import { Segmented, type SegmentedOption } from "./Segmented"
 
-const LAYOUTS: { value: VNCharacterLayout; label: string }[] = [
+const LAYOUTS: SegmentedOption<VNCharacterLayout>[] = [
   { value: "grid", label: "Grid" },
   { value: "slider", label: "Slides" },
 ]
@@ -15,25 +15,5 @@ interface CharacterLayoutSelectorProps {
 }
 
 export function CharacterLayoutSelector({ layout, setLayout, className }: CharacterLayoutSelectorProps) {
-  return (
-    <div className={cn(
-      "flex items-center rounded-full border border-white/10 overflow-hidden",
-      className
-    )}>
-      {LAYOUTS.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => setLayout(opt.value)}
-          className={cn(
-            "flex-1 px-2.5 py-1.5 text-xs font-medium text-center transition-all duration-200",
-            layout === opt.value
-              ? "bg-white/20 text-white"
-              : "text-muted hover:text-white hover:bg-white/10"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  )
+  return <Segmented value={layout} onChange={setLayout} options={LAYOUTS} className={className} />
 }

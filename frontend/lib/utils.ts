@@ -13,6 +13,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
+// Strip a VNDB id's letter prefix to its number ("v17" → 17). Entities carry
+// prefixed string ids while marks/ratings key on the bare number.
+export function numericId(id: string): number {
+  return parseInt(id.replace(/^[a-z]+/, ""), 10)
+}
+
+
 /* ─── Formatters ───────────────────────────────────────────────────────────── */
 
 // Render an ISO date as a coarse "X days/months/years ago" string.
@@ -37,9 +44,28 @@ const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ]
-export function formatBirthday(birthday: [number, number] | null | undefined): string | null {
+export function formatBirthday(
+  birthday: [number, number] | string | null | undefined,
+): string | null {
   if (!birthday) return null
-  return `${birthday[1]} ${MONTH_NAMES[birthday[0]] ?? birthday[0]}`
+  // The backend stores birthday as a String column, so it arrives as a JSON
+  // string like "[9,1]". Parse it back into a [month, day] pair.
+  let pair: [number, number] | null = null
+  if (typeof birthday === "string") {
+    try {
+      const parsed = JSON.parse(birthday)
+      if (Array.isArray(parsed) && parsed.length >= 2) {
+        pair = [Number(parsed[0]), Number(parsed[1])]
+      }
+    } catch {
+      return null
+    }
+  } else {
+    pair = birthday
+  }
+  if (!pair || !Number.isFinite(pair[0]) || !Number.isFinite(pair[1])) return null
+  const [month, day] = pair
+  return `${day} ${MONTH_NAMES[month] ?? month}`
 }
 
 // Format playtime in minutes as "XhYm" / "Xh" / "Ym", skipping zero

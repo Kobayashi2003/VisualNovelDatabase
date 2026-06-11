@@ -3,8 +3,8 @@
 
 import { useParams } from "next/navigation"
 
-import { RelationGraphPage } from "@/components/vn/RelationGraphPage"
-import { NotFound } from "@/components/status/NotFound"
+import { RelationGraphPage } from "./_components/RelationGraphPage"
+import { NotFound } from "@/components/status/StatusPanel"
 
 // Only VN ids carry a relation graph (e.g. `/v16106/rg`).
 const VN_ID = /^v\d+$/

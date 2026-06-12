@@ -1,16 +1,23 @@
 /** Result-area pieces for the kobayashi showcase: the tilting cover card and its
  *  scroll-reveal cell, the Spotify-style custom cursor, and the small loading /
- *  error states. All private to the showcase. */
+ *  error states. All private to the showcase.
+ *
+ *  Cards are pure track pickers — this page doesn't link into detail pages.
+ *  Cards WITH music are vivid and clickable (the whole cover toggles their
+ *  theme; the loaded one carries an accent ring + live equalizer); cards
+ *  without music are dimmed, desaturated and inert, so the playable library
+ *  reads at a glance. */
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { motion, useMotionValue, useSpring, useTransform, type Variants } from "motion/react"
 import { Star } from "lucide-react"
 
 import { cn, shouldBlur } from "@/lib/utils"
 import { displayTitle, displayName } from "@/lib/original"
 import type { VN_Small, SexualLevel, ViolenceLevel } from "@/lib/types"
+
+import { EqBars } from "./cassette"
 
 
 /* ─── Small states ─────────────────────────────────────────────────────────── */
@@ -52,14 +59,20 @@ function RatingBadge({ value }: { value: number }) {
   )
 }
 
-// Cover card: blur honours the content-level selectors; hover scales the art,
-// brightens the ring, and reveals the title over a gradient.
-function VNCard({ vn, rating, showOriginal, sexualLevel, violenceLevel }: {
+// Cover card. Playable: the whole cover is a button that toggles the VN's
+// theme — vivid art, cursor tilt, hover lift, and an accent ring + live
+// equalizer once loaded. Not playable: dimmed, desaturated, inert — these
+// titles simply have no tape in the library.
+function VNCard({ vn, rating, showOriginal, sexualLevel, violenceLevel, playable, selected, playing, onToggle }: {
   vn: VN_Small
   rating: number
   showOriginal: boolean
   sexualLevel: SexualLevel
   violenceLevel: ViolenceLevel
+  playable: boolean
+  selected: boolean
+  playing: boolean
+  onToggle: () => void
 }) {
   const title = displayTitle(vn, showOriginal)
   const developer = vn.developers?.[0] ? displayName(vn.developers[0], showOriginal) : ""
@@ -74,8 +87,53 @@ function VNCard({ vn, rating, showOriginal, sexualLevel, violenceLevel }: {
   const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [7, -7]), { stiffness: 200, damping: 18 })
   const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-7, 7]), { stiffness: 200, damping: 18 })
 
+  const cover = url ? (
+    // The cover carries its own rounding: a composited ancestor transform
+    // (the 3D tilt) can momentarily defeat the parent's overflow clip in
+    // Chromium, flashing square corners on hover enter/leave.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={title}
+      loading="lazy"
+      draggable={false}
+      className={cn(
+        "h-full w-full rounded-xl object-cover",
+        playable && "transition-transform duration-500 group-hover:scale-[1.06]",
+        blur && (playable ? "blur-lg group-hover:blur-none" : "blur-lg"),
+      )}
+    />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center text-2xl text-muted/40">♥</div>
+  )
+
+  const caption = (developer || year) && (
+    <p className="mt-2 line-clamp-1 px-0.5 text-xs text-muted">{[developer, year].filter(Boolean).join(" · ")}</p>
+  )
+
+  if (!playable) {
+    return (
+      <div aria-disabled className="block">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-elevated opacity-40 saturate-[0.25] ring-1 ring-white/5">
+          {cover}
+          {rating > 0 && <RatingBadge value={rating} />}
+        </div>
+        <div className="opacity-50">{caption}</div>
+      </div>
+    )
+  }
+
   return (
-    <Link href={`/${vn.id}`} className="group block" style={{ perspective: 800 }}>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={selected && playing ? `Pause ${title}` : `Play ${title}`}
+      aria-pressed={selected && playing}
+      title={selected && playing ? "Pause" : "Play theme"}
+      data-cursor="pointer"
+      className="group block w-full cursor-pointer text-left"
+      style={{ perspective: 800 }}
+    >
       <motion.div
         onMouseMove={e => {
           const r = e.currentTarget.getBoundingClientRect()
@@ -83,30 +141,48 @@ function VNCard({ vn, rating, showOriginal, sexualLevel, violenceLevel }: {
           py.set((e.clientY - r.top) / r.height - 0.5)
         }}
         onMouseLeave={() => { px.set(0); py.set(0) }}
-        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="relative aspect-[3/4] overflow-hidden rounded-xl bg-elevated ring-1 ring-white/10 transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-black/60 group-hover:ring-white/30"
-      >
-        {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={title}
-            loading="lazy"
-            draggable={false}
-            className={cn("h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]", blur && "blur-lg group-hover:blur-none")}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-2xl text-muted/40">♥</div>
+        style={{ rotateX, rotateY }}
+        className={cn(
+          "relative aspect-[3/4] rounded-xl transition-shadow duration-300",
+          // Outset lift shadow lives on this (un-clipped) tilt element.
+          selected
+            ? "shadow-xl shadow-accent/20"
+            : "group-hover:shadow-2xl group-hover:shadow-black/60",
         )}
-        {rating > 0 && <RatingBadge value={rating} />}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-3 pt-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <p className="line-clamp-2 text-xs font-semibold leading-snug text-white">{title}</p>
+      >
+        {/* Rounded art frame clipped with clip-path rather than overflow-hidden:
+            the 3D tilt above is composited, and in Chromium that momentarily
+            defeats an overflow clip — flashing square corners, most visible
+            behind the accent ring. clip-path holds the rounding through the
+            transform. */}
+        <div className="absolute inset-0 rounded-xl bg-elevated [clip-path:inset(0_round_0.75rem)]">
+          {cover}
+          {rating > 0 && <RatingBadge value={rating} />}
+          {/* Live equalizer on the loaded track */}
+          {selected && (
+            <div className="absolute right-1.5 top-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-black/75 px-1 backdrop-blur-sm">
+              <EqBars playing={playing} className="h-2.5 w-3.5" />
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-xl bg-linear-to-t from-black/80 to-transparent p-3 pt-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+            <p className="line-clamp-2 text-xs font-semibold leading-snug text-white">{title}</p>
+            <p className="mt-0.5 text-[10px] font-medium text-accent">
+              {selected && playing ? "Pause" : "Play theme"}
+            </p>
+          </div>
+          {/* Ring as a self-rounded inset overlay so it stays inside the clip
+              and never squares off during the tilt. */}
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-0 z-20 rounded-xl ring-inset transition-[box-shadow]",
+              selected ? "ring-2 ring-accent" : "ring-1 ring-white/10 group-hover:ring-accent/60",
+            )}
+          />
         </div>
       </motion.div>
-      {(developer || year) && (
-        <p className="mt-2 line-clamp-1 px-0.5 text-xs text-muted">{[developer, year].filter(Boolean).join(" · ")}</p>
-      )}
-    </Link>
+      {caption}
+    </button>
   )
 }
 
@@ -122,6 +198,7 @@ const cellVariants: Variants = {
 
 export function VNCell({
   vn, rating, index, showOriginal, sexualLevel, violenceLevel,
+  playable = false, selected = false, playing = false, onToggle,
 }: {
   vn: VN_Small
   rating: number
@@ -129,6 +206,10 @@ export function VNCell({
   showOriginal: boolean
   sexualLevel: SexualLevel
   violenceLevel: ViolenceLevel
+  playable?: boolean
+  selected?: boolean
+  playing?: boolean
+  onToggle?: () => void
 }) {
   return (
     <motion.div
@@ -137,10 +218,15 @@ export function VNCell({
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, amount: 0.15 }}
-      whileHover={{ y: -4 }}
+      whileHover={playable ? { y: -4 } : undefined}
       className="relative"
     >
-      <VNCard vn={vn} rating={rating} showOriginal={showOriginal} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />
+      <VNCard
+        vn={vn} rating={rating} showOriginal={showOriginal}
+        sexualLevel={sexualLevel} violenceLevel={violenceLevel}
+        playable={playable} selected={selected} playing={playing}
+        onToggle={onToggle ?? (() => {})}
+      />
     </motion.div>
   )
 }

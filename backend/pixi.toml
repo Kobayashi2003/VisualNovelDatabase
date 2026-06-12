@@ -12,7 +12,7 @@
 #     pixi run dev                 # Flask dev server (launch.py dev)
 #     pixi run dev-waitress        # Waitress in dev (launch.py dev --waitress)
 #     pixi run prod                # Production launcher (launch.py prod)
-#     pixi run prod -- --next-port 5004
+#     pixi run prod -- --next-port 5010
 #                                  # `--` forwards extra flags to launch.py prod
 #
 # `pixi run` puts the env's bin/ on PATH first, so `python` and any other
@@ -81,6 +81,7 @@ Jinja2 = "==3.1.6"
 kombu = "==5.5.4"
 Mako = "==1.3.10"
 MarkupSafe = "==3.0.2"
+mutagen = "==1.47.0"
 packaging = "==25.0"
 prometheus_client = "==0.22.1"
 prompt_toolkit = "==3.0.51"

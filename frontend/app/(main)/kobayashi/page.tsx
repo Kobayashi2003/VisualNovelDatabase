@@ -2,10 +2,16 @@
  *  Logged-in viewers only (covers depend on an authenticated image session).
  *
  *  Self-contained by directory: every bespoke control this Spotify-flavoured page
- *  needs lives in `./_components` (auth card, fanned-cover hero, animated toolbar
- *  controls, tilt cards, custom cursor) rather than the shared component tree, so
- *  the showcase's distinct styling never leaks into — or drifts with — the rest
- *  of the app. This file owns the data flow, state machine, and page assembly. */
+ *  needs lives in `./_components` (auth card, turntable music player, animated
+ *  toolbar controls, tilt cards, custom cursor, audio-reactive background)
+ *  rather than the shared component tree, so the showcase's distinct styling
+ *  never leaks into — or drifts with — the rest of the app. This file owns the
+ *  data flow, state machine, and page assembly.
+ *
+ *  The hero is a cassette deck streaming per-VN theme music from musicserve.
+ *  Cards are pure track pickers (this page doesn't navigate into details):
+ *  vivid cards have a tape and toggle it on click, dimmed ones don't. Once
+ *  the deck scrolls out of view the bottom now-playing bar auto-docks. */
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -15,6 +21,7 @@ import { Library, Search } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { cn, numericId, shouldBlur } from "@/lib/utils"
+import { displayTitle, displayName } from "@/lib/original"
 import { dedupeLatestMarks, sortMarksByDate, reorderById } from "@/lib/marks"
 import { PAGE_LIMIT } from "@/lib/constants"
 import { useUserContext } from "@/context/UserContext"
@@ -22,9 +29,13 @@ import { useSearchContext } from "@/context/SearchContext"
 import type { PublicVNCollections, VN_Small, VNDBQueryParams } from "@/lib/types"
 
 import { AuthPanel } from "./_components/auth"
-import { Counter, HeroTitle, CoverCollage, type Cover } from "./_components/hero"
+import { Counter, HeroTitle, GitHubLink } from "./_components/hero"
 import { SegmentedControl, SortMenu, SearchBox, PageNav, type SortKey, LOCAL_SORTS, VNDB_SORT } from "./_components/controls"
 import { VNCell, CustomCursor, Loader, ErrorMessage } from "./_components/cards"
+import { PlayerProvider, usePlayer, type Track } from "./_components/player"
+import { CassetteDeck } from "./_components/cassette"
+import { NowPlayingBar, useNowPlayingBarVisible } from "./_components/bar"
+import { KobayashiBackground } from "./_components/background"
 
 
 // The fixed account this page showcases, and the two tabs (in display order).
@@ -35,10 +46,6 @@ const TABS = [
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
-// Size of the Played pool we hydrate to draw (and re-draw, on shuffle) the hero
-// collage covers from.
-const POOL_SIZE = 18
-
 const GRID_CLASS =
   "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3"
 
@@ -46,6 +53,14 @@ const GRID_CLASS =
 /* ─── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function KobayashiPage() {
+  return (
+    <PlayerProvider>
+      <Showcase />
+    </PlayerProvider>
+  )
+}
+
+function Showcase() {
   const { user, isLoading: authLoading, defaultSexualLevel, defaultViolenceLevel } = useUserContext()
   const { showOriginal } = useSearchContext()
 
@@ -71,11 +86,14 @@ export default function KobayashiPage() {
   // The hydrated page tagged with the request key it belongs to (so a stale
   // tab/sort/search/page never shows), plus the total result count for paging.
   const [loaded, setLoaded] = useState<{ key: string; items: VN_Small[]; count: number }>({ key: "", items: [], count: 0 })
-  // Pool of hydrated Played covers the hero collage draws (and re-draws) from.
-  const [pool, setPool]     = useState<VN_Small[]>([])
+  // Which vnids have a theme track on musicserve (keyed "v123").
+  const [musicAvail, setMusicAvail] = useState<Record<string, boolean>>({})
   // Marks the toolbar's natural position; used both for the pin transform and
   // to compute where to scroll back to after a results-changing operation.
   const sentinelRef = useRef<HTMLDivElement>(null)
+
+  const player = usePlayer()
+  const barVisible = useNowPlayingBarVisible()
 
   /* ── Effects, derived state & handlers ─────────────────────────────────── */
 
@@ -130,17 +148,20 @@ export default function KobayashiPage() {
     return sorted.map(m => m.id)
   }, [activeMarks, sort, order, data])
 
-  /* Hydrate the hero collage pool from the Played list. The collage samples up
-     to a few of these covers and re-draws among them when clicked. */
+  /* One batch round-trip to musicserve for every mark in either tab: which
+     VNs have a theme track. Drives the ♪ badges, the pick-then-open click
+     interception, and the playlist. */
   useEffect(() => {
-    const ids = marksByTab.played.slice(0, POOL_SIZE).map(m => m.id)
-    if (ids.length === 0) { setPool([]); return }
+    const ids = new Set<string>()
+    for (const m of marksByTab.playing) ids.add(`v${m.id}`)
+    for (const m of marksByTab.played)  ids.add(`v${m.id}`)
+    if (ids.size === 0) { setMusicAvail({}); return }
     const ctrl = new AbortController()
-    api.small.byIds.vn(ids, { limit: POOL_SIZE }, ctrl.signal)
-      .then(res => setPool(reorderById(res.results, ids)))
-      .catch(() => {})
+    api.music.available([...ids], ctrl.signal)
+      .then(setMusicAvail)
+      .catch(() => setMusicAvail({}))
     return () => ctrl.abort()
-  }, [marksByTab.played])
+  }, [marksByTab])
 
   /* Hydrate the current page for the active tab/sort/search, tagged with its
      request key so a stale result never shows. Local sorts paginate the marks
@@ -170,13 +191,33 @@ export default function KobayashiPage() {
     return () => ctrl.abort()
   }, [requestKey, activeMarks, localSortedIds, q, sort, order, page, data])
 
-  const covers: Cover[] = pool
-    .filter(v => v.image)
-    .map(v => ({
-      id: v.id,
-      url: v.image!.thumbnail || v.image!.url,
-      blur: shouldBlur(v.image!.sexual, v.image!.violence, sexualLevel, violenceLevel),
-    }))
+  /* ── Player wiring ─────────────────────────────────────────────────────── */
+
+  const trackFor = (vn: VN_Small): Track => ({
+    vnid: vn.id,
+    title: displayTitle(vn, showOriginal),
+    developer: vn.developers?.[0] ? displayName(vn.developers[0], showOriginal) : "",
+    vnCover: vn.image ? (vn.image.thumbnail || vn.image.url) : null,
+    blur: vn.image ? shouldBlur(vn.image.sexual, vn.image.violence, sexualLevel, violenceLevel) : false,
+  })
+
+  /* Playlist = the playable items among the visible results, in display
+     order; prev/next cycles through what the user can currently see. */
+  const { setPlaylist } = player
+  useEffect(() => {
+    setPlaylist(
+      loaded.items
+        .filter(vn => musicAvail[vn.id])
+        .map(vn => ({
+          vnid: vn.id,
+          title: displayTitle(vn, showOriginal),
+          developer: vn.developers?.[0] ? displayName(vn.developers[0], showOriginal) : "",
+          vnCover: vn.image ? (vn.image.thumbnail || vn.image.url) : null,
+          blur: vn.image ? shouldBlur(vn.image.sexual, vn.image.violence, sexualLevel, violenceLevel) : false,
+        })),
+    )
+  }, [loaded.items, musicAvail, showOriginal, sexualLevel, violenceLevel, setPlaylist])
+
 
   // After a results-changing op, return to the top of the results — but if the
   // title is already hidden (toolbar pinned), stop at the pin line so the
@@ -275,22 +316,25 @@ export default function KobayashiPage() {
   /* ── Page ─────────────────────────────────────────────────────────────── */
 
   return (
-    <main className="kby-cursor relative flex-1">
+    <main className={cn("kby-cursor relative flex-1", barVisible && "pb-20")}>
       <CustomCursor />
+      <KobayashiBackground />
       {/* Hero — simply fades + drifts away as the page scrolls (no background
           wash), and re-reveals on scroll up. */}
       <motion.header style={{ opacity: heroOpacity }} className="relative">
         <motion.div
           style={{ y: heroY, scale: heroScale, transformOrigin: "top left" }}
-          className="mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 pt-12 pb-10 sm:flex-row sm:items-end lg:px-6 lg:pt-16"
+          // Title block leads and takes ALL the flexible space; the deck has
+          // a fixed footprint pinned to the right edge (lg+), so together
+          // they fill the hero with just the gap between them. Below lg the
+          // deck centres underneath the title.
+          className="mx-auto flex w-full max-w-7xl flex-col items-stretch gap-8 px-4 pt-12 pb-12 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-6 lg:pt-16 lg:pb-14"
         >
-          <CoverCollage covers={covers} />
-
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <motion.p
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-xs font-semibold uppercase tracking-[0.25em] text-white/60"
+              className="text-xs font-semibold uppercase tracking-[0.3em] text-white/60 sm:text-sm"
             >
               Visual Novel Collection
             </motion.p>
@@ -298,21 +342,23 @@ export default function KobayashiPage() {
             <motion.p
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
-              className="mt-4 text-sm text-muted"
+              className="mt-4 text-sm text-muted sm:text-base"
             >
-              {data ? (
+              {data && (
                 <>
                   <span className="font-semibold text-white"><Counter value={totalUnique} /></span> titles
                   <span className="mx-1.5 text-white/30">·</span>
                   <Counter value={marksByTab.playing.length} /> playing
                   <span className="mx-1.5 text-white/30">·</span>
                   <Counter value={marksByTab.played.length} /> played
+                  <span className="mx-1.5 text-white/30">·</span>
                 </>
-              ) : (
-                <span className="opacity-0">loading</span>
               )}
+              <GitHubLink />
             </motion.p>
           </div>
+
+          <CassetteDeck />
         </motion.div>
       </motion.header>
 
@@ -453,17 +499,27 @@ export default function KobayashiPage() {
               ) : (
                 // Re-key on the request so the scroll-reveal replays on change.
                 <div key={requestKey} className={cn(GRID_CLASS, "relative z-0")}>
-                  {loaded.items.map((vn, i) => (
-                    <VNCell
-                      key={vn.id}
-                      vn={vn}
-                      index={i}
-                      rating={data.ratings[numericId(vn.id)] ?? 0}
-                      showOriginal={showOriginal}
-                      sexualLevel={sexualLevel}
-                      violenceLevel={violenceLevel}
-                    />
-                  ))}
+                  {loaded.items.map((vn, i) => {
+                    const playable = !!musicAvail[vn.id]
+                    const selected = player.track?.vnid === vn.id
+                    return (
+                      <VNCell
+                        key={vn.id}
+                        vn={vn}
+                        index={i}
+                        rating={data.ratings[numericId(vn.id)] ?? 0}
+                        showOriginal={showOriginal}
+                        sexualLevel={sexualLevel}
+                        violenceLevel={violenceLevel}
+                        playable={playable}
+                        selected={selected}
+                        playing={selected && player.playing}
+                        // play() toggles when the card is already the loaded
+                        // track, so the hover button doubles as pause.
+                        onToggle={() => player.play(trackFor(vn))}
+                      />
+                    )
+                  })}
                 </div>
               )}
 
@@ -476,6 +532,8 @@ export default function KobayashiPage() {
           </>
         )}
       </div>
+
+      <NowPlayingBar visible={barVisible} />
     </main>
   )
 }

@@ -15,11 +15,12 @@
 #
 # Caddy is the only public ingress; frp should forward to CADDY_BIND
 # (default :30709, set in backend/.env). All four paths live behind it:
-#   /            -> Next.js (NextPort, default 5004)
+#   /            -> Next.js (NextPort, default 5010)
 #   /vndb/*      -> Flask vndb
 #   /imgserve/*  -> Flask imgserve
 #   /userserve/* -> Flask userserve
 #   /transserve/* -> Flask transserve
+#   /musicserve/* -> Flask musicserve
 #
 # Usage:
 #   .\start-prod.ps1                     # start with whatever is already built
@@ -43,7 +44,7 @@ param(
     # Delete frontend/.next (old build output) before starting. In prod this
     # forces a fresh `npm run build`; in dev `next dev` recompiles from scratch.
     [switch]$Clean,
-    [int]$NextPort = 5004,
+    [int]$NextPort = 5010,
     # Postgres runs as a Windows service (backend/scripts/pg-service.ps1); this
     # is its service name (matches that script's default).
     [string]$PgServiceName = 'postgresql-vndb',

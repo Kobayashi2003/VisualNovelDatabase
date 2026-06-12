@@ -531,6 +531,17 @@ export interface PublicVNCollections {
   ratings: Record<number, number>
 }
 
+// Track metadata from musicserve's /meta/<vnid> (tags are best-effort nulls).
+export interface MusicMeta {
+  id: string
+  duration: number | null
+  title: string | null
+  artist: string | null
+  album: string | null
+  format: string
+  has_cover: boolean
+}
+
 
 /* ─── Relation graph ───────────────────────────────────────────────────────── */
 // The connected component of VN-to-VN relations rooted at one title, returned

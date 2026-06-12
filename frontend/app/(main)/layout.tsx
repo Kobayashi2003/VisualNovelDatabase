@@ -34,6 +34,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   // header overlay, so the global header — and its top-edge peek — must stay out.
   const pathname = usePathname()
   const hideHeader = pathname === "/kobayashi" || pathname.endsWith("/rg")
+  // The Kobayashi showcase paints its own audio-reactive background, so the
+  // global wallpaper is suppressed there (it would stack underneath and fight
+  // the bespoke layers).
+  const bespokeBg = pathname === "/kobayashi"
 
   // Drives the auto-hide header (`trigger` === hidden): shown at the top of the
   // page and after a short scroll up, hidden once the user scrolls back down.
@@ -73,7 +77,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <UserProvider>
         <div
           style={{
-            backgroundImage: bgUrl,
+            backgroundImage: bespokeBg ? undefined : bgUrl,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -85,7 +89,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             "--header-h": hideHeader ? "0px" : `${headerHeight}px`,
           } as React.CSSProperties}
         >
-          <div className="min-h-screen overflow-x-clip bg-background/80 text-white flex flex-col">
+          {/* On the bespoke-background route the translucent wash must go too:
+              an in-flow ancestor background paints OVER negative-z descendants,
+              so it would dim the showcase's fixed -z-10 layers. The body colour
+              is the base there instead. */}
+          <div className={cn(
+            "min-h-screen overflow-x-clip text-white flex flex-col",
+            !bespokeBg && "bg-background/80",
+          )}>
             {!hideHeader && (
               <>
                 <div

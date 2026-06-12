@@ -6,6 +6,7 @@
 #   /imgserve/*  -> Flask imgserve     (handle_path strips /imgserve;
 #                                       file_server fast path on cache hits)
 #   /userserve/* -> Flask userserve    (handle_path strips /userserve)
+#   /musicserve/* -> Flask musicserve  (handle_path strips /musicserve)
 #   everything else (/, /_next/*, …)
 #                -> Next.js standalone (catch-all `handle`)
 #
@@ -24,10 +25,11 @@
 #   USERSERVE_PORT        - Flask userserve port, e.g. 5002
 #   VNDB_PORT             - Flask vndb port,      e.g. 5000
 #   TRANSSERVE_PORT       - Flask transserve port, e.g. 5003
-#   NEXT_PORT             - Next.js server port,  e.g. 5004
+#   MUSICSERVE_PORT       - Flask musicserve port, e.g. 5004
+#   NEXT_PORT             - Next.js server port,  e.g. 5010
 #                           (set by `launch.py prod`; unset under `launch.py
 #                            dev`, so dev
-#                            traffic hits `next dev` on :5004 directly and
+#                            traffic hits `next dev` on :5010 directly and
 #                            the catch-all `handle` here 502s — that's the
 #                            expected dev signal)
 #   IMGSERVE_IMAGE_FOLDER - absolute path to the imgserve image cache root
@@ -99,6 +101,11 @@
 		reverse_proxy 127.0.0.1:{$TRANSSERVE_PORT}
 	}
 
+	# ── musicserve ─────────────────────────────────────────────────────────
+	handle_path /musicserve/* {
+		reverse_proxy 127.0.0.1:{$MUSICSERVE_PORT}
+	}
+
 	# ── frontend (Next.js) ─────────────────────────────────────────────────
 	# Everything not matched by the backend prefixes above is the SPA: pages,
 	# /_next/* bundles and static assets. Backend calls never reach here —
@@ -109,6 +116,6 @@
 	# which is the correct signal that the frontend isn't being served by
 	# Caddy in that mode.
 	handle {
-		reverse_proxy 127.0.0.1:{$NEXT_PORT:5004}
+		reverse_proxy 127.0.0.1:{$NEXT_PORT:5010}
 	}
 }

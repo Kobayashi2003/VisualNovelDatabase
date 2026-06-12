@@ -5,11 +5,11 @@ import {
   VN_Small, Release_Small, Character_Small, Producer_Small,
   Staff_Small, Tag_Small, Trait_Small, User, Category, Mark,
   VNDBQueryParams, MarksQueryParams, PaginatedResponse, PublicVNCollections,
-  RelationGraph, RelationGraphNode,
+  RelationGraph, RelationGraphNode, MusicMeta,
 } from "./types"
 import {
   VNDB_BASE_URL, IMGSERVE_BASE_URL, USERSERVE_BASE_URL, TRANSSERVE_BASE_URL,
-  COLLECTION_TYPE_MAP,
+  MUSICSERVE_BASE_URL, COLLECTION_TYPE_MAP,
 } from "./constants"
 
 
@@ -19,13 +19,14 @@ import {
 // /imgserve, /userserve paths, which Caddy (prod) or Next.js rewrites (dev)
 // forward to the matching Flask backend.
 
-const getBaseUrl = (type: "vndb" | "imgserve" | "userserve" | "transserve") => {
+const getBaseUrl = (type: "vndb" | "imgserve" | "userserve" | "transserve" | "musicserve") => {
   if (typeof window === "undefined") {
     switch (type) {
       case "vndb": return process.env.NEXT_PUBLIC_VNDB_BASE_URL || VNDB_BASE_URL
       case "imgserve": return process.env.NEXT_PUBLIC_IMGSERVE_BASE_URL || IMGSERVE_BASE_URL
       case "userserve": return process.env.NEXT_PUBLIC_USERSERVE_BASE_URL || USERSERVE_BASE_URL
       case "transserve": return process.env.NEXT_PUBLIC_TRANSSERVE_BASE_URL || TRANSSERVE_BASE_URL
+      case "musicserve": return process.env.NEXT_PUBLIC_MUSICSERVE_BASE_URL || MUSICSERVE_BASE_URL
     }
   } else {
     switch (type) {
@@ -33,6 +34,7 @@ const getBaseUrl = (type: "vndb" | "imgserve" | "userserve" | "transserve") => {
       case "imgserve": return IMGSERVE_BASE_URL
       case "userserve": return USERSERVE_BASE_URL
       case "transserve": return TRANSSERVE_BASE_URL
+      case "musicserve": return MUSICSERVE_BASE_URL
     }
   }
 }
@@ -577,6 +579,35 @@ export const api = {
       })
       if (!response.ok) throw new Error(`Transserve error! status: ${response.status}`)
       return response.json()
+    },
+  },
+
+  /* Musicserve: VN theme music keyed by vnid ("v17"). The audio stream and
+     cover are plain GETs handed straight to <audio src> / <img src> (Range
+     seeking and 404s are the browser's problem), so only URL builders live
+     here; metadata and batch availability are JSON calls. */
+  music: {
+    url: (vnid: string) => `${getBaseUrl("musicserve")}/music/${vnid}`,
+    coverUrl: (vnid: string) => `${getBaseUrl("musicserve")}/cover/${vnid}`,
+
+    meta: async (vnid: string, abortSignal?: AbortSignal): Promise<MusicMeta> => {
+      const response = await fetch(`${getBaseUrl("musicserve")}/meta/${vnid}`, { signal: abortSignal })
+      if (!response.ok) throw new Error(`Musicserve error! status: ${response.status}`)
+      return response.json()
+    },
+
+    // Which of `ids` have a track. Keys in the result echo the input ids.
+    available: async (ids: string[], abortSignal?: AbortSignal): Promise<Record<string, boolean>> => {
+      if (!ids.length) return {}
+      const response = await fetch(`${getBaseUrl("musicserve")}/available`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+        signal: abortSignal,
+      })
+      if (!response.ok) throw new Error(`Musicserve error! status: ${response.status}`)
+      const data: { available: Record<string, boolean> } = await response.json()
+      return data.available
     },
   },
 }

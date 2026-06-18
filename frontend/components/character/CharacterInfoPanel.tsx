@@ -136,10 +136,10 @@ export function CharacterInfoPanel({
   if (inline) {
     return (
       <div className="flex flex-col gap-3">
-        {/* Phones (< sm): portrait centred on top, stats card full-width below.
-            From sm up: portrait left, stats right. */}
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <div className="w-36 shrink-0 sm:w-28">{cover}</div>
+        {/* Phones (< sm): portrait full-width on top, stats card full-width below.
+            From sm up: portrait left (fixed), stats right. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="w-full shrink-0 sm:w-28">{cover}</div>
           {physicalCard && <div className="w-full min-w-0 sm:flex-1">{physicalCard}</div>}
         </div>
         {seiyuuCard}

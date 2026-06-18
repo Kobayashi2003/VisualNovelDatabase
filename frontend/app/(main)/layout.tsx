@@ -11,21 +11,34 @@ import { IMGSERVE_BASE_URL } from "@/lib/constants"
 import { HeaderBar } from "@/components/header/HeaderBar"
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  // Defer the (large) page background so content images win the network first;
-  // it's fetched once the browser goes idle, after the initial render.
+  // Defer the (large) page background so content images win the network first.
+  // Once the browser goes idle we prefetch it through an `Image()` tagged
+  // `fetchPriority: "low"` — the lowest the network stack offers — and only
+  // promote it to the CSS `background-image` after it has fully decoded. That
+  // keeps it off the critical path entirely: a CSS background alone is still
+  // fetched at the layout engine's discretion (and can't carry a priority hint),
+  // whereas this paints from cache with zero extra contention.
   const [bgUrl, setBgUrl] = useState<string | undefined>(undefined)
   useEffect(() => {
-    const url = `url(${IMGSERVE_BASE_URL}/bg)`
+    const src = `${IMGSERVE_BASE_URL}/bg`
     const w = window as Window & {
       requestIdleCallback?: (cb: () => void) => number
       cancelIdleCallback?: (id: number) => void
     }
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(() => setBgUrl(url))
-      return () => w.cancelIdleCallback?.(id)
+    let img: (HTMLImageElement & { fetchPriority?: string }) | null = null
+    const load = () => {
+      img = new Image()
+      img.fetchPriority = "low"
+      img.decoding = "async"
+      img.onload = () => setBgUrl(`url(${src})`)
+      img.src = src
     }
-    const t = setTimeout(() => setBgUrl(url), 200)
-    return () => clearTimeout(t)
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(load)
+      return () => { w.cancelIdleCallback?.(id); if (img) img.onload = null }
+    }
+    const t = setTimeout(load, 200)
+    return () => { clearTimeout(t); if (img) img.onload = null }
   }, [])
 
   // The Kobayashi showcase hides the global search header and supplies its own

@@ -68,16 +68,24 @@ export function VNCharactersPanel({ vnId, characters, sexualLevel, violenceLevel
     ...[...byRole.keys()].filter(r => !ROLE_ORDER.includes(r as typeof ROLE_ORDER[number])).sort(),
   ]
 
-  // Jump to the requested character's card when opened from a slide card.
+  // On open, position the view: jump to the requested character's card when
+  // opened from a slide card, otherwise (opened from the section heading) snap
+  // the panel's top into view. `scrollIntoView` walks every scrollable
+  // ancestor, so this resets the body's inner scroll on lg+ and the window on
+  // the stacked layout — landing at the top of the Characters block either way.
+  const rootRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!focusId) return
-    document.getElementById(`vnchar-${focusId}`)?.scrollIntoView({ block: "start" })
+    if (focusId) {
+      document.getElementById(`vnchar-${focusId}`)?.scrollIntoView({ block: "start" })
+    } else {
+      rootRef.current?.scrollIntoView({ block: "start" })
+    }
   }, [focusId])
 
   /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={rootRef} className="flex flex-col gap-6 scroll-mt-4">
       {/* Header: back + title + spoiler toggle */}
       <div className="flex items-center justify-between gap-3">
         <button

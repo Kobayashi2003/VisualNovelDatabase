@@ -3,6 +3,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 
@@ -142,13 +143,25 @@ function RenderNode({ node }: { node: Node }) {
       return <em><RenderNodes nodes={node.children} /></em>
     case "strike":
       return <s><RenderNodes nodes={node.children} /></s>
-    case "link":
+    case "link": {
+      // VNDB markup links entities with site-relative hrefs ("/c5602", "/v17").
+      // The app mirrors those id routes, so keep them as in-app navigation
+      // (same tab, no new window); only genuinely external links open a new tab.
+      const internal = node.href.startsWith("/")
+      if (internal) {
+        return (
+          <Link href={node.href} className="text-accent hover:underline">
+            <RenderNodes nodes={node.children} />
+          </Link>
+        )
+      }
       return (
         <a href={node.href} target="_blank" rel="noopener noreferrer"
           className="text-accent hover:underline">
           <RenderNodes nodes={node.children} />
         </a>
       )
+    }
     case "spoiler":
       return <Spoiler><RenderNodes nodes={node.children} /></Spoiler>
     default:

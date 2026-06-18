@@ -15,6 +15,7 @@ import { DetailShell, DetailStatus } from "@/components/detail/DetailShell"
 import { DetailHeader } from "@/components/detail/DetailHeader"
 import { Section } from "@/components/detail/InfoPrimitives"
 import { ContentLevelSelectors } from "@/components/common/ContentLevelSelectors"
+import { BBCodeText } from "@/components/common/BBCodeText"
 import { ReleaseInfoPanel } from "./ReleaseInfoPanel"
 import { ReleaseImageGallery } from "./ReleaseImageGallery"
 
@@ -60,7 +61,7 @@ export function ReleaseDetailPage({ id }: ReleaseDetailPageProps) {
         <div className="flex flex-col gap-6">
           {release.notes && (
             <Section title="Notes">
-              <p className="text-sm text-white/80 whitespace-pre-wrap">{release.notes}</p>
+              <BBCodeText text={release.notes} />
             </Section>
           )}
 

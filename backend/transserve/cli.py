@@ -16,6 +16,7 @@ from . import operations
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 DEFAULT_DICTIONARY_FILE = os.path.join(DATA_DIR, 'dictionary.json')
 DEFAULT_PASSAGES_FILE = os.path.join(DATA_DIR, 'passages.json')
+DEFAULT_INIT_FILE = os.path.join(DATA_DIR, 'init.json')
 
 
 def register_commands(app):
@@ -27,6 +28,7 @@ def register_commands(app):
     app.cli.add_command(restore_db)
     app.cli.add_command(seed_dictionary)
     app.cli.add_command(seed_passages)
+    app.cli.add_command(seed_init)
 
 
 @click.command('init-db')
@@ -180,6 +182,68 @@ def seed_passages(file_path, replace):
     total = operations.count_passages(source_lang, target_lang)
     click.echo(f"Seeded {submitted} passages ({source_lang}->{target_lang}); "
                f"memory now holds {total} passages for this pair.")
+
+
+@click.command('seed-init')
+@click.option('-f', '--file', 'file_path', default=DEFAULT_INIT_FILE,
+              help='Path to the combined init JSON file.')
+@click.option('--replace', is_flag=True,
+              help='Clear each language pair before loading (full reinitialize).')
+@with_appcontext
+def seed_init(file_path, replace):
+    """Seed both the dictionary and the passage TM from one combined init file
+    (default: transserve/init.json).
+
+    File shape:
+        {
+          "source_lang": "en", "target_lang": "ja",
+          "dictionary": {"tag": {"name": "訳", ...}, "trait": {...}},
+          "passages":  [{"source": "...", "target": "...", "entity_type": "tag"}, ...]
+        }
+    `source_lang` / `target_lang` are optional (default en->ja) and apply to both
+    halves. Dictionary entries load like `seed-dictionary`; passages load like
+    `seed-passages` (markup preservation is validated, a bad entry aborts).
+    """
+    if not os.path.exists(file_path):
+        click.echo(f"Init file not found: {file_path}", err=True)
+        raise click.Abort()
+
+    with open(file_path, encoding='utf-8') as f:
+        data = json.load(f)
+
+    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'ja')
+
+    # --- dictionary half ---
+    dictionary = data.get('dictionary') or {}
+    dict_entries = []
+    for category, mapping in dictionary.items():
+        if not isinstance(mapping, dict):
+            continue
+        for source, target in mapping.items():
+            if source and target:
+                dict_entries.append({'source': source, 'target': target, 'category': category})
+
+    if dict_entries:
+        operations.init_dictionary(
+            dict_entries, source_lang=source_lang, target_lang=target_lang, replace=replace)
+    dict_total = operations.count_entries(source_lang, target_lang)
+    click.echo(f"Dictionary: seeded {len(dict_entries)} entries; "
+               f"now holds {dict_total} ({source_lang}->{target_lang}).")
+
+    # --- passages half ---
+    passages = data.get('passages') or []
+    passage_entries = [p for p in passages if p.get('source') and p.get('target')]
+    if passage_entries:
+        try:
+            operations.init_passages(
+                passage_entries, source_lang=source_lang, target_lang=target_lang, replace=replace)
+        except operations.ValidationError as e:
+            click.echo(f"Passage seed aborted: {e.message}", err=True)
+            raise click.Abort()
+    passage_total = operations.count_passages(source_lang, target_lang)
+    click.echo(f"Passages: seeded {len(passage_entries)} entries; "
+               f"memory now holds {passage_total} ({source_lang}->{target_lang}).")
 
 
 @click.command('backup-db')

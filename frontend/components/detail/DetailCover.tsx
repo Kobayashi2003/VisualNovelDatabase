@@ -49,7 +49,10 @@ export function DetailCover({ image, alt, blurred, objectTop, emptyLabel = "No c
                 <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
               </div>
             )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+            {/* Decorative hover dim only — must not capture pointer events, or
+                it sits over the fallback's Reload button and forwards the click
+                to the cover (opening the lightbox on a broken image). */}
+            <div className="pointer-events-none absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{emptyLabel}</div>

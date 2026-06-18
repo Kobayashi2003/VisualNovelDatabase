@@ -87,7 +87,11 @@ export function VNReleases({ releases, olang }: VNReleasesProps) {
 
             {isOpen && groupReleases.map((r, i) => {
               const isMtl = r.languages?.find(l => l.main)?.mtl
-              const dimRow = isMtl || !r.official
+              // Dim only releases *known* to be unofficial. On a freshly crawled
+              // VN the `official` flag can momentarily arrive unresolved
+              // (undefined); treating that as unofficial flagged every release as
+              // dimmed until a refetch. `=== false` waits for a definite answer.
+              const dimRow = isMtl || r.official === false
               return (
                 <div
                   key={r.id}

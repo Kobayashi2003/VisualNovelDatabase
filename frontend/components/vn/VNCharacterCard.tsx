@@ -133,7 +133,10 @@ export function VNCharacterCard({ vnId, base, role, sexualLevel, violenceLevel, 
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">No image</div>
           )}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+          {/* Decorative hover dim only — must not capture pointer events, or it
+              sits over the fallback's Reload button and forwards the click to
+              the cover (opening the lightbox on a broken image) instead. */}
+          <div className="pointer-events-none absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
         </div>
       </div>
 

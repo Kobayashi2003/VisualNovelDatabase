@@ -29,10 +29,7 @@ export function Counter({ value }: { value: number }) {
 
 const LETTER: Variants = {
   hidden: { opacity: 0, y: "0.5em", filter: "blur(8px)" },
-  // Clear the filter once the entrance finishes: a lingering `blur(0px)` keeps
-  // a filter region clipped to the (tight `leading`) letter box, which shaves
-  // off descenders like the "y" tail. `transitionEnd` drops it to `none`.
-  show:   { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }, transitionEnd: { filter: "none" } },
+  show:   { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 }
 
 // The title is two stacked copies of the word. The base copy is the usual
@@ -54,13 +51,19 @@ const FILL_CSS = `
 `
 
 // Letters shared by both copies; the base copy adds the entrance variants.
+//
+// `background-clip: text` only paints the gradient within the letter's own box,
+// and an `inline-block` box is just `line-height` tall (the title's tight
+// `leading-[1.15]`). Descenders ("y") drop below that box and get no paint —
+// reading as a clipped tail. `pb-[0.2em]` with a matching `-mb-[0.2em]` grows
+// the paint box downward to cover the descender without shifting layout.
 function titleLetters(name: string, klass: string, withEntrance: boolean) {
   return name.split("").map((ch, i) => (
     <motion.span
       key={i}
       aria-hidden
       variants={withEntrance ? LETTER : undefined}
-      className={`${klass} inline-block bg-clip-text text-transparent`}
+      className={`${klass} inline-block bg-clip-text pb-[0.2em] -mb-[0.2em] text-transparent`}
     >
       {ch === " " ? " " : ch}
     </motion.span>

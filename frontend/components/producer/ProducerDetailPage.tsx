@@ -35,7 +35,7 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
   const [violenceLevel, setViolenceLevel] = useState(defaultViolenceLevel)
 
   const { tabs, active, setActive } = useDetailTabs<ProducerTab>(producer?.id, [
-    { value: "vns", label: "Visual Novels", fetchCount: () => api.small.vn({ developer: producer!.id, limit: 1 }) },
+    { value: "vns", label: "Visual Novels", fetchCount: () => api.small.vn({ developer_id: producer!.id, limit: 1 }) },
     { value: "releases", label: "Releases", fetchCount: () => api.small.release({ producer: producer!.id, limit: 1 }) },
   ])
 
@@ -76,7 +76,10 @@ export function ProducerDetailPage({ id }: ProducerDetailPageProps) {
           )}
           {active === "vns" ? (
             <EntityCardSection
-              query={{ developer: producer.id, sort: "released", reverse: true }}
+              // Exact producer-id containment (`developer_id`), not the fuzzy
+              // `developer` OR which also ILIKE-matches developer name/original
+              // and leaked in unrelated VNs whose name merely contained the id.
+              query={{ developer_id: producer.id, sort: "released", reverse: true }}
               fetcher={api.small.vn}
               renderGrid={vns => (
                 <VNsCardsGrid vns={vns} sexualLevel={sexualLevel} violenceLevel={violenceLevel} />

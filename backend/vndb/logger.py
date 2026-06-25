@@ -44,4 +44,10 @@ def add_log_entry(level, message, details=None):
     db.session.add(log_entry)
     db.session.commit()
 
-logger = setup_logger('logger', 'vndb/logs/info.log')
+# Logs are consolidated under the repo-root logs/ dir (anchored to this file's
+# location, so it's independent of the current working directory).
+_LOG_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'logs',
+)
+logger = setup_logger('logger', os.path.join(_LOG_DIR, 'vndb.log'))

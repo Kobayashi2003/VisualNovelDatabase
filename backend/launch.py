@@ -58,8 +58,15 @@ from procserve import ProcSpec, Supervisor
 # vndb/config.py), but that's too late for the launcher's own decisions.
 load_dotenv()
 
-os.makedirs("logs", exist_ok=True)
+# Consolidate logs under the repo-root logs/ dir (launch.py lives in backend/,
+# so its parent is the repo root) — matches each app's logger.py.
+_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+os.makedirs(_LOG_DIR, exist_ok=True)
 os.environ["PYTHONUNBUFFERED"] = "1"
+# Don't litter the source tree with __pycache__/*.pyc — set it here (not just
+# in pixi.toml's [activation.env]) so it holds even when launch.py is run with
+# a bare `python launch.py`, and so every child interpreter inherits it.
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
 logger = logging.getLogger("launch")
 
@@ -69,7 +76,7 @@ def _setup_logging(mode: str) -> None:
     below log through this same logger, so their missing-binary warnings land
     in the file too."""
     logger.setLevel(logging.INFO)
-    file_handler = RotatingFileHandler(f"logs/{mode}.log", maxBytes=1024 * 1024 * 5)
+    file_handler = RotatingFileHandler(os.path.join(_LOG_DIR, f"launch-{mode}.log"), maxBytes=1024 * 1024 * 5)
     file_handler.setLevel(logging.INFO)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.ERROR)
@@ -153,7 +160,7 @@ def make_caddy_spec(next_port: Optional[int] = None,
         )
         return None
 
-    data_folder = os.environ.get("DATA_FOLDER", "./DATA")
+    data_folder = os.environ.get("DATA_FOLDER", "../data")
     image_folder = os.path.abspath(os.path.join(data_folder, "images"))
     os.makedirs(image_folder, exist_ok=True)
 

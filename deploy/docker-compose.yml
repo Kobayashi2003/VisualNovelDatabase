@@ -1,0 +1,144 @@
+# =============================================================================
+# Visual Novel Database — one-click stack.
+#
+#   cd deploy && cp .env.example .env   # then edit the secrets
+#   docker compose up -d --build
+#   open http://localhost:30709
+#
+# Topology mirrors backend/launch.py's prod stack:
+#   postgres + redis  (infra)
+#   init              (one-shot: migrate + seed transserve, then exits)
+#   vndb / imgserve / userserve / transserve / musicserve  (Waitress)
+#   vndb-celery / imgserve-celery                          (crawl/image workers)
+#   frontend          (Next.js standalone)
+#   caddy             (single public ingress on :30709)
+#
+# Only the translation memory is seeded (init.json). vndb/imgserve start empty
+# and crawl from the VNDB Kana API on their schedule (CRAWL_HOURS); imgserve
+# caches images lazily as users browse.
+# =============================================================================
+
+name: vndb
+
+# Shared definition for every backend role (same image, different command).
+x-backend: &backend
+  image: vndb-backend:local
+  build:
+    context: ..
+    dockerfile: deploy/backend.Dockerfile
+  env_file: [.env]
+  volumes:
+    - appdata:/data
+  restart: unless-stopped
+  depends_on:
+    init:
+      condition: service_completed_successfully
+
+services:
+  # ---- infrastructure -------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    env_file: [.env]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      # First boot runs initdb + creates 4 DBs, which is slow under WSL2; give it
+      # plenty of grace so the healthcheck doesn't mark it unhealthy too early.
+      start_period: 180s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # No persistence — Redis is only a cache + Celery broker here.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ---- one-shot init: migrate + seed ---------------------------------------
+  init:
+    <<: *backend
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - appdata:/data
+      - ./init.sh:/init.sh:ro
+    command: ["bash", "/init.sh"]
+
+  # ---- backend services -----------------------------------------------------
+  vndb:
+    <<: *backend
+    command: ["python", "-c", "from waitress import serve; import vndb; app=vndb.create_app(); c=app.config; serve(app, host=c['APP_HOST'], port=c['APP_PORT'], threads=c.get('WAITRESS_THREADS', 4))"]
+
+  vndb-celery:
+    <<: *backend
+    command: ["python", "-c", "from vndb import create_app; app=create_app(enable_scheduler=False); app.celery.Worker(pool='threads', concurrency=4, loglevel='info').start()"]
+
+  imgserve:
+    <<: *backend
+    command: ["python", "-c", "from waitress import serve; import imgserve; app=imgserve.create_app(); c=app.config; serve(app, host=c['APP_HOST'], port=c['APP_PORT'], threads=c.get('WAITRESS_THREADS', 4))"]
+
+  imgserve-celery:
+    <<: *backend
+    command: ["python", "-c", "from imgserve import create_app; app=create_app(enable_scheduler=False); app.celery.Worker(pool='threads', concurrency=4, loglevel='info').start()"]
+
+  userserve:
+    <<: *backend
+    command: ["python", "-c", "from waitress import serve; import userserve; app=userserve.create_app(); c=app.config; serve(app, host=c['APP_HOST'], port=c['APP_PORT'], threads=c.get('WAITRESS_THREADS', 4))"]
+
+  transserve:
+    <<: *backend
+    command: ["python", "-c", "from waitress import serve; import transserve; app=transserve.create_app(); c=app.config; serve(app, host=c['APP_HOST'], port=c['APP_PORT'], threads=c.get('WAITRESS_THREADS', 4))"]
+
+  musicserve:
+    <<: *backend
+    # User music library — drop audio/cover files into ./music (see .env: MUSICSERVE_MUSIC_FOLDER=/music).
+    volumes:
+      - appdata:/data
+      - ./music:/music
+    command: ["python", "-c", "from waitress import serve; import musicserve; app=musicserve.create_app(); c=app.config; serve(app, host=c['APP_HOST'], port=c['APP_PORT'], threads=c.get('WAITRESS_THREADS', 4))"]
+
+  # ---- frontend -------------------------------------------------------------
+  frontend:
+    image: vndb-frontend:local
+    build:
+      context: ..
+      dockerfile: deploy/frontend.Dockerfile
+    restart: unless-stopped
+
+  # ---- public ingress -------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "30709:30709"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - appdata:/srv:ro           # imgserve cache (images at /srv/images), for the file_server fast path
+      - caddy_data:/data          # Caddy's own writable storage
+      - caddy_config:/config
+    depends_on:
+      - vndb
+      - imgserve
+      - userserve
+      - transserve
+      - musicserve
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  appdata:
+  caddy_data:
+  caddy_config:

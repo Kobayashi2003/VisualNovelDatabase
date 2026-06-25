@@ -1,0 +1,3 @@
+# Local compose env (contains secrets) and user-supplied music library.
+.env
+/music/

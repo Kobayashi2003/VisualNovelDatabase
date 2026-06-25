@@ -1,8 +1,26 @@
-# .gitignore
+# .gitignore — repo-wide rules. Anything BOTH the backend and frontend (or any
+# subtree) would ignore lives here, so the per-app .gitignores stay app-specific.
 
+# Editors / tooling
 .claude/
 .vscode/
-.pytest_cache/
+
+# Python bytecode / test caches (backend). Generation is also disabled via
+# PYTHONDONTWRITEBYTECODE — see backend/pixi.toml + launch.py.
 __pycache__/
+.pytest_cache/
+
+# Node
 node_modules/
+
+# OS cruft & stray certs/keys (secrets must never be committed)
+.DS_Store
+*.pem
+
+# Scratch
 Temp/
+
+# Consolidated logs and the (moved) data folder — both at repo root.
+# Anchored with a leading slash so /data/ can't match backend/transserve/data/.
+/logs/
+/data/

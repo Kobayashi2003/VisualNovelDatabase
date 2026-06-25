@@ -1,0 +1,4 @@
+# Shell scripts run inside Linux containers — force LF so a Windows checkout
+# (autocrlf) doesn't break the shebang / `bash` parsing.
+*.sh text eol=lf
+Caddyfile text eol=lf

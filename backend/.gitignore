@@ -1,10 +1,5 @@
 *.env
-*.log
-DATA/
-logs/
 .pixi/
-.pytest_cache/
-__pycache__/
 
 !transserve/data/
 !transserve/data/**

@@ -1,0 +1,30 @@
+# Docker build context = repo root. Keep it small — data/ alone is ~40 GB.
+
+# Large data & local tool caches
+data/
+backend/.pixi/
+
+# Frontend build output & dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+
+# Logs, Python bytecode, DB dumps
+**/logs/
+**/__pycache__/
+**/*.pyc
+**/*.dump
+
+# Version control, editor & tooling dirs
+.git/
+.vscode/
+.claude/
+Temp/
+assets/
+deploy/
+
+# Secrets — images get their config via compose env_file
+**/.env
+**/.env.local
+
+# Kept on purpose: backend/transserve/data/init.json (the bundled translation seed)

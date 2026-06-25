@@ -15,6 +15,24 @@ in a set of small Flask services, and serves it through a **freshly redesigned N
 On top of the original VNDB feature set it adds **user accounts**, **localized images & media**, and
 a **Japanese translation layer** for tag/trait descriptions.
 
+## Preview
+
+<table>
+  <tr>
+    <td colspan="2"><img src="assets/01-home.png" alt="Home" /><br/><sub><b>Home</b> — recent releases, browsable by year/month</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/02-browse.png" alt="Browse" /><br/><sub><b>Browse</b> — search grid with content-level filtering</sub></td>
+    <td width="50%"><img src="assets/03-vn-detail.png" alt="VN detail" /><br/><sub><b>VN detail</b> — tags, releases, staff &amp; cast</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/04-character-detail.png" alt="Character detail" /><br/><sub><b>Character detail</b> — traits &amp; appearances</sub></td>
+    <td width="50%"><img src="assets/05-relation-graph.png" alt="Relation graph" /><br/><sub><b>Relation graph</b> — interactive VN relations</sub></td>
+  </tr>
+</table>
+
+> Screenshots are shown in all-ages (Safe) mode.
+
 ## Backend
 
 A handful of focused Flask apps, orchestrated by a single launcher and fronted by Caddy.

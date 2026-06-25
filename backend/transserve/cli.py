@@ -29,6 +29,7 @@ def register_commands(app):
     app.cli.add_command(seed_dictionary)
     app.cli.add_command(seed_passages)
     app.cli.add_command(seed_init)
+    app.cli.add_command(export_init)
 
 
 @click.command('init-db')
@@ -244,6 +245,89 @@ def seed_init(file_path, replace):
     passage_total = operations.count_passages(source_lang, target_lang)
     click.echo(f"Passages: seeded {len(passage_entries)} entries; "
                f"memory now holds {passage_total} ({source_lang}->{target_lang}).")
+
+
+@click.command('export')
+@click.option('-f', '--file', 'file_path', default=DEFAULT_INIT_FILE,
+              help='Output path for the combined init JSON (default: data/init.json).')
+@click.option('--source-lang', 'source_lang', default=None,
+              help='Source language to export (default: app config / en).')
+@click.option('--target-lang', 'target_lang', default=None,
+              help='Target language to export (default: app config / ja).')
+@with_appcontext
+def export_init(file_path, source_lang, target_lang):
+    """Export the dictionary + passage TM to a combined init JSON file.
+
+    The inverse of `seed-init`: dumps the current DB in exactly the shape
+    `seed-init` reads, so the bundled seed (data/init.json) can be refreshed
+    from the live translation memory before a release. Dictionary rows are
+    grouped by `category`; passages become a flat list carrying `entity_type`
+    (and `category` when set). Only the chosen language pair is exported, to
+    mirror seed-init (which applies one pair to the whole file). Output is
+    deterministically ordered so re-exports produce clean diffs.
+    """
+    from .models import DictionaryEntry, PassageEntry
+
+    source_lang = source_lang or current_app.config.get('SOURCE_LANG', 'en')
+    target_lang = target_lang or current_app.config.get('TARGET_LANG', 'ja')
+
+    # Sorting is done in Python (codepoint order on the source text), not in SQL:
+    # the output must be byte-stable across machines, and a DB ORDER BY would
+    # follow the server's collation instead. Categories and dictionary entries
+    # sort by source text; passages sort by (entity_type, source text) so each
+    # entity group stays contiguous.
+
+    # --- dictionary half: {category: {source_text: target_text}} ---
+    dict_rows = (db.session.query(DictionaryEntry)
+                 .filter(DictionaryEntry.source_lang == source_lang)
+                 .filter(DictionaryEntry.target_lang == target_lang)
+                 .all())
+    grouped: dict[str, dict] = {}
+    for row in dict_rows:
+        grouped.setdefault(row.category or 'general', {})[row.source_text] = row.target_text
+    dictionary = {
+        cat: {src: grouped[cat][src] for src in sorted(grouped[cat])}
+        for cat in sorted(grouped)
+    }
+
+    # --- passages half: [{source, target, entity_type[, category]}] ---
+    passage_rows = (db.session.query(PassageEntry)
+                    .filter(PassageEntry.source_lang == source_lang)
+                    .filter(PassageEntry.target_lang == target_lang)
+                    .all())
+    passages = []
+    for row in sorted(passage_rows, key=lambda r: (r.entity_type or '', r.source_text)):
+        entry = {'source': row.source_text, 'target': row.target_text}
+        if row.entity_type:
+            entry['entity_type'] = row.entity_type
+        if row.category:
+            entry['category'] = row.category
+        passages.append(entry)
+
+    # Preserve an existing top-level `_comment` (a human note about the seed) if
+    # the target file already carries one; otherwise omit it.
+    comment = None
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, encoding='utf-8') as f:
+                comment = json.load(f).get('_comment')
+        except (json.JSONDecodeError, OSError):
+            comment = None
+
+    out = {'source_lang': source_lang, 'target_lang': target_lang}
+    if comment:
+        out['_comment'] = comment
+    out['dictionary'] = dictionary
+    out['passages'] = passages
+
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(out, f, ensure_ascii=False, indent=1)
+
+    dict_total = sum(len(v) for v in dictionary.values())
+    breakdown = ', '.join(f'{k}:{len(v)}' for k, v in dictionary.items())
+    click.echo(f"Exported {dict_total} dictionary entries ({breakdown}) and "
+               f"{len(passages)} passages ({source_lang}->{target_lang}) to {file_path}.")
 
 
 @click.command('backup-db')

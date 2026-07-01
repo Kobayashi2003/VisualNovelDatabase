@@ -44,6 +44,7 @@ A handful of focused Flask apps, orchestrated by a single launcher and fronted b
 | **userserve** | User accounts — registration, JWT auth, email, and personal collections/lists. |
 | **transserve** | Translation layer — stores and serves en→ja translations of tag/trait descriptions. |
 | **musicserve** | Serves the local music library for the player. |
+| **logserve** | Developer tool to browse, filter & replay recorded searches (the `logs` table). Loopback-only — not behind Caddy. |
 | **procserve** | Process supervisor used by the launcher to start/manage all services. |
 
 ## Frontend

@@ -6,6 +6,7 @@ from enum import Enum
 
 from .filters import get_remote_filters
 from .fields import get_remote_fields, validate_sort
+from ..common import log_search
 
 
 VNDB_API_URL = "https://api.vndb.org/kana"
@@ -66,27 +67,29 @@ class VNDBAPIWrapper:
 
         response = self._request("POST", url, json=payload)
 
-        # TODO:DEBUG
-        from vndb.logger import add_log_entry
         if response.status_code != 200:
-            level = "error"
-            message = f"Error querying {endpoint.value}"
-            details = {
-                "from": "remote",
-                "url": url,
-                "payload": payload,
-                "status_code": response.status_code,
-                "response": response.text
-            }
+            log_search(
+                source="remote",
+                message=f"Error querying {endpoint.value}",
+                details={
+                    "resource_type": endpoint.value,
+                    "url": url,
+                    "payload": payload,
+                    "status_code": response.status_code,
+                    "response": response.text,
+                },
+                level="error",
+            )
         else:
-            level = "info"
-            message = f"Successfully queried {endpoint.value}"
-            details = {
-                "from": "remote",
-                "url": url,
-                "payload": payload,
-            }
-        add_log_entry(level, message, details)
+            log_search(
+                source="remote",
+                message=f"Successfully queried {endpoint.value}",
+                details={
+                    "resource_type": endpoint.value,
+                    "url": url,
+                    "payload": payload,
+                },
+            )
 
         response.raise_for_status()
         return response.json()

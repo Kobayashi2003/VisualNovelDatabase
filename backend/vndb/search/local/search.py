@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import asc, desc
@@ -6,6 +7,21 @@ from vndb.database.models import MODEL_MAP
 
 from .fields import get_local_fields, validate_sort
 from .filters import get_local_filters
+from ..common import log_search
+
+
+def _jsonable(value: Any) -> Any:
+    """Coerce a bound SQL parameter into something JSON-serializable so it can
+    live in the log entry's JSONB `details` (and be handed back to the DBAPI on
+    replay). Basic scalars pass through; dates become ISO strings; anything else
+    falls back to its string form."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return str(value)
 
 def search(resource_type: str, params: dict[str, Any],
            response_size: str = 'small', page: int = 1, limit: int = 100,
@@ -35,14 +51,28 @@ def search(resource_type: str, params: dict[str, Any],
     limit = min(max(1, limit or 20), 100)
     query = query.offset((page - 1) * limit).limit(limit)
 
-    # TODO:DEGUG
-    from vndb.logger import add_log_entry
-    add_log_entry(
-        level="info",
+    # Capture the compiled SELECT together with its bound parameters so logserve
+    # can faithfully replay it (see logserve.replay). render_postcompile expands
+    # IN-lists into individual binds; we keep the :name placeholders and store
+    # the matching values rather than inlining literals — inlining (literal_binds)
+    # fails for the array/jsonb search predicates, and parameter binding is what
+    # the DBAPI wants on replay anyway. Guarded: a logging detail must never
+    # break the search itself.
+    try:
+        compiled = query.statement.compile(compile_kwargs={"render_postcompile": True})
+        compiled_query = str(compiled)
+        query_params = {key: _jsonable(value) for key, value in compiled.params.items()}
+    except Exception:
+        compiled_query = str(query.statement)
+        query_params = {}
+
+    log_search(
+        source="local",
         message=f"Search {resource_type} completed",
         details={
-            "from": "local",
-            "query": str(query.statement.compile(compile_kwargs={"render_postcompile": True})),
+            "resource_type": resource_type,
+            "query": compiled_query,
+            "query_params": query_params,
             "params": params,
             "response_size": response_size,
             "page": page,
@@ -50,7 +80,7 @@ def search(resource_type: str, params: dict[str, Any],
             "sort": sort,
             "reverse": reverse,
             "count": count,
-        }
+        },
     )
 
     results = [dict(zip(fields, result)) for result in query.all()]

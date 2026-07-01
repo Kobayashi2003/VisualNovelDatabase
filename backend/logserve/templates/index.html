@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>logserve</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1180px;
+            margin: 32px auto;
+            padding: 0 24px;
+            color: #333;
+            background: #f0f2f5;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 8px;
+            margin-bottom: 4px;
+        }
+        .sub { color: #7a8699; font-size: 13px; margin: 0 0 20px; }
+
+        section {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+        }
+        h2 {
+            color: #2c3e50; font-size: 13px; text-transform: uppercase;
+            letter-spacing: .05em; margin: 0 0 14px;
+        }
+
+        /* Stats */
+        .stats { display: flex; flex-wrap: wrap; gap: 10px; }
+        .chip {
+            background: #f4f6f9; border: 1px solid #e2e6ec; border-radius: 20px;
+            padding: 5px 13px; font-size: 13px;
+        }
+        .chip b { color: #2c3e50; }
+
+        /* Filters */
+        .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+        .field { display: flex; flex-direction: column; gap: 3px; }
+        .field label { font-size: 11px; color: #7a8699; text-transform: uppercase; letter-spacing: .04em; }
+        input, select {
+            font-family: inherit; font-size: 13px; padding: 6px 8px;
+            border: 1px solid #cdd4dd; border-radius: 4px; background: #fff;
+        }
+        input[type=text] { min-width: 190px; }
+
+        button {
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            border: 1px solid #2c3e50; background: #2c3e50; color: #fff;
+            border-radius: 4px; padding: 7px 14px;
+        }
+        button.ghost { background: #fff; color: #2c3e50; }
+        button.danger { background: #fff; color: #c0392b; border-color: #c0392b; }
+        button:disabled { opacity: .5; cursor: default; }
+        button.mini { padding: 3px 8px; font-size: 12px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #edf0f3; vertical-align: top; }
+        th { color: #7a8699; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+        tbody tr:hover { background: #fafbfc; }
+        td.msg { max-width: 380px; }
+        .lvl { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+        .lvl.info { background: #e6f0fb; color: #2c6cb0; }
+        .lvl.error { background: #fdecea; color: #c0392b; }
+        .lvl.warning { background: #fff4e0; color: #b9770e; }
+        .src { color: #555; }
+        .mono { font-family: 'Consolas', 'Courier New', monospace; }
+        .rt { color: #7a8699; font-size: 12px; }
+        .actions { white-space: nowrap; }
+        .actions button { margin-right: 4px; }
+
+        .pager { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-size: 13px; }
+        .muted { color: #7a8699; }
+
+        /* Detail drawer */
+        #detail { display: none; }
+        #detail.open { display: block; }
+        pre {
+            background: #1e2530; color: #d6dee8; padding: 14px; border-radius: 5px;
+            overflow: auto; max-height: 380px; font-size: 12px; line-height: 1.45;
+            font-family: 'Consolas', 'Courier New', monospace; margin: 0 0 12px;
+        }
+        .detail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; background: #2c3e50; color: #fff;
+            padding: 10px 16px; border-radius: 5px; font-size: 13px; opacity: 0;
+            transition: opacity .2s; pointer-events: none; max-width: 420px;
+        }
+        .toast.show { opacity: .96; }
+        .toast.err { background: #c0392b; }
+    </style>
+</head>
+<body>
+    <h1>logserve</h1>
+    <p class="sub">Diagnostics over the vndb <span class="mono">logs</span> table — query, inspect, delete and replay recorded searches.</p>
+
+    <section>
+        <h2>Overview</h2>
+        <div class="stats" id="stats"><span class="muted">loading…</span></div>
+    </section>
+
+    <section>
+        <h2>Filter</h2>
+        <div class="filters">
+            <div class="field">
+                <label>Level</label>
+                <select id="f-level"><option value="">any</option><option>info</option><option>warning</option><option>error</option></select>
+            </div>
+            <div class="field">
+                <label>Source</label>
+                <select id="f-source"><option value="">any</option><option>local</option><option>remote</option></select>
+            </div>
+            <div class="field">
+                <label>Type</label>
+                <input type="text" id="f-rt" placeholder="vn, character, tag…" style="min-width:130px">
+            </div>
+            <div class="field">
+                <label>Message contains</label>
+                <input type="text" id="f-search" placeholder="substring…">
+            </div>
+            <div class="field">
+                <label>Per page</label>
+                <select id="f-limit"><option>25</option><option selected>50</option><option>100</option><option>200</option></select>
+            </div>
+            <button id="apply">Apply</button>
+            <button class="ghost" id="reset">Reset</button>
+            <button class="danger" id="bulk">Delete matching…</button>
+        </div>
+    </section>
+
+    <section>
+        <div class="detail-head">
+            <h2 style="margin:0">Entries</h2>
+            <span class="muted" id="count-label"></span>
+        </div>
+        <table>
+            <thead>
+                <tr><th>Time</th><th>Level</th><th>Source</th><th>Type</th><th>Message</th><th></th></tr>
+            </thead>
+            <tbody id="rows"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+        </table>
+        <div class="pager">
+            <button class="ghost mini" id="prev">‹ Prev</button>
+            <span id="page-label" class="muted"></span>
+            <button class="ghost mini" id="next">Next ›</button>
+        </div>
+    </section>
+
+    <section id="detail">
+        <div class="detail-head">
+            <h2 style="margin:0" id="detail-title">Entry</h2>
+            <button class="ghost mini" id="detail-close">Close</button>
+        </div>
+        <pre id="detail-body"></pre>
+        <div id="replay-wrap" style="display:none">
+            <div class="detail-head"><h2 style="margin:0">Replay result</h2></div>
+            <pre id="replay-body"></pre>
+        </div>
+    </section>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const state = { page: 1, pages: 1 };
+
+        function toast(msg, isErr) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (isErr ? ' err' : '');
+            setTimeout(() => { t.className = 'toast'; }, 2600);
+        }
+
+        function filters() {
+            return {
+                level: document.getElementById('f-level').value,
+                source: document.getElementById('f-source').value,
+                resource_type: document.getElementById('f-rt').value.trim(),
+                search: document.getElementById('f-search').value.trim(),
+                limit: document.getElementById('f-limit').value,
+            };
+        }
+
+        function queryString(extra) {
+            const f = Object.assign(filters(), extra || {});
+            const p = new URLSearchParams();
+            Object.entries(f).forEach(([k, v]) => { if (v !== '' && v != null) p.set(k, v); });
+            return p.toString();
+        }
+
+        async function loadStats() {
+            try {
+                const s = await (await fetch('/stats')).json();
+                const el = document.getElementById('stats');
+                const parts = [`<span class="chip">total <b>${s.total.toLocaleString()}</b></span>`];
+                for (const [k, v] of Object.entries(s.by_level || {})) parts.push(`<span class="chip">${k} <b>${v.toLocaleString()}</b></span>`);
+                for (const [k, v] of Object.entries(s.by_source || {})) parts.push(`<span class="chip">${k} <b>${v.toLocaleString()}</b></span>`);
+                if (s.latest) parts.push(`<span class="chip">latest <b>${s.latest.replace('T', ' ').slice(0, 19)}</b></span>`);
+                el.innerHTML = parts.join('');
+            } catch (e) { document.getElementById('stats').innerHTML = '<span class="muted">stats unavailable</span>'; }
+        }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+
+        async function loadLogs() {
+            const tbody = document.getElementById('rows');
+            tbody.innerHTML = '<tr><td colspan="6" class="muted">loading…</td></tr>';
+            let data;
+            try {
+                data = await (await fetch('/logs?' + queryString({ page: state.page }))).json();
+            } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="muted">failed to load</td></tr>'; return; }
+
+            state.pages = data.pages || 1;
+            document.getElementById('count-label').textContent = data.total.toLocaleString() + ' matching';
+            document.getElementById('page-label').textContent = `page ${data.page} / ${state.pages}`;
+            document.getElementById('prev').disabled = data.page <= 1;
+            document.getElementById('next').disabled = data.page >= state.pages;
+
+            if (!data.results.length) { tbody.innerHTML = '<tr><td colspan="6" class="muted">no entries</td></tr>'; return; }
+            tbody.innerHTML = data.results.map(r => {
+                const time = (r.timestamp || '').replace('T', ' ').slice(0, 19);
+                const lvl = `<span class="lvl ${esc(r.level)}">${esc(r.level)}</span>`;
+                return `<tr>
+                    <td class="mono" style="white-space:nowrap">${esc(time)}</td>
+                    <td>${lvl}</td>
+                    <td class="src">${esc(r.source || '—')}</td>
+                    <td class="rt">${esc(r.resource_type || '')}</td>
+                    <td class="msg">${esc(r.message)}</td>
+                    <td class="actions">
+                        <button class="ghost mini" data-view="${esc(r.id)}">View</button>
+                        <button class="ghost mini" data-replay="${esc(r.id)}">Replay</button>
+                        <button class="danger mini" data-del="${esc(r.id)}">Del</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function viewEntry(id) {
+            const detail = document.getElementById('detail');
+            document.getElementById('replay-wrap').style.display = 'none';
+            document.getElementById('detail-title').textContent = 'Entry ' + id;
+            document.getElementById('detail-body').textContent = 'loading…';
+            detail.classList.add('open');
+            detail.scrollIntoView({ behavior: 'smooth' });
+            try {
+                const e = await (await fetch('/logs/' + id)).json();
+                document.getElementById('detail-body').textContent = JSON.stringify(e, null, 2);
+            } catch (err) { document.getElementById('detail-body').textContent = 'failed to load'; }
+        }
+
+        async function replayEntry(id) {
+            await viewEntry(id);
+            const wrap = document.getElementById('replay-wrap');
+            const body = document.getElementById('replay-body');
+            wrap.style.display = 'block';
+            body.textContent = 'replaying…';
+            try {
+                const res = await fetch('/logs/' + id + '/replay', { method: 'POST' });
+                const j = await res.json();
+                body.textContent = JSON.stringify(j, null, 2);
+                if (!res.ok) toast(j.message || 'replay failed', true); else toast('replayed');
+            } catch (err) { body.textContent = 'replay failed'; toast('replay failed', true); }
+        }
+
+        async function deleteEntry(id) {
+            if (!confirm('Delete log entry ' + id + '?')) return;
+            const res = await fetch('/logs/' + id, { method: 'DELETE' });
+            if (res.ok) { toast('deleted'); loadLogs(); loadStats(); }
+            else toast('delete failed', true);
+        }
+
+        async function bulkDelete() {
+            const f = filters();
+            const sel = { level: f.level, source: f.source, resource_type: f.resource_type, search: f.search };
+            const active = Object.entries(sel).filter(([, v]) => v);
+            if (!active.length) { toast('Set at least one filter first (no blanket wipe from the UI).', true); return; }
+            const desc = active.map(([k, v]) => `${k}=${v}`).join(', ');
+            if (!confirm('Delete ALL entries matching: ' + desc + ' ?\nThis cannot be undone.')) return;
+            const res = await fetch('/logs/delete', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sel),
+            });
+            const j = await res.json();
+            if (res.ok) { toast('deleted ' + j.deleted + ' entries'); state.page = 1; loadLogs(); loadStats(); }
+            else toast(j.message || 'bulk delete failed', true);
+        }
+
+        // Events
+        document.getElementById('rows').addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            if (b.dataset.view) viewEntry(b.dataset.view);
+            else if (b.dataset.replay) replayEntry(b.dataset.replay);
+            else if (b.dataset.del) deleteEntry(b.dataset.del);
+        });
+        document.getElementById('apply').onclick = () => { state.page = 1; loadLogs(); };
+        document.getElementById('reset').onclick = () => {
+            ['f-level', 'f-source'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('f-rt').value = '';
+            document.getElementById('f-search').value = '';
+            state.page = 1; loadLogs();
+        };
+        document.getElementById('bulk').onclick = bulkDelete;
+        document.getElementById('prev').onclick = () => { if (state.page > 1) { state.page--; loadLogs(); } };
+        document.getElementById('next').onclick = () => { if (state.page < state.pages) { state.page++; loadLogs(); } };
+        document.getElementById('detail-close').onclick = () => document.getElementById('detail').classList.remove('open');
+        document.getElementById('f-search').addEventListener('keydown', e => { if (e.key === 'Enter') { state.page = 1; loadLogs(); } });
+
+        loadStats();
+        loadLogs();
+    </script>
+</body>
+</html>

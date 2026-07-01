@@ -1,5 +1,34 @@
 import re
 
+from vndb.logger import add_log_entry, logger
+
+
+def log_search(source: str, message: str, details: dict | None = None, level: str = 'info') -> None:
+    """Record a search event in the `logs` table (see database.models.LogEntry).
+
+    This centralizes the observability write shared by the local and remote
+    search backends: the originating backend is stamped under
+    ``details['from']`` ('local' | 'remote') so downstream tooling (logserve)
+    can filter and replay by source.
+
+    Best-effort by design: a logging failure must never break the search it is
+    observing, so any DB error is swallowed (and noted in the file log) after
+    rolling the session back to a clean state.
+    """
+    entry = {'from': source}
+    if details:
+        entry.update(details)
+    try:
+        add_log_entry(level, message, entry)
+    except Exception:
+        try:
+            from vndb import db
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to record search log entry")
+
+
 def process_resolution(resolution_value):
     if not resolution_value:
         return None

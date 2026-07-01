@@ -14,13 +14,16 @@ signal-driven reverse-topological shutdown (see procserve/__init__.py).
 
 Stacks:
   - dev : Redis + vndb/imgserve Celery workers + Flower dashboards
-          + vndb/imgserve/userserve/transserve/musicserve Flask servers
+          + vndb/imgserve/userserve/transserve/musicserve/logserve Flask servers
             (Flask dev or Waitress)
           + Caddy edge (opt-in via USE_CADDY=true; missing binary is a warning)
   - prod: Redis + vndb/imgserve Celery workers
-          + vndb/imgserve/userserve/transserve/musicserve Waitress servers
+          + vndb/imgserve/userserve/transserve/musicserve/logserve Waitress servers
           + Caddy (mandatory public ingress; missing binary is a hard error)
           No Flower (it's a dev-only celery dashboard).
+
+logserve is the developer diagnostics tool over the vndb `logs` table; it runs
+in both stacks but is intentionally NOT behind Caddy (loopback-only).
 
 Postgres is intentionally NOT launched here — it runs as a Windows service
 (see backend/scripts/pg-service.ps1) so the SCM owns its shutdown (clean fast
@@ -295,6 +298,11 @@ def build_specs(mode: str, *, use_waitress: bool,
     specs.append(make_flask_spec("userserve", use_waitress=use_waitress))
     specs.append(make_flask_spec("transserve", use_waitress=use_waitress))
     specs.append(make_flask_spec("musicserve", use_waitress=use_waitress))
+    # logserve is a developer diagnostics tool over the vndb `logs` table. It
+    # starts with the stack but is deliberately NOT wired into make_caddy_spec /
+    # the Caddyfile, so it stays on its loopback dev port and is never exposed
+    # through the public edge.
+    specs.append(make_flask_spec("logserve", use_waitress=use_waitress))
 
     if mode == "prod":
         specs.append(make_caddy_spec(next_port=next_port, required=True))

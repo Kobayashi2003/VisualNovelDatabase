@@ -45,6 +45,17 @@ function fetchByType(type: EntityType, params: Record<string, unknown>, signal: 
   }
 }
 
+/** Default dropdown ordering per entity. The backend has no relevance ranking
+ *  and would otherwise fall back to id-ascending, which — combined with the
+ *  result cap — buries the most useful matches past the visible window. tag /
+ *  trait are fully mirrored locally and expose a popularity column, so we sort
+ *  by it descending; staff / producer have no such proxy, so they keep the
+ *  default id ordering. */
+const SORT_BY_TYPE: Partial<Record<EntityType, { sort: string; reverse: boolean }>> = {
+  tag:   { sort: "vn_count", reverse: true },
+  trait: { sort: "char_count", reverse: true },
+}
+
 
 /* ─── Search state hook ────────────────────────────────────────────────────── */
 
@@ -84,7 +95,7 @@ export function useEntitySearch(entityType: EntityType, source?: string) {
     abortRef.current = new AbortController()
     setLoading(true)
     setOpen(true)
-    fetchByType(entityType, { search: q, limit: 10, ...(source && source !== "both" ? { from: source } : {}) }, abortRef.current.signal)
+    fetchByType(entityType, { search: q, limit: 30, ...SORT_BY_TYPE[entityType], ...(source && source !== "both" ? { from: source } : {}) }, abortRef.current.signal)
       .then(res => { setResults(res.results.map(r => normalizeEntity(entityType, r))); setLoading(false) })
       .catch(e => { if (!(e instanceof DOMException && e.name === "AbortError")) setLoading(false) })
   }

@@ -1,12 +1,62 @@
 import logging
+import os
 import signal
 import subprocess
 import sys
 import threading
 import time
+import zlib
 from typing import Dict, List, Optional
 
 from .spec import ProcSpec
+
+
+# ---------- console color ----------------------------------------------------
+# Only the interactive console output is colored; the file logger keeps plain
+# prefixes (no escape codes leak into logs/*.log). Errors/shutdown notices are
+# red so they stand out; each service gets a stable color for its prefix so a
+# glance tells you which child a line came from.
+
+_RESET = "\033[0m"
+_BOLD = "\033[1m"
+_RED = "\033[91m"
+# Red is reserved for errors, so it's absent from the per-service palette.
+_PALETTE = [
+    "\033[36m",   # cyan
+    "\033[32m",   # green
+    "\033[33m",   # yellow
+    "\033[35m",   # magenta
+    "\033[34m",   # blue
+    "\033[96m",   # bright cyan
+    "\033[92m",   # bright green
+    "\033[95m",   # bright magenta
+]
+
+
+def _enable_windows_ansi() -> bool:
+    """Turn on ENABLE_VIRTUAL_TERMINAL_PROCESSING so ANSI codes render in the
+    Windows console. No-op success on terminals that already support it."""
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        return bool(kernel32.SetConsoleMode(handle, mode.value | 0x0004))
+    except Exception:
+        return False
+
+
+def _supports_color() -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    if not sys.stdout.isatty():
+        return False
+    if sys.platform == "win32":
+        return _enable_windows_ansi()
+    return True
 
 
 class Supervisor:
@@ -29,6 +79,24 @@ class Supervisor:
         self.processes: Dict[str, subprocess.Popen] = {}
         self._lock = threading.Lock()
         self._stopping = False
+        self._color = _supports_color()
+        # Stable per-service color (crc32, not the hash-randomized built-in
+        # hash(), so a given service keeps the same color across runs).
+        self._colors = {
+            s.name: _PALETTE[zlib.crc32(s.name.encode()) % len(_PALETTE)]
+            for s in specs
+        }
+
+    # ---------- console formatting -----------------------------------------
+
+    def _prefix(self, spec: ProcSpec) -> str:
+        """Colored prefix for console output (plain when color is off)."""
+        if not self._color:
+            return spec.prefix
+        return f"{self._colors.get(spec.name, '')}{spec.prefix}{_RESET}"
+
+    def _err(self, text: str) -> str:
+        return f"{_RED}{text}{_RESET}" if self._color else text
 
     # ---------- ordering ----------------------------------------------------
 
@@ -78,10 +146,11 @@ class Supervisor:
         for line in proc.stdout:
             line = line.rstrip("\n")
             self.logger.info(f"{spec.prefix} {line}")
-            print(f"{spec.prefix} {line}")
+            print(f"{self._prefix(spec)} {line}")
 
     def _start_one(self, spec: ProcSpec) -> None:
-        print(f"{spec.prefix} starting")
+        marker = f"{_BOLD}starting{_RESET}" if self._color else "starting"
+        print(f"{self._prefix(spec)} {marker}")
         self.logger.info(f"{spec.prefix} starting: {' '.join(spec.cmd)}")
         try:
             proc = subprocess.Popen(
@@ -98,7 +167,7 @@ class Supervisor:
             # / arg-list-too-long / etc. Don't crash the whole supervisor
             # on one bad child — log it and continue with the rest.
             self.logger.error(f"{spec.prefix} failed to spawn: {e}")
-            print(f"\n!!! {spec.prefix} failed to spawn: {e}\n", file=sys.stderr)
+            print(self._err(f"\n!!! {spec.prefix} failed to spawn: {e}\n"), file=sys.stderr)
             return
 
         with self._lock:
@@ -118,7 +187,7 @@ class Supervisor:
         if spec.stop_cmd:
             cmd_str = " ".join(spec.stop_cmd)
             self.logger.info(f"{spec.prefix} graceful stop: {cmd_str}")
-            print(f"{spec.prefix} graceful stop ({timeout:g}s timeout)")
+            print(f"{self._prefix(spec)} graceful stop ({timeout:g}s timeout)")
             try:
                 # The stop command itself is bounded by the same timeout so
                 # a hung pg_ctl can't wedge the whole shutdown loop.
@@ -133,10 +202,10 @@ class Supervisor:
                 )
             except subprocess.TimeoutExpired:
                 self.logger.warning(f"{spec.prefix} stop_cmd timed out after {timeout:g}s")
-                print(f"{spec.prefix} stop_cmd timed out", file=sys.stderr)
+                print(self._err(f"{spec.prefix} stop_cmd timed out"), file=sys.stderr)
             except Exception as e:
                 self.logger.error(f"{spec.prefix} stop_cmd failed: {e}")
-                print(f"{spec.prefix} stop_cmd failed: {e}", file=sys.stderr)
+                print(self._err(f"{spec.prefix} stop_cmd failed: {e}"), file=sys.stderr)
 
             try:
                 proc.wait(timeout=timeout)
@@ -147,7 +216,7 @@ class Supervisor:
                     f"stop; escalating to terminate()"
                 )
                 print(
-                    f"{spec.prefix} did not exit gracefully; terminating",
+                    self._err(f"{spec.prefix} did not exit gracefully; terminating"),
                     file=sys.stderr,
                 )
 
@@ -165,10 +234,10 @@ class Supervisor:
                     f"{spec.prefix} did not exit within {timeout:g}s of terminate; "
                     f"falling back to kill()"
                 )
-                print(f"{spec.prefix} kill (timeout)", file=sys.stderr)
+                print(self._err(f"{spec.prefix} kill (timeout)"), file=sys.stderr)
             except Exception as e:
                 self.logger.error(f"{spec.prefix} terminate failed: {e}")
-                print(f"{spec.prefix} terminate failed: {e}", file=sys.stderr)
+                print(self._err(f"{spec.prefix} terminate failed: {e}"), file=sys.stderr)
 
         # 3) Last resort.
         if proc.poll() is None:
@@ -177,7 +246,7 @@ class Supervisor:
                 proc.wait(timeout=2)
             except Exception as e:
                 self.logger.error(f"{spec.prefix} kill failed: {e}")
-                print(f"{spec.prefix} kill failed: {e}", file=sys.stderr)
+                print(self._err(f"{spec.prefix} kill failed: {e}"), file=sys.stderr)
 
     def stop_all(self) -> None:
         """Stop every running child in reverse-topological order.
@@ -231,7 +300,7 @@ class Supervisor:
         """Start everything, install signal handlers, block forever."""
 
         def handler(signum, frame):
-            print("\nReceived interrupt; terminating processes...")
+            print(self._err("\nReceived interrupt; terminating processes..."))
             self.stop_all()
             sys.exit(0)
 

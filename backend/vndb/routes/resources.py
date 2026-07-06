@@ -88,7 +88,7 @@ class BaseResourceBlueprint(ABC, metaclass=SingletonABCMeta):
                 if prefix is None:
                     raise ValueError(f"Unknown resource type: {self.resource_type}")
 
-                if not re.match(f'^{prefix}\d+$', id_value):
+                if not re.match(rf'^{prefix}\d+$', id_value):
                     abort(400, description=f"Invalid id format for {self.resource_type}: {id_value}")
 
     def get_sync_param(self):

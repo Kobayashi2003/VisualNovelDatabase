@@ -221,8 +221,11 @@ def make_celery_spec(app_name: str) -> ProcSpec:
         f"app = create_app(enable_scheduler=False);"
         f"config = app.config;"
         f"celery = app.celery;"
+        # quiet=True suppresses Celery's startup banner (the ASCII art +
+        # config/queues/tasks dump). Worker.emit_banner() is guarded by
+        # `not quiet`, so real task logs still come through at loglevel=info.
         f"celery.Worker(pool='threads', concurrency={concurrency}, "
-        f"loglevel='info', quiet=False).start();"
+        f"loglevel='info', quiet=True).start();"
     )
     return ProcSpec(
         name=f"{app_name}_celery",

@@ -40,6 +40,13 @@
 {
 	# Quieter default access log; Caddy logs every request otherwise.
 	auto_https off
+
+	# We drive Caddy purely from this config file and never touch the admin
+	# API, so turn it off. Besides trimming noise, this stops Caddy binding
+	# 127.0.0.1:2019 — a leftover/second Caddy process holding that port is
+	# what produces "listen tcp 127.0.0.1:2019: bind: Only one usage of each
+	# socket address ... is normally permitted" on startup.
+	admin off
 }
 
 {$CADDY_BIND::30709} {

@@ -1,7 +1,7 @@
 """empty message
 
 Revision ID: cee9abcf7802
-Revises: 
+Revises:
 Create Date: 2025-02-20 13:59:07.153623
 
 """

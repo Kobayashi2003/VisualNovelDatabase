@@ -82,7 +82,7 @@
     <form id="apiForm">
         <label for="url">API URL:</label>
         <input type="text" id="url" name="url" required>
-        
+
         <label for="method">Method:</label>
         <select id="method" name="method">
             <option value="GET">GET</option>
@@ -91,24 +91,24 @@
             <option value="PATCH">PATCH</option>
             <option value="DELETE">DELETE</option>
         </select>
-        
+
         <label for="headers">Headers (JSON format):</label>
         <textarea id="headers" name="headers" rows="4"></textarea>
-        
+
         <label for="body">Request Body (JSON format):</label>
         <textarea id="body" name="body" rows="4"></textarea>
-        
+
         <label for="contentType">Content-Type (optional):</label>
         <input type="text" id="contentType" name="contentType" placeholder="e.g., application/json">
-        
+
         <button type="submit">Send Request</button>
     </form>
-    
+
     <div class="loading">
         <div class="spinner"></div>
         <p>Loading...</p>
     </div>
-    
+
     <h2>Response:</h2>
     <pre id="response"></pre>
     <img id="imageResponse" alt="API Response Image">
@@ -116,7 +116,7 @@
     <script>
         document.getElementById('apiForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const url = document.getElementById('url').value;
             const method = document.getElementById('method').value;
             const headers = JSON.parse(document.getElementById('headers').value || '{}');
@@ -125,15 +125,15 @@
             if (customContentType) {
                 headers['Content-Type'] = customContentType;
             }
-            
+
             const loading = document.querySelector('.loading');
             const responseElement = document.getElementById('response');
             const imageResponseElement = document.getElementById('imageResponse');
-            
+
             loading.style.display = 'block';
             responseElement.textContent = '';
             imageResponseElement.style.display = 'none';
-            
+
             let fetchOptions = {
                 method: method,
                 headers: headers

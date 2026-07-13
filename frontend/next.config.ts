@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   // No node_modules, no `next start` CLI. See start-prod.ps1 for how the
   // root launcher boots it via `node .next/standalone/server.js`.
   output: "standalone",
+  // Served under a path prefix, not at the origin root: a single public port
+  // (frp) fronts this app alongside others, so the root belongs to the gateway's
+  // landing page (see AppGateway/). basePath is baked in at build time — Next
+  // rewrites its own asset and <Link> URLs with it — so it cannot be toggled per
+  // launch; the app lives here in standalone mode too.
+  //
+  // It is `/visual-novel-database` rather than `/vndb` because `/vndb` is already
+  // the Flask API's prefix (see lib/constants.ts) and the two would collide.
+  basePath: "/visual-novel-database",
   images: {
     // Skip Next.js's server-side image optimizer. Both image-source modes
     // already deliver appropriately-sized images — imgserve caches them and
@@ -18,30 +27,42 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   // Dev-only proxy: in prod Caddy intercepts /vndb, /imgserve, /userserve
-  // before they reach Next.js (see Caddyfile), so these rewrites are a no-op
-  // in prod. In dev (`next dev` with no Caddy), the browser hits Next.js
+  // before they reach Next.js (see Caddyfile.snippet), so these rewrites are a
+  // no-op in prod. In dev (`next dev` with no Caddy), the browser hits Next.js
   // directly on :5010 and these rewrites forward to the Flask ports.
+  //
+  // Every source sets `basePath: false`. Next otherwise prefixes a rewrite's
+  // source with basePath, which would make these match /visual-novel-database/vndb/*
+  // — but lib/constants.ts sends the backends absolute, unprefixed paths
+  // (`/vndb`, `/imgserve`, …), matching the top-level routes Caddy serves them on
+  // in prod. Without `basePath: false` the sources would never match in dev and
+  // every backend call would 404.
   async rewrites() {
     return [
       {
         source: "/vndb/:path*",
         destination: `${process.env.VNDB_BASE_URL || "http://localhost:5000"}/:path*`,
+        basePath: false,
       },
       {
         source: "/imgserve/:path*",
         destination: `${process.env.IMGSERVE_BASE_URL || "http://localhost:5001"}/:path*`,
+        basePath: false,
       },
       {
         source: "/userserve/:path*",
         destination: `${process.env.USERSERVE_BASE_URL || "http://localhost:5002"}/:path*`,
+        basePath: false,
       },
       {
         source: "/transserve/:path*",
         destination: `${process.env.TRANSSERVE_BASE_URL || "http://localhost:5003"}/:path*`,
+        basePath: false,
       },
       {
         source: "/musicserve/:path*",
         destination: `${process.env.MUSICSERVE_BASE_URL || "http://localhost:5004"}/:path*`,
+        basePath: false,
       },
     ]
   }

@@ -286,11 +286,19 @@ def make_flask_spec(app_name: str, *, use_waitress: bool) -> ProcSpec:
 
 
 def build_specs(mode: str, *, use_waitress: bool,
-                next_port: Optional[int]) -> List[ProcSpec]:
+                next_port: Optional[int],
+                no_caddy: bool = False) -> List[ProcSpec]:
     """Assemble the stack for `mode` ("dev" | "prod"). Nones (missing-binary
     skips) are filtered out at the end. The only divergences between the two
     stacks: Flower (dev only), Waitress-vs-Flask-dev for the Flask trio, and
     Caddy's hard-fail-vs-opt-in.
+
+    `no_caddy` suppresses the edge entirely, even in prod where it is otherwise
+    mandatory. That is for the case where *something else* already owns the
+    public port: AppGateway runs one shared Caddy in front of several apps, and
+    two Caddy processes cannot both bind :30709. The Flask backends still come up
+    exactly as they would otherwise — the gateway imports this project's
+    Caddyfile.snippet, so they are reached through identical routes.
     """
     specs: List[Optional[ProcSpec]] = [make_redis_spec()]
     for app in ("vndb", "imgserve"):
@@ -307,7 +315,9 @@ def build_specs(mode: str, *, use_waitress: bool,
     # through the public edge.
     specs.append(make_flask_spec("logserve", use_waitress=use_waitress))
 
-    if mode == "prod":
+    if no_caddy:
+        print("[CADDY] --no-caddy: skipping the edge; something else owns the public port.")
+    elif mode == "prod":
         specs.append(make_caddy_spec(next_port=next_port, required=True))
     else:
         specs.append(make_caddy_spec(required=False))
@@ -331,12 +341,18 @@ def main():
         help="Port the Next.js standalone server listens on; Caddy proxies / "
              "to this port. (default: 5010)",
     )
+    p_prod.add_argument(
+        "--no-caddy", action="store_true",
+        help="Do not start Caddy. Use when an external edge already owns the "
+             "public port — e.g. AppGateway fronting this app alongside others.",
+    )
 
     args = parser.parse_args()
     _setup_logging(args.mode)
 
     if args.mode == "prod":
-        specs = build_specs("prod", use_waitress=True, next_port=args.next_port)
+        specs = build_specs("prod", use_waitress=True, next_port=args.next_port,
+                            no_caddy=args.no_caddy)
     else:
         specs = build_specs("dev", use_waitress=args.waitress, next_port=None)
 

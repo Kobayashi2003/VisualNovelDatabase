@@ -1,0 +1,136 @@
+# ============================================================================
+# Visual Novel Database — route definitions.
+#
+# This file holds routes only (no site block), so it can be imported by two
+# different edges:
+#
+#   - ./Caddyfile          — standalone mode. Binds :30709 itself; the project
+#                            runs alone behind frp.
+#   - AppGateway/.runtime/Caddyfile — unified mode. One shared Caddy on :30709
+#                            fronts this app *and* the others; the gateway
+#                            imports this same file.
+#
+# Defining the routes once means a change here lands in both modes. Do not add a
+# matcher-less catch-all `handle` block: in unified mode the catch-all belongs to
+# the gateway's landing page, and one here would swallow every other app's
+# traffic.
+#
+# Path prefix decides the route:
+#   /visual-novel-database/* -> Next.js  (the frontend's build-time basePath)
+#   /vndb/*                  -> Flask vndb        (handle_path strips /vndb)
+#   /imgserve/*              -> Flask imgserve    (file_server fast path on cache hits)
+#   /userserve/*             -> Flask userserve   (handle_path strips /userserve)
+#   /transserve/*            -> Flask transserve  (handle_path strips /transserve)
+#   /musicserve/*            -> Flask musicserve  (handle_path strips /musicserve)
+#
+# `handle_path` strips the matched prefix before forwarding, so each backend
+# keeps its existing route shape (Flask sees /img/..., /login, /v123, not the
+# prefixed form).
+#
+# The five backend prefixes stay at the TOP level rather than nesting under the
+# frontend's basePath. frontend/lib/constants.ts sends them as absolute paths
+# (`/vndb`, `/imgserve`, …) and Next's basePath does not rewrite arbitrary
+# fetch() URLs — keeping them top-level means constants.ts needs no change. It is
+# also why the frontend's basePath is `/visual-novel-database` and not `/vndb`:
+# that prefix is already the Flask API's.
+#
+# Env vars (set by backend/launch.py in standalone mode, by the gateway's
+# app manifest in unified mode — the two must agree):
+#   IMGSERVE_PORT         - Flask imgserve port,   default 5001
+#   USERSERVE_PORT        - Flask userserve port,  default 5002
+#   VNDB_PORT             - Flask vndb port,       default 5000
+#   TRANSSERVE_PORT       - Flask transserve port, default 5003
+#   MUSICSERVE_PORT       - Flask musicserve port, default 5004
+#   NEXT_PORT             - Next.js server port,   default 5010
+#   IMGSERVE_IMAGE_FOLDER - absolute path to the imgserve image cache root
+#                           (disk layout mirrors the URL minus the /imgserve edge
+#                            prefix and the /img app prefix; for example
+#                            /imgserve/img/cv/87/9087.jpg ->
+#                            IMAGE_FOLDER/cv/87/9087.jpg).
+#
+# Upstreams are addressed as 127.0.0.1 (not `localhost`) on purpose: on Windows,
+# `localhost` resolves to ::1 first, but Flask/Waitress bind to 0.0.0.0 (IPv4
+# only). Caddy would then sit through ~20s of IPv6 TCP timeout on every cold
+# connection before retrying on IPv4. Hard-coding the IPv4 loopback sidesteps it.
+# ============================================================================
+
+# ── imgserve ─────────────────────────────────────────────────────────────────
+# handle_path strips /imgserve before the inner matchers see the path, so the
+# regex below matches against /img/<type>/<dir>/<id>.jpg — the same shape Flask
+# routes on directly.
+handle_path /imgserve/* {
+	# Fast path: URL maps directly to an existing file under IMAGE_FOLDER. The
+	# file matcher checks existence using try_files relative to root; if missing,
+	# the named matcher fails and we fall through to the reverse_proxy below.
+	@cached_img {
+		path_regexp imgpath ^/img(/.+\.jpg)$
+		file {
+			try_files {re.imgpath.1}
+			root {$IMGSERVE_IMAGE_FOLDER}
+		}
+	}
+	handle @cached_img {
+		root * {$IMGSERVE_IMAGE_FOLDER}
+		rewrite * {re.imgpath.1}
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Cache miss + every non-cacheable verb / route falls here.
+	handle {
+		reverse_proxy 127.0.0.1:{$IMGSERVE_PORT:5001} {
+			# Long header timeout because cold image fetches can take a few
+			# seconds while the single-flight worker pulls from t.vndb.org.
+			transport http {
+				read_timeout 30s
+				write_timeout 30s
+			}
+		}
+	}
+}
+
+# ── userserve ────────────────────────────────────────────────────────────────
+handle_path /userserve/* {
+	reverse_proxy 127.0.0.1:{$USERSERVE_PORT:5002}
+}
+
+# ── vndb ─────────────────────────────────────────────────────────────────────
+handle_path /vndb/* {
+	reverse_proxy 127.0.0.1:{$VNDB_PORT:5000}
+}
+
+# ── transserve ───────────────────────────────────────────────────────────────
+handle_path /transserve/* {
+	reverse_proxy 127.0.0.1:{$TRANSSERVE_PORT:5003}
+}
+
+# ── musicserve ───────────────────────────────────────────────────────────────
+handle_path /musicserve/* {
+	reverse_proxy 127.0.0.1:{$MUSICSERVE_PORT:5004}
+}
+
+# ── frontend (Next.js) ───────────────────────────────────────────────────────
+# The SPA and everything it loads: pages, /_next/* bundles, static assets — all
+# under the basePath baked in at build time (frontend/next.config.ts). Note this
+# is `handle`, not `handle_path`: the prefix is NOT stripped, because Next itself
+# expects to receive the basePath it was built with.
+#
+# Backend calls never reach here — the frontend hits /vndb, /imgserve, /userserve
+# directly (see frontend/lib/constants.ts) and the prefix matchers above
+# intercept them first.
+#
+# Under `launch.py dev` NEXT_PORT is unset and `next dev` serves on :5010
+# directly, so the default below still points at the right place.
+#
+# Both the bare prefix and everything under it are matched. The bare form is not
+# redundant: Next has trailingSlash off, so it answers /visual-novel-database/ with
+# a 308 to /visual-novel-database — and a `/visual-novel-database/*` matcher alone
+# does not match that target, so the redirect would fall through to whatever owns
+# the catch-all (the gateway's landing page) and 404.
+#
+# It takes a named matcher to say that: `handle` accepts only a single matcher
+# token, so the two paths cannot simply be listed after it.
+@vndb_frontend path /visual-novel-database /visual-novel-database/*
+handle @vndb_frontend {
+	reverse_proxy 127.0.0.1:{$NEXT_PORT:5010}
+}

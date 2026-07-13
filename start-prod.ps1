@@ -14,13 +14,18 @@
 # accepting TCP connections, auto-starting the service if it's merely stopped.
 #
 # Caddy is the only public ingress; frp should forward to CADDY_BIND
-# (default :30709, set in backend/.env). All four paths live behind it:
-#   /            -> Next.js (NextPort, default 5010)
-#   /vndb/*      -> Flask vndb
-#   /imgserve/*  -> Flask imgserve
-#   /userserve/* -> Flask userserve
-#   /transserve/* -> Flask transserve
-#   /musicserve/* -> Flask musicserve
+# (default :30709, set in backend/.env). Everything lives behind it, split by
+# path prefix (the routes themselves are in ../Caddyfile.snippet):
+#   /visual-novel-database/* -> Next.js (NextPort, default 5010)
+#   /vndb/*                  -> Flask vndb
+#   /imgserve/*              -> Flask imgserve
+#   /userserve/*             -> Flask userserve
+#   /transserve/*            -> Flask transserve
+#   /musicserve/*            -> Flask musicserve
+#
+# The frontend sits under a basePath rather than at the origin root because a
+# single public port may front several apps (see AppGateway/). Run with -NoCaddy
+# to let that shared gateway own the port instead of this project's own edge.
 #
 # Usage:
 #   .\start-prod.ps1                     # start with whatever is already built
@@ -29,6 +34,7 @@
 #                                        #   no Caddy/standalone) instead of prod
 #   .\start-prod.ps1 -Clean              # delete frontend/.next first, then start
 #                                        #   (prod: forces a rebuild; dev: next dev rebuilds)
+#   .\start-prod.ps1 -NoCaddy            # skip this project's edge (AppGateway owns the port)
 #   .\start-prod.ps1 -NextPort 5005      # override the Next.js port (prod + dev)
 #   .\start-prod.ps1 -SkipPgCheck        # skip the Postgres service/readiness check
 #   .\start-prod.ps1 -PgServiceName foo  # check a differently-named PG service
@@ -45,6 +51,12 @@ param(
     # forces a fresh `npm run build`; in dev `next dev` recompiles from scratch.
     [switch]$Clean,
     [int]$NextPort = 5010,
+    # Skip this project's own Caddy edge. Use when an external edge already owns
+    # the public port — AppGateway runs one shared Caddy in front of several apps
+    # and imports this project's Caddyfile.snippet, so the routes are identical;
+    # two Caddy processes simply cannot both bind :30709. Everything else (Flask,
+    # Celery, Redis, Next.js) comes up exactly as it would otherwise.
+    [switch]$NoCaddy,
     # Postgres runs as a Windows service (backend/scripts/pg-service.ps1); this
     # is its service name (matches that script's default).
     [string]$PgServiceName = 'postgresql-vndb',
@@ -290,13 +302,20 @@ if ($Dev) {
     }
 
     # ---------- launch children ---------------------------------------------
-    Write-Host "[START] backend/launch.py prod via pixi (Caddy will proxy / to :$NextPort)" -ForegroundColor Green
+    if ($NoCaddy) {
+        Write-Host "[START] backend/launch.py prod via pixi (-NoCaddy: an external edge owns the port)" -ForegroundColor Green
+    } else {
+        Write-Host "[START] backend/launch.py prod via pixi (Caddy will proxy /visual-novel-database to :$NextPort)" -ForegroundColor Green
+    }
     # `pixi run prod -- --next-port N` -> `python launch.py prod --next-port N`
     # inside the pixi env. The `--` separator keeps pixi from claiming
     # `--next-port` as one of its own flags.
+    $launchArgs = @('run', 'prod', '--', '--next-port', $NextPort)
+    if ($NoCaddy) { $launchArgs += '--no-caddy' }
+
     $backend = Start-Process `
         -FilePath 'pixi' `
-        -ArgumentList @('run', 'prod', '--', '--next-port', $NextPort) `
+        -ArgumentList $launchArgs `
         -WorkingDirectory $backendDir `
         -NoNewWindow `
         -PassThru

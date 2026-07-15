@@ -33,6 +33,13 @@ x-backend: &backend
   depends_on:
     init:
       condition: service_completed_successfully
+    # Also gate on the dependencies themselves, not just on init having finished:
+    # `restart: unless-stopped` means these can come back up long after init exited,
+    # and a restarting worker must still wait for a healthy broker/DB.
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
 
 services:
   # ---- infrastructure -------------------------------------------------------
@@ -70,8 +77,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # service_healthy, not service_started: Redis defines a healthcheck, and
+      # "started" only means the container was created — not that it accepts
+      # connections.
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - appdata:/data
       - ./init.sh:/init.sh:ro
@@ -116,6 +126,10 @@ services:
     build:
       context: ..
       dockerfile: deploy/frontend.Dockerfile
+    # Same NEXT_PORT the caddy service routes to, so the two cannot disagree. The
+    # Dockerfile's ENV PORT is only the default when this is unset.
+    environment:
+      PORT: ${NEXT_PORT:-5010}
     restart: unless-stopped
 
   # ---- public ingress -------------------------------------------------------
@@ -123,8 +137,21 @@ services:
     image: caddy:2-alpine
     ports:
       - "30709:30709"
+    # Routes are shared with the non-Docker edges; only the upstreams differ.
+    # The ports are interpolated from .env — the same file the backends bind from —
+    # so changing a port there moves the service AND the route that reaches it.
+    # Hardcoding them here would 502 the moment the two drifted apart.
+    environment:
+      VNDB_UPSTREAM: vndb:${VNDB_PORT:-5000}
+      IMGSERVE_UPSTREAM: imgserve:${IMGSERVE_PORT:-5001}
+      USERSERVE_UPSTREAM: userserve:${USERSERVE_PORT:-5002}
+      TRANSSERVE_UPSTREAM: transserve:${TRANSSERVE_PORT:-5003}
+      MUSICSERVE_UPSTREAM: musicserve:${MUSICSERVE_PORT:-5004}
+      NEXT_UPSTREAM: frontend:${NEXT_PORT:-5010}
+      IMGSERVE_IMAGE_FOLDER: /srv/images
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../Caddyfile.snippet:/etc/caddy/Caddyfile.snippet:ro   # imported by the Caddyfile above
       - appdata:/srv:ro           # imgserve cache (images at /srv/images), for the file_server fast path
       - caddy_data:/data          # Caddy's own writable storage
       - caddy_config:/config

@@ -176,6 +176,32 @@ class Supervisor:
             target=self._pump_logs, args=(spec, proc), daemon=True
         ).start()
 
+        if spec.ready_check:
+            self._await_ready(spec, proc)
+
+    def _await_ready(self, spec: ProcSpec, proc: subprocess.Popen) -> None:
+        """Block until the child is actually usable, not merely spawned.
+
+        Topological order alone only guarantees Popen() was called first, which
+        is a race: dependents can connect before the dependency is listening.
+        Poll until it is, and treat never-ready as fatal — every dependent would
+        otherwise die on its first connect, with a much less obvious error.
+        """
+        deadline = time.monotonic() + spec.ready_timeout
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError(
+                    f"{spec.name} exited with {proc.returncode} before becoming ready"
+                )
+            if spec.ready_check():
+                self.logger.info(f"{spec.prefix} ready")
+                return
+            time.sleep(0.2)
+
+        raise RuntimeError(
+            f"{spec.name} was not ready within {spec.ready_timeout:g}s"
+        )
+
     def start_all(self) -> None:
         for spec in self._topological_order():
             self._start_one(spec)
@@ -313,7 +339,15 @@ class Supervisor:
         if sys.platform != "win32":
             signal.signal(signal.SIGTERM, handler)
 
-        self.start_all()
+        try:
+            self.start_all()
+        except Exception as e:
+            # A readiness gate failed part-way through. Whatever already started
+            # is ours to clean up — otherwise the stack half-runs and orphans.
+            print(self._err(f"\nStartup failed: {e}"))
+            self.logger.error(f"startup failed: {e}")
+            self.stop_all()
+            sys.exit(1)
 
         try:
             while True:

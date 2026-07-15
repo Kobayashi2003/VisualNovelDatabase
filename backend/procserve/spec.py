@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 
 @dataclass
@@ -17,11 +17,20 @@ class ProcSpec:
       cmd          argv list for subprocess.Popen. Pre-resolve the binary
                    path (shutil.which) when the spec-maker also gates on
                    binary existence — avoids a second PATH lookup at spawn.
-      depends_on   Names of other specs that must START before this one.
-                   Not a readiness check — just ordering. If a referenced
-                   name is absent from the spec list (e.g. its spec-maker
-                   returned None because the binary was missing), the dep
-                   is treated as already-satisfied so the rest still runs.
+      depends_on   Names of other specs that must start before this one. If a
+                   referenced name is absent from the spec list (e.g. its
+                   spec-maker returned None because the binary was missing),
+                   the dep is treated as already-satisfied so the rest still
+                   runs. Ordering alone is a race — a spawned process is not a
+                   ready one — so a dependency that dependents cannot retry
+                   against should also carry a `ready_check`.
+      ready_check  Optional predicate polled after spawn until it returns True,
+                   before any dependent is started. This is what turns
+                   depends_on from "spawned first" into "usable first". Omit it
+                   for services whose clients retry on their own.
+      ready_timeout Seconds to wait for `ready_check` before giving up and
+                   raising — a dependency that never comes up is fatal, and
+                   failing here beats every dependent dying on first connect.
       cwd, env     Forwarded to subprocess.Popen as-is. Leave env=None to
                    inherit os.environ.
       log_prefix   Override for the log prefix (default: f"[{NAME}]").
@@ -45,6 +54,8 @@ class ProcSpec:
     cwd: Optional[str] = None
     env: Optional[Dict[str, str]] = None
     log_prefix: Optional[str] = None
+    ready_check: Optional[Callable[[], bool]] = None
+    ready_timeout: float = 30.0
     stop_cmd: Optional[List[str]] = None
     stop_timeout: float = 5.0
 

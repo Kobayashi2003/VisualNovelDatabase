@@ -6,9 +6,8 @@ read/prune-side Flask API over that same table: it lets a developer query,
 filter, inspect, delete and *replay* those recorded searches.
 
 It is intentionally a dev tool: it connects to the vndb database directly and
-is NOT published through the Caddy edge (see backend/launch.py and the
-Caddyfile — logserve has no handle_path block there), so it is only reachable
-on its loopback dev port.
+is NOT published through the Caddy edge (../../Caddyfile.snippet has no route for
+it), so it is only reachable on its loopback dev port.
 """
 
 from flask import Flask, jsonify

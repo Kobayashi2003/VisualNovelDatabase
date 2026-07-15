@@ -3,7 +3,8 @@
 # next.config.ts sets `output: "standalone"`, so `next build` emits a
 # self-contained server bundle (.next/standalone/server.js + a minimal
 # node_modules). The runner stage carries only that bundle plus the static
-# assets — no full node_modules, no `next` CLI. Caddy proxies / to this server.
+# assets — no full node_modules, no `next` CLI. Caddy proxies the app's basePath
+# (/visual-novel-database) to this server.
 FROM node:20-alpine AS builder
 
 WORKDIR /app

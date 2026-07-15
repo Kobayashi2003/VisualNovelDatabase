@@ -1,61 +1,53 @@
 # ============================================================================
-# Production launcher.
+# Whole-app launcher. Boots three children and forwards Ctrl+C to all of them:
+#   1. backend/launch.py via `pixi run` — Redis + Celery + the Flask servers,
+#      inside the pixi env (run backend/scripts/pixi-setup.ps1 once first).
+#   2. Next.js — the standalone server, or `next dev` under -Dev.
+#   3. Caddy — the public ingress (frp forwards to -Bind, default :30709);
+#      routes are in ./Caddyfile.snippet, upstreams from ./caddy-env.ps1.
 #
-# Boots two child processes and forwards Ctrl+C to both:
-#   1. backend/launch.py prod — launched via `pixi run prod` so it runs inside
-#      the reproducible pixi env (Python 3.13 + postgresql + psycopg2 + all PyPI
-#      deps). Run backend/scripts/pixi-setup.ps1 once to materialize the env.
-#      Spawns: Redis + 3 Waitress backends + 2 Celery workers + Caddy
-#   2. Next.js standalone — node frontend/.next/standalone/server.js
+# The edge lives here rather than in backend/launch.py because it fronts BOTH
+# halves — routing /visual-novel-database to Next and /vndb, /imgserve, … to
+# Flask. It is needed in dev too: `next dev`'s rewrites proxy the backend calls
+# through it (see frontend/.env.local).
 #
-# Postgres is NOT spawned by launch.py — it must already be running as a Windows
-# service (backend/scripts/pg-service.ps1). Before launching the children this
-# script verifies that service is registered + Running and that the cluster is
-# accepting TCP connections, auto-starting the service if it's merely stopped.
+# Postgres is not spawned by anything — it runs as a Windows service
+# (backend/scripts/pg-service.ps1). This script verifies it is up and accepting
+# connections first, auto-starting the service if it is merely stopped.
 #
-# Caddy is the only public ingress; frp should forward to CADDY_BIND
-# (default :30709, set in backend/.env). Everything lives behind it, split by
-# path prefix (the routes themselves are in ../Caddyfile.snippet):
-#   /visual-novel-database/* -> Next.js (NextPort, default 5010)
-#   /vndb/*                  -> Flask vndb
-#   /imgserve/*              -> Flask imgserve
-#   /userserve/*             -> Flask userserve
-#   /transserve/*            -> Flask transserve
-#   /musicserve/*            -> Flask musicserve
-#
-# The frontend sits under a basePath rather than at the origin root because a
-# single public port may front several apps (see AppGateway/). Run with -NoCaddy
-# to let that shared gateway own the port instead of this project's own edge.
+# The frontend sits under a basePath rather than the origin root because a single
+# public port may front several apps — run with -NoCaddy to let that shared
+# gateway own the port instead. See AppGateway/.
 #
 # Usage:
 #   .\start-prod.ps1                     # start with whatever is already built
 #   .\start-prod.ps1 -Build              # `npm run build` first, then start
-#   .\start-prod.ps1 -Dev                # dev-mode startup (pixi run dev + next dev,
-#                                        #   no Caddy/standalone) instead of prod
+#   .\start-prod.ps1 -Dev                # dev stack (pixi run dev + next dev)
 #   .\start-prod.ps1 -Clean              # delete frontend/.next first, then start
-#                                        #   (prod: forces a rebuild; dev: next dev rebuilds)
-#   .\start-prod.ps1 -NoCaddy            # skip this project's edge (AppGateway owns the port)
-#   .\start-prod.ps1 -NextPort 5005      # override the Next.js port (prod + dev)
-#   .\start-prod.ps1 -SkipPgCheck        # skip the Postgres service/readiness check
+#   .\start-prod.ps1 -NoCaddy            # skip the edge (AppGateway owns the port)
+#   .\start-prod.ps1 -NextPort 5005      # override the Next.js port
+#   .\start-prod.ps1 -Bind :8080         # override the public port
+#   .\start-prod.ps1 -SkipPgCheck        # skip the Postgres readiness check
 #   .\start-prod.ps1 -PgServiceName foo  # check a differently-named PG service
 # ============================================================================
 
 [CmdletBinding()]
 param(
     [switch]$Build,
-    # Dev-mode startup: boot the dev stack (`pixi run dev` — Flask dev
-    # servers + Flower, no mandatory Caddy) plus `next dev`, instead of the prod
-    # stack (Waitress + Caddy + Next.js standalone). No build/standalone needed.
+    # Dev stack: `pixi run dev` (Flask dev servers + Flower) plus `next dev`,
+    # instead of Waitress + the Next.js standalone build. Caddy runs either way.
     [switch]$Dev,
     # Delete frontend/.next (old build output) before starting. In prod this
     # forces a fresh `npm run build`; in dev `next dev` recompiles from scratch.
     [switch]$Clean,
-    [int]$NextPort = 5010,
-    # Skip this project's own Caddy edge. Use when an external edge already owns
-    # the public port — AppGateway runs one shared Caddy in front of several apps
-    # and imports this project's Caddyfile.snippet, so the routes are identical;
-    # two Caddy processes simply cannot both bind :30709. Everything else (Flask,
-    # Celery, Redis, Next.js) comes up exactly as it would otherwise.
+    # Override the Next.js port. Deliberately has no default here — caddy-env.ps1
+    # holds the only one, so this script and the edge cannot disagree about it.
+    [int]$NextPort,
+    # The public port. frp forwards here.
+    [string]$Bind = ':30709',
+    # Skip this project's edge, for when an external one already owns the public
+    # port. AppGateway imports this project's Caddyfile.snippet, so the routes are
+    # identical; two Caddy processes just cannot both bind the port.
     [switch]$NoCaddy,
     # Postgres runs as a Windows service (backend/scripts/pg-service.ps1); this
     # is its service name (matches that script's default).
@@ -87,6 +79,22 @@ if (-not (Test-Path (Join-Path $backendDir '.pixi'))) {
     Write-Host "[WARN] backend\.pixi not found — running backend\scripts\pixi-setup.ps1 to install the env." -ForegroundColor Yellow
     & (Join-Path $backendDir 'scripts\pixi-setup.ps1')
     if ($LASTEXITCODE -ne 0) { throw "backend\scripts\pixi-setup.ps1 failed (exit $LASTEXITCODE)" }
+}
+
+# ---------- edge preflight ---------------------------------------------------
+# Checked up here, before any child is spawned: these throw, and the teardown
+# handler is only installed further down — a failure after the backend and
+# frontend were already running would orphan them, still holding their ports.
+if (-not $NoCaddy) {
+    if (-not (Get-Command caddy -ErrorAction SilentlyContinue)) {
+        throw 'caddy is not on PATH (https://caddyserver.com/download), or pass -NoCaddy if another edge owns the port.'
+    }
+    # This edge and AppGateway want the same port, by design. Say so plainly rather
+    # than letting Caddy fail to bind and bury the reason in its JSON log.
+    $bindPort = [int]($Bind -split ':')[-1]
+    if (Get-NetTCPConnection -LocalPort $bindPort -State Listen -ErrorAction SilentlyContinue) {
+        throw "Port $bindPort is already in use — another edge (AppGateway, or an earlier run) owns it. Stop it first, or pass -NoCaddy."
+    }
 }
 
 # ---------- Postgres preflight ----------------------------------------------
@@ -222,155 +230,181 @@ if ($Clean) {
     }
 }
 
+# ---------- resolve where everything listens ---------------------------------
+# caddy-env.ps1 owns this: the Flask ports from backend/.env, the Next port from
+# its own default. Read the Next port back out rather than defaulting it here, so
+# the Next server and the edge cannot end up pointing at different ports.
+$overrides = @{}
+if ($NextPort) { $overrides.NextPort = $NextPort }
+
+$caddyEnv = & (Join-Path $root 'caddy-env.ps1') @overrides
+$caddyEnv.CADDY_BIND = $Bind
+
+$NextPort = [int]($caddyEnv.NEXT_UPSTREAM -split ':')[-1]
+
 # Use Start-Process for the children so we get real Process objects back and can
-# Wait/Stop them individually. Both inherit the console, so their stdout
-# interleaves into this terminal — same UX as `pixi run dev`.
+# Wait/Stop them individually. All inherit the console, so their stdout
+# interleaves into this terminal.
 
-if ($Dev) {
-    # ======================= DEV STARTUP ===========================
-    # Dev stack: `pixi run dev` (Flask dev servers + Flower; Caddy is opt-in via
-    # USE_CADDY and skipped by default) plus `next dev`. The browser hits Next.js
-    # directly on :$NextPort, whose rewrites (frontend/next.config.ts) proxy
-    # /vndb, /imgserve, /userserve to the Flask dev ports — so neither Caddy nor
-    # the standalone build is involved.
-    if ($Build) {
-        Write-Host "[WARN] -Build is ignored in -Dev mode; next dev compiles on demand." -ForegroundColor Yellow
-    }
-    if (-not (Test-Path $nextBin)) {
-        throw "next CLI not found at $nextBin. Run 'npm install' in frontend/ first."
-    }
-
-    Write-Host "[START] backend/launch.py dev via pixi (Flask dev + Flower)" -ForegroundColor Green
-    $backend = Start-Process `
-        -FilePath 'pixi' `
-        -ArgumentList @('run', 'dev') `
-        -WorkingDirectory $backendDir `
-        -NoNewWindow `
-        -PassThru
-
-    Write-Host "[START] Next.js dev server on http://localhost:$NextPort" -ForegroundColor Green
-    $frontend = Start-Process `
-        -FilePath 'node' `
-        -ArgumentList @($nextBin, 'dev', '--port', $NextPort) `
-        -WorkingDirectory $frontendDir `
-        -NoNewWindow `
-        -PassThru
-} else {
-    # ========================== PROD STARTUP ================================
-    # ---------- build step --------------------------------------------------
-    # -Clean wiped .next, so a build is mandatory after it; -Build requests one
-    # explicitly.
-    if ($Build -or $Clean) {
-        Write-Host "[BUILD] Running npm run build in frontend/" -ForegroundColor Cyan
-        Push-Location $frontendDir
-        try {
-            npm run build
-            if ($LASTEXITCODE -ne 0) { throw "npm run build failed (exit $LASTEXITCODE)" }
-        } finally {
-            Pop-Location
-        }
-    }
-
-    if (-not (Test-Path $standaloneServer)) {
-        throw "Standalone build not found at $standaloneServer. Run with -Build (or -Clean) first."
-    }
-
-    # ---------- mirror static + public into the standalone tree -------------
-    # Next.js standalone emits a self-contained server.js but does NOT copy the
-    # static asset folders. Without this sync, browser requests for
-    # /_next/static/* return 404 and the SPA shows "This page couldn't load".
-    #
-    # Runs every launch (not just with -Build) so a manual `npm run build`
-    # outside this script — or any rebuild that changes chunk filenames — is
-    # always reflected in the standalone tree. The destination folders are
-    # wiped first so old chunk filenames don't linger and shadow fresh ones.
-    $srcStatic = Join-Path $frontendDir '.next\static'
-    if (-not (Test-Path $srcStatic)) {
-        throw "Source .next/static not found at $srcStatic. Run with -Build (or -Clean) first."
-    }
-    Write-Host "[SYNC] Mirroring .next/static and public into standalone tree" -ForegroundColor Cyan
-
-    $destStatic = Join-Path $standaloneRoot '.next\static'
-    if (Test-Path $destStatic) { Remove-Item -Recurse -Force $destStatic }
-    Copy-Item -Recurse -Force $srcStatic $destStatic
-
-    $srcPublic  = Join-Path $frontendDir 'public'
-    $destPublic = Join-Path $standaloneRoot 'public'
-    if (Test-Path $destPublic) { Remove-Item -Recurse -Force $destPublic }
-    if (Test-Path $srcPublic) {
-        Copy-Item -Recurse -Force $srcPublic $destPublic
-    }
-
-    # ---------- launch children ---------------------------------------------
-    if ($NoCaddy) {
-        Write-Host "[START] backend/launch.py prod via pixi (-NoCaddy: an external edge owns the port)" -ForegroundColor Green
-    } else {
-        Write-Host "[START] backend/launch.py prod via pixi (Caddy will proxy /visual-novel-database to :$NextPort)" -ForegroundColor Green
-    }
-    # `pixi run prod -- --next-port N` -> `python launch.py prod --next-port N`
-    # inside the pixi env. The `--` separator keeps pixi from claiming
-    # `--next-port` as one of its own flags.
-    $launchArgs = @('run', 'prod', '--', '--next-port', $NextPort)
-    if ($NoCaddy) { $launchArgs += '--no-caddy' }
-
-    $backend = Start-Process `
-        -FilePath 'pixi' `
-        -ArgumentList $launchArgs `
-        -WorkingDirectory $backendDir `
-        -NoNewWindow `
-        -PassThru
-
-    Write-Host "[START] Next.js standalone on :$NextPort" -ForegroundColor Green
-    # Start-Process doesn't take an env hashtable, so set process-scoped env
-    # vars before launching and unset after — server.js reads PORT/HOSTNAME at
-    # startup.
-    $prevPort = $env:PORT; $prevHost = $env:HOSTNAME
-    $env:PORT = "$NextPort"; $env:HOSTNAME = '127.0.0.1'
-    try {
-        $frontend = Start-Process `
-            -FilePath 'node' `
-            -ArgumentList @($standaloneServer) `
-            -WorkingDirectory (Split-Path $standaloneServer) `
-            -NoNewWindow `
-            -PassThru
-    } finally {
-        $env:PORT = $prevPort; $env:HOSTNAME = $prevHost
-    }
-}
-
-# ---------- shutdown handling -----------------------------------------------
-$children = @($backend, $frontend)
+$children = @()
 
 function Stop-Children {
-    # The graceful path is Ctrl+C in the terminal: Windows fans a CTRL_C_EVENT
-    # out to the whole console process group (this script, launch.py, node, and
-    # all of their grandchildren), and launch.py's signal_handler tears down
-    # Redis/Celery/Flask/Caddy in order. This function is the *backstop* for
-    # the case where Ctrl+C didn't reach the children — e.g. the script was
-    # killed externally. taskkill /T walks the whole process tree so grand-
-    # children aren't orphaned; Stop-Process is per-process and would leak.
+    # Ctrl+C is the graceful path: Windows fans CTRL_C_EVENT out to the whole
+    # console process group, so launch.py runs its own ordered teardown. This is
+    # the backstop for an external kill. taskkill /T walks the process tree — the
+    # real workloads are grandchildren, which Stop-Process would orphan.
     foreach ($p in $children) {
         if ($p -and -not $p.HasExited) {
-            try {
-                Start-Process -FilePath 'taskkill' -ArgumentList @('/F', '/T', '/PID', $p.Id) `
-                    -NoNewWindow -Wait -ErrorAction SilentlyContinue | Out-Null
-            } catch {}
+            Start-Process -FilePath 'taskkill' -ArgumentList @('/F', '/T', '/PID', $p.Id) `
+                -NoNewWindow -Wait -ErrorAction SilentlyContinue | Out-Null
         }
     }
 }
 
-# Trap Ctrl+C inside the polling loop so we can clean up both children
-# before exiting. Without this, Ctrl+C kills the ps1 but leaves the
-# grandchild Python/Node procs orphaned.
+# Every spawn lives inside this try, so a failure part-way through tears down what
+# already started instead of orphaning it, still holding its port.
 try {
+    if ($Dev) {
+        # ======================= DEV STARTUP ===========================
+        # Dev stack: `pixi run dev` (Flask dev servers + Flower) plus `next dev`. The
+        # browser hits Next.js directly on :$NextPort; its rewrites
+        # (frontend/next.config.ts, frontend/.env.local) proxy /vndb, /imgserve, … back
+        # through Caddy, which is why the edge runs in dev too.
+        if ($Build) {
+            Write-Host "[WARN] -Build is ignored in -Dev mode; next dev compiles on demand." -ForegroundColor Yellow
+        }
+        if (-not (Test-Path $nextBin)) {
+            throw "next CLI not found at $nextBin. Run 'npm install' in frontend/ first."
+        }
+
+        Write-Host "[START] backend/launch.py dev via pixi (Flask dev + Flower)" -ForegroundColor Green
+        $backend = Start-Process `
+            -FilePath 'pixi' `
+            -ArgumentList @('run', 'dev') `
+            -WorkingDirectory $backendDir `
+            -NoNewWindow `
+            -PassThru
+        $children += $backend
+
+        Write-Host "[START] Next.js dev server on http://127.0.0.1:$NextPort" -ForegroundColor Green
+        # -H 127.0.0.1 to match what Caddy dials (see caddy-env.ps1). Without it, next
+        # dev picks its own default host and the edge's frontend route can 502 in dev.
+        $frontend = Start-Process `
+            -FilePath 'node' `
+            -ArgumentList @($nextBin, 'dev', '--port', $NextPort, '-H', '127.0.0.1') `
+            -WorkingDirectory $frontendDir `
+            -NoNewWindow `
+            -PassThru
+        $children += $frontend
+    } else {
+        # ========================== PROD STARTUP ================================
+        # ---------- build step --------------------------------------------------
+        # -Clean wiped .next, so a build is mandatory after it; -Build requests one
+        # explicitly.
+        if ($Build -or $Clean) {
+            Write-Host "[BUILD] Running npm run build in frontend/" -ForegroundColor Cyan
+            Push-Location $frontendDir
+            try {
+                npm run build
+                if ($LASTEXITCODE -ne 0) { throw "npm run build failed (exit $LASTEXITCODE)" }
+            } finally {
+                Pop-Location
+            }
+        }
+
+        if (-not (Test-Path $standaloneServer)) {
+            throw "Standalone build not found at $standaloneServer. Run with -Build (or -Clean) first."
+        }
+
+        # ---------- mirror static + public into the standalone tree -------------
+        # Next.js standalone emits a self-contained server.js but does NOT copy the
+        # static asset folders. Without this sync, browser requests for
+        # /_next/static/* return 404 and the SPA shows "This page couldn't load".
+        #
+        # Runs every launch (not just with -Build) so a manual `npm run build`
+        # outside this script — or any rebuild that changes chunk filenames — is
+        # always reflected in the standalone tree. The destination folders are
+        # wiped first so old chunk filenames don't linger and shadow fresh ones.
+        $srcStatic = Join-Path $frontendDir '.next\static'
+        if (-not (Test-Path $srcStatic)) {
+            throw "Source .next/static not found at $srcStatic. Run with -Build (or -Clean) first."
+        }
+        Write-Host "[SYNC] Mirroring .next/static and public into standalone tree" -ForegroundColor Cyan
+
+        $destStatic = Join-Path $standaloneRoot '.next\static'
+        if (Test-Path $destStatic) { Remove-Item -Recurse -Force $destStatic }
+        Copy-Item -Recurse -Force $srcStatic $destStatic
+
+        $srcPublic  = Join-Path $frontendDir 'public'
+        $destPublic = Join-Path $standaloneRoot 'public'
+        if (Test-Path $destPublic) { Remove-Item -Recurse -Force $destPublic }
+        if (Test-Path $srcPublic) {
+            Copy-Item -Recurse -Force $srcPublic $destPublic
+        }
+
+        # ---------- launch children ---------------------------------------------
+        Write-Host "[START] backend/launch.py prod via pixi" -ForegroundColor Green
+        $backend = Start-Process `
+            -FilePath 'pixi' `
+            -ArgumentList @('run', 'prod') `
+            -WorkingDirectory $backendDir `
+            -NoNewWindow `
+            -PassThru
+        $children += $backend
+
+        Write-Host "[START] Next.js standalone on :$NextPort" -ForegroundColor Green
+        # Start-Process doesn't take an env hashtable, so set process-scoped env
+        # vars before launching and unset after — server.js reads PORT/HOSTNAME at
+        # startup.
+        $prevPort = $env:PORT; $prevHost = $env:HOSTNAME
+        $env:PORT = "$NextPort"; $env:HOSTNAME = '127.0.0.1'
+        try {
+            $frontend = Start-Process `
+                -FilePath 'node' `
+                -ArgumentList @($standaloneServer) `
+                -WorkingDirectory (Split-Path $standaloneServer) `
+                -NoNewWindow `
+                -PassThru
+        } finally {
+            $env:PORT = $prevPort; $env:HOSTNAME = $prevHost
+        }
+        $children += $frontend
+    }
+
+    # ---------- edge ----------------------------------------------------------
+    # Caddy tolerates upstreams that are still coming up (502 until they answer),
+    # so it needs no ordering against the children above.
+    if ($NoCaddy) {
+        Write-Host "[START] Caddy skipped (-NoCaddy); an external edge owns the port." -ForegroundColor Yellow
+    } else {
+        Write-Host "[START] Caddy on $Bind" -ForegroundColor Green
+        $saved = @{}
+        foreach ($key in $caddyEnv.Keys) {
+            $saved[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
+            [Environment]::SetEnvironmentVariable($key, [string]$caddyEnv[$key], 'Process')
+        }
+        try {
+            $children += Start-Process `
+                -FilePath 'caddy' `
+                -ArgumentList @('run', '--config', (Join-Path $root 'Caddyfile'), '--adapter', 'caddyfile') `
+                -WorkingDirectory $root `
+                -NoNewWindow `
+                -PassThru
+        } finally {
+            foreach ($key in $saved.Keys) {
+                [Environment]::SetEnvironmentVariable($key, $saved[$key], 'Process')
+            }
+        }
+    }
+
+    # ---------- wait ----------------------------------------------------------
+    # Stop as soon as ANY child dies: a surviving frontend and edge would serve a
+    # broken site with nothing to say so.
     while ($true) {
         Start-Sleep -Seconds 1
-        if ($backend.HasExited) {
-            Write-Host "[EXIT] backend/launch.py exited with $($backend.ExitCode); stopping frontend" -ForegroundColor Yellow
-            break
-        }
-        if ($frontend.HasExited) {
-            Write-Host "[EXIT] Next.js exited with $($frontend.ExitCode); stopping backend" -ForegroundColor Yellow
+        $dead = $children | Where-Object { $_.HasExited } | Select-Object -First 1
+        if ($dead) {
+            Write-Host "[EXIT] a child exited with $($dead.ExitCode); stopping the rest." -ForegroundColor Yellow
             break
         }
     }

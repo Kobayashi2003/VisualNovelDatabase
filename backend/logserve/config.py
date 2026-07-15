@@ -25,8 +25,8 @@ class Config:
 
     # CORS — mirrors the other services' allowlist handling. logserve is a
     # developer-facing tool and is intentionally NOT exposed through the Caddy
-    # edge (see backend/launch.py / Caddyfile), so it is only reachable on the
-    # loopback dev port; the allowlist is kept for parity.
+    # edge (../../Caddyfile.snippet has no route for it), so it is only reachable
+    # on the loopback dev port; the allowlist is kept for parity.
     CORS_ORIGINS = [
         o.strip() for o in os.environ.get('CORS_ORIGINS', 'http://localhost,http://localhost:3000').split(',') if o.strip()
     ]

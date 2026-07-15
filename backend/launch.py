@@ -1,43 +1,25 @@
 """Backend process launcher (dev + prod).
 
-Merges the former run.py (dev), prod.py (prod) and _procspecs.py (shared
-spec-makers) into a single entry point with two subcommands:
-
     python launch.py dev [--waitress]
-    python launch.py prod [--next-port N]
+    python launch.py prod
 
 (usually invoked via `pixi run dev` / `pixi run prod` — see pixi.toml).
 
-It builds a ProcSpec list for the chosen stack and hands it to
-procserve.Supervisor, which does the topological start, log aggregation and
-signal-driven reverse-topological shutdown (see procserve/__init__.py).
+Builds a ProcSpec list and hands it to procserve.Supervisor, which does the
+topological start, log aggregation and reverse-topological shutdown.
 
-Stacks:
-  - dev : Redis + vndb/imgserve Celery workers + Flower dashboards
-          + vndb/imgserve/userserve/transserve/musicserve/logserve Flask servers
-            (Flask dev or Waitress)
-          + Caddy edge (opt-in via USE_CADDY=true; missing binary is a warning)
-  - prod: Redis + vndb/imgserve Celery workers
-          + vndb/imgserve/userserve/transserve/musicserve/logserve Waitress servers
-          + Caddy (mandatory public ingress; missing binary is a hard error)
-          No Flower (it's a dev-only celery dashboard).
+Stacks: Redis + vndb/imgserve Celery workers + the Flask servers. dev adds the
+Flower dashboards and uses the Flask dev server; prod uses Waitress.
 
-logserve is the developer diagnostics tool over the vndb `logs` table; it runs
-in both stacks but is intentionally NOT behind Caddy (loopback-only).
+This launcher owns the BACKEND only. The Caddy edge is a whole-app concern — it
+also fronts the Next.js frontend — so it belongs to ../start-prod.ps1, which owns
+both halves. Keeping it here forced the frontend's port to be plumbed through the
+backend just to configure the proxy.
 
-Postgres is intentionally NOT launched here — it runs as a Windows service
-(see backend/scripts/pg-service.ps1) so the SCM owns its shutdown (clean fast
-shutdown regardless of how the app dies). The flask/celery specs still declare
-depends_on=["postgres"]; since no postgres spec is in the list, Supervisor's
-topo sort treats that edge as already-satisfied.
-
-Knowledge that lives in the spec-makers below:
-  - which binaries each service needs (so the missing-binary warning is
-    centralized);
-  - the dependency graph (redis before celery/flask, flask before caddy,
-    etc.; postgres is external, see above);
-  - the per-service env wiring (mostly relevant to Caddy);
-  - the `python -c "..."` bootstrap strings for Celery/Flask/Waitress.
+Postgres is likewise not launched here: it runs as a Windows service (see
+scripts/pg-service.ps1) so the SCM owns its shutdown. The flask/celery specs
+still declare depends_on=["postgres"]; with no postgres spec in the list,
+Supervisor's topo sort treats that edge as already-satisfied.
 """
 
 from __future__ import annotations
@@ -46,6 +28,7 @@ import argparse
 import logging
 import os
 import shutil
+import socket
 import sys
 from logging.handlers import RotatingFileHandler
 from typing import List, Optional
@@ -56,7 +39,7 @@ from procserve import ProcSpec, Supervisor
 
 
 # Load backend/.env into the parent process *before* the spec-makers run —
-# they read PG_DATA, USE_CADDY, DATA_FOLDER, the celery broker / flower ports,
+# they read PG_DATA, DATA_FOLDER, the celery broker / flower ports,
 # etc. from os.environ. The Flask children also load .env themselves (see
 # vndb/config.py), but that's too late for the launcher's own decisions.
 load_dotenv()
@@ -111,6 +94,12 @@ def _check_binary(name: str, install_hint: str = "") -> Optional[str]:
 # ---------- external services -----------------------------------------------
 
 
+def _redis_accepting(host: str = "127.0.0.1", port: int = 6379) -> bool:
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex((host, port)) == 0
+
+
 def make_redis_spec() -> Optional[ProcSpec]:
     redis_bin = _check_binary(
         "redis-server",
@@ -128,79 +117,12 @@ def make_redis_spec() -> Optional[ProcSpec]:
             "--save", '""',          # disable RDB snapshots
             "--appendonly", "no",    # disable AOF persistence
         ],
+        # Celery and Flask connect to Redis as they boot. depends_on only orders
+        # the spawns, so without this gate they race a Redis that may not be
+        # listening yet — it just happens to win, because Redis starts in
+        # milliseconds. Wait for the socket instead of relying on that.
+        ready_check=_redis_accepting,
         log_prefix="[REDIS]",
-    )
-
-
-def make_caddy_spec(next_port: Optional[int] = None,
-                    *, required: bool = False) -> Optional[ProcSpec]:
-    """Unified edge in front of the 3 Flask backends (and Next.js in prod).
-
-    Two modes:
-      - dev (`required=False`): opt-in via USE_CADDY=true; missing binary
-        is a soft warning.
-      - prod (`required=True`): hard-fail on missing binary. In prod Caddy
-        IS the public ingress, so silently skipping it would expose the
-        Flask backends directly on their dev ports.
-
-    `next_port` is only relevant in prod (frontend lives behind /)."""
-    if not required and os.environ.get("USE_CADDY", "false").lower() not in (
-        "true", "1", "yes"
-    ):
-        return None
-
-    caddy_bin = shutil.which("caddy")
-    if not caddy_bin:
-        if required:
-            raise RuntimeError(
-                "caddy not on PATH. Install Caddy (https://caddyserver.com/download) "
-                "and make sure `caddy` resolves before launching prod."
-            )
-        _check_binary(
-            "caddy",
-            "Install Caddy (https://caddyserver.com/download) and make sure "
-            "it resolves on PATH, or set USE_CADDY=false to skip the edge.",
-        )
-        return None
-
-    data_folder = os.environ.get("DATA_FOLDER", "../data")
-    image_folder = os.path.abspath(os.path.join(data_folder, "images"))
-    os.makedirs(image_folder, exist_ok=True)
-
-    env = os.environ.copy()
-    env["IMGSERVE_IMAGE_FOLDER"] = image_folder
-    env["IMGSERVE_PORT"]  = os.environ.get("IMGSERVE_PORT",  "5001")
-    env["USERSERVE_PORT"] = os.environ.get("USERSERVE_PORT", "5002")
-    env["VNDB_PORT"]      = os.environ.get("VNDB_PORT",      "5000")
-    env["TRANSSERVE_PORT"] = os.environ.get("TRANSSERVE_PORT", "5003")
-    env["MUSICSERVE_PORT"] = os.environ.get("MUSICSERVE_PORT", "5004")
-    if next_port is not None:
-        env["NEXT_PORT"] = str(next_port)
-    env.setdefault("CADDY_BIND", ":30709")
-
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(backend_dir)
-    caddyfile = os.path.join(project_root, "Caddyfile")
-
-    print(
-        f"[CADDY] bind={env['CADDY_BIND']} image_folder={image_folder} "
-        f"upstreams=imgserve::{env['IMGSERVE_PORT']}, "
-        f"userserve::{env['USERSERVE_PORT']}, "
-        f"vndb::{env['VNDB_PORT']}, "
-        f"transserve::{env['TRANSSERVE_PORT']}, "
-        f"musicserve::{env['MUSICSERVE_PORT']}"
-        + (f", next::{next_port}" if next_port is not None else "")
-    )
-
-    # Depend on the Flask trio so caddy's upstream probes find them up.
-    # `userserve_flask` etc. may not be in the final spec list if their
-    # makers returned None — Supervisor's topo sort drops missing edges.
-    return ProcSpec(
-        name="caddy",
-        cmd=[caddy_bin, "run", "--config", caddyfile, "--adapter", "caddyfile"],
-        cwd=project_root,
-        env=env,
-        depends_on=["vndb_flask", "imgserve_flask", "userserve_flask"],
     )
 
 
@@ -285,20 +207,10 @@ def make_flask_spec(app_name: str, *, use_waitress: bool) -> ProcSpec:
 # ---------- spec assembly ----------------------------------------------------
 
 
-def build_specs(mode: str, *, use_waitress: bool,
-                next_port: Optional[int],
-                no_caddy: bool = False) -> List[ProcSpec]:
+def build_specs(mode: str, *, use_waitress: bool) -> List[ProcSpec]:
     """Assemble the stack for `mode` ("dev" | "prod"). Nones (missing-binary
-    skips) are filtered out at the end. The only divergences between the two
-    stacks: Flower (dev only), Waitress-vs-Flask-dev for the Flask trio, and
-    Caddy's hard-fail-vs-opt-in.
-
-    `no_caddy` suppresses the edge entirely, even in prod where it is otherwise
-    mandatory. That is for the case where *something else* already owns the
-    public port: AppGateway runs one shared Caddy in front of several apps, and
-    two Caddy processes cannot both bind :30709. The Flask backends still come up
-    exactly as they would otherwise — the gateway imports this project's
-    Caddyfile.snippet, so they are reached through identical routes.
+    skips) are filtered out at the end. The stacks differ only in Flower (dev
+    only) and Waitress-vs-Flask-dev for the Flask apps.
     """
     specs: List[Optional[ProcSpec]] = [make_redis_spec()]
     for app in ("vndb", "imgserve"):
@@ -306,21 +218,11 @@ def build_specs(mode: str, *, use_waitress: bool,
         if mode == "dev":
             specs.append(make_flower_spec(app))
         specs.append(make_flask_spec(app, use_waitress=use_waitress))
-    specs.append(make_flask_spec("userserve", use_waitress=use_waitress))
-    specs.append(make_flask_spec("transserve", use_waitress=use_waitress))
-    specs.append(make_flask_spec("musicserve", use_waitress=use_waitress))
-    # logserve is a developer diagnostics tool over the vndb `logs` table. It
-    # starts with the stack but is deliberately NOT wired into make_caddy_spec /
-    # the Caddyfile, so it stays on its loopback dev port and is never exposed
-    # through the public edge.
-    specs.append(make_flask_spec("logserve", use_waitress=use_waitress))
-
-    if no_caddy:
-        print("[CADDY] --no-caddy: skipping the edge; something else owns the public port.")
-    elif mode == "prod":
-        specs.append(make_caddy_spec(next_port=next_port, required=True))
-    else:
-        specs.append(make_caddy_spec(required=False))
+    # logserve is a developer diagnostics tool over the vndb `logs` table. It has
+    # no route in Caddyfile.snippet, so it stays loopback-only and is never
+    # reachable through the public edge.
+    for app in ("userserve", "transserve", "musicserve", "logserve"):
+        specs.append(make_flask_spec(app, use_waitress=use_waitress))
 
     return [s for s in specs if s is not None]
 
@@ -335,26 +237,15 @@ def main():
         help="Use Waitress WSGI server instead of the Flask dev server",
     )
 
-    p_prod = sub.add_parser("prod", help="Prod stack (Waitress + mandatory Caddy)")
-    p_prod.add_argument(
-        "--next-port", type=int, default=5010,
-        help="Port the Next.js standalone server listens on; Caddy proxies / "
-             "to this port. (default: 5010)",
-    )
-    p_prod.add_argument(
-        "--no-caddy", action="store_true",
-        help="Do not start Caddy. Use when an external edge already owns the "
-             "public port — e.g. AppGateway fronting this app alongside others.",
-    )
+    sub.add_parser("prod", help="Prod stack (Waitress)")
 
     args = parser.parse_args()
     _setup_logging(args.mode)
 
     if args.mode == "prod":
-        specs = build_specs("prod", use_waitress=True, next_port=args.next_port,
-                            no_caddy=args.no_caddy)
+        specs = build_specs("prod", use_waitress=True)
     else:
-        specs = build_specs("dev", use_waitress=args.waitress, next_port=None)
+        specs = build_specs("dev", use_waitress=args.waitress)
 
     Supervisor(specs, logger=logger).run()
 

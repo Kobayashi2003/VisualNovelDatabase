@@ -1,37 +1,31 @@
-# ============================================================================
-# Standalone edge — this project running alone behind frp.
+# Standalone edge — this project alone behind frp on :30709.
 #
-# Single front door (default :30709) for the Next.js frontend and all the Flask
-# backends. The routes themselves live in ./Caddyfile.snippet, which is imported
-# here *and* by AppGateway when several apps share one port. Define a route once,
-# in the snippet; this file only supplies the site block around it.
-#
-# Started by backend/launch.py (see make_caddy_spec), which also sets the env the
-# snippet expands: CADDY_BIND, {VNDB,IMGSERVE,USERSERVE,TRANSSERVE,MUSICSERVE}_PORT,
-# NEXT_PORT, IMGSERVE_IMAGE_FOLDER. Skipped entirely when launch.py is given
-# --no-caddy, which is how AppGateway boots this project: the gateway owns the
-# port, and two Caddies cannot both bind it.
-# ============================================================================
+# Routes live in ./Caddyfile.snippet; this file is just the site block around
+# them. Started by start-prod.ps1, which sets the upstream env vars from
+# caddy-env.ps1. Skipped under `start-prod.ps1 -NoCaddy`, when AppGateway owns the
+# port instead.
 {
-	# Quieter default access log; Caddy logs every request otherwise.
 	auto_https off
 
-	# We drive Caddy purely from this config file and never touch the admin API,
-	# so turn it off. Besides trimming noise, this stops Caddy binding
-	# 127.0.0.1:2019 — a leftover/second Caddy process holding that port is what
-	# produces "listen tcp 127.0.0.1:2019: bind: Only one usage of each socket
-	# address ... is normally permitted" on startup.
+	# Never used, and leaving it on binds 127.0.0.1:2019 — which collides with any
+	# second Caddy on the box.
 	admin off
 }
 
 {$CADDY_BIND::30709} {
 	import Caddyfile.snippet
 
-	# The frontend lives under its basePath, so the bare origin root serves
-	# nothing. Standalone, this project *is* the whole site — send the root at it.
-	# (In unified mode the gateway's landing page owns `/` instead, which is why
-	# this redirect lives here and not in the shared snippet.)
+	# The frontend lives under its basePath, so the bare root serves nothing.
+	# Standalone, this project is the whole site. (Under AppGateway the root is
+	# the landing page — hence this lives here, not in the snippet.)
 	handle / {
 		redir * /visual-novel-database permanent
+	}
+
+	# Anything the snippet did not claim. Without this Caddy answers an empty 200,
+	# which looks like a working page. (Under AppGateway the catch-all is the
+	# landing page instead — which is why it lives here, not in the snippet.)
+	handle {
+		respond "Not found" 404
 	}
 }

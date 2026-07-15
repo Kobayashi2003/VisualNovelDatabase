@@ -24,12 +24,22 @@ fi
 echo ">> Building + starting..."
 docker compose up -d --build
 
-url="http://localhost:30709"
+# Probe the app itself, not the origin root: the root is just a redirect served by
+# Caddy, which would answer as soon as the edge is up and tell us nothing about
+# whether the frontend behind it is ready.
+url="http://localhost:30709/visual-novel-database"
 printf ">> Waiting for %s " "$url"
+ready=""
 for _ in $(seq 1 90); do
-	if curl -fsS "$url" >/dev/null 2>&1; then break; fi
+	if curl -fsS "$url" >/dev/null 2>&1; then ready=1; break; fi
 	sleep 3; printf "."
 done
 echo
+
+if [ -z "$ready" ]; then
+	echo ">> Gave up waiting. The stack is up but not serving — check: docker compose logs" >&2
+	exit 1
+fi
+
 echo ">> Up. The site is at $url"
 echo "   Logs:  docker compose logs -f        Stop:  docker compose down"

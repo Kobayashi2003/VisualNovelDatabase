@@ -51,6 +51,9 @@ A handful of focused Flask apps, orchestrated by a single launcher and fronted b
 
 A single Next.js app. Most browsing flows through one catch-all route.
 
+Routes are relative to the app's basePath — `/v17` is served at
+`/visual-novel-database/v17`. See *Running* below.
+
 | Route | Shows |
 | --- | --- |
 | `/` | Home — recent releases by year/month. |
@@ -63,23 +66,27 @@ A single Next.js app. Most browsing flows through one catch-all route.
 
 ## Running
 
-### Backend — Python 3.13 via [Pixi](https://pixi.sh/) (Flask · Celery · Redis · Postgres · Caddy)
+The whole app — backend, frontend and the Caddy edge — is one launcher:
 
-```bash
-cd backend
-pixi install        # first-time setup
-pixi run dev        # dev server   (or: pixi run prod)
+```powershell
+.\start-prod.ps1 -Build     # prod stack; drop -Build once it is built
+.\start-prod.ps1 -Dev       # dev stack (Flask dev servers + next dev)
 ```
 
-> Requires a system **PostgreSQL**, **Redis**, and **Caddy** on PATH.
-> Copy `.env.sample` → `.env` and adjust before first run.
+Caddy is the only public ingress. It listens on `:30709` and routes by path
+prefix (see `Caddyfile.snippet`); the frontend lives under **`/visual-novel-database`**,
+not at the origin root, because one public port may front several apps — see
+`../AppGateway/`. Open <http://localhost:30709>, which redirects there.
 
-### Frontend — Next.js 16 / React 19
+> Requires **PostgreSQL**, **Redis** and **Caddy** on PATH, plus
+> [Pixi](https://pixi.sh/) for the backend env (`backend/scripts/pixi-setup.ps1`).
+> Copy `backend/.env.sample` → `backend/.env` and adjust before first run.
+
+### Running a half on its own
 
 ```bash
-cd frontend
-npm install
-npm run dev         # http://localhost:5010   (or: npm run build && npm run start)
+cd backend  && pixi run dev     # backend only: Flask + Celery + Redis, no edge
+cd frontend && npm run dev      # frontend only: http://localhost:5010/visual-novel-database
 ```
 
 ## Acknowledgements

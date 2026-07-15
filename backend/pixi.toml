@@ -12,8 +12,9 @@
 #     pixi run dev                 # Flask dev server (launch.py dev)
 #     pixi run dev-waitress        # Waitress in dev (launch.py dev --waitress)
 #     pixi run prod                # Production launcher (launch.py prod)
-#     pixi run prod -- --next-port 5010
-#                                  # `--` forwards extra flags to launch.py prod
+#
+# These start the BACKEND only. The Caddy edge and the Next.js frontend belong to
+# ../start-prod.ps1, which launches this as one of its children.
 #
 # `pixi run` puts the env's bin/ on PATH first, so `python` and any other
 # conda-installed tools resolve to the env copies. Postgres, Redis, and
@@ -24,7 +25,7 @@
 [workspace]
 name = "vndb-backend"
 version = "0.1.0"
-description = "Visual Novel Database backend (Flask + Celery + Redis + Postgres + Caddy)"
+description = "Visual Novel Database backend (Flask + Celery + Redis + Postgres)"
 authors = ["KOBAYASHI"]
 channels = ["conda-forge"]
 platforms = ["win-64"]
